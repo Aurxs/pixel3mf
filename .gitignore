@@ -1,0 +1,14 @@
+.venv/
+.uv-cache/
+__pycache__/
+*.pyc
+.DS_Store
+output/*
+!output/.gitkeep
+
+# External software is cloned during first deployment and is intentionally not
+# included in this repository.
+Lumina-Layers/
+
+# The copied Codex skill bundle must not carry nested Git repositories.
+skills/**/.git/

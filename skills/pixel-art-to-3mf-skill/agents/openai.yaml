@@ -1,0 +1,6 @@
+version: 1
+interface:
+  display_name: "Pixel Art to 3MF"
+  short_description: "Generate character/source images, remove backgrounds, refine with Perfect Pixel, and convert to layered 3MF with Lumina using stable project defaults."
+  icon: "🧩"
+  brand_color: "#6C63FF"

@@ -1,0 +1,3 @@
+perfect-pixel[opencv]
+rembg[cpu]
+requests
