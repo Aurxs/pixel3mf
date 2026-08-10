@@ -29,7 +29,7 @@ uv pip install -r Lumina-Layers/requirements.txt
 uv pip install -r requirements-pixel3mf.txt
 ```
 
-`skills/` 是随本项目一起复制进来的 Codex skill 文件夹，不是压缩包。生成或转换任务需要使用其中的 `pixel-art-to-3mf-skill` 时，可直接查看 `skills/pixel-art-to-3mf-skill/SKILL.md`。动作类任务的案例参考图位于 `examples/reference-action-interaction.png`。
+`skills/` 是随本项目一起复制进来的 Codex skill 文件夹，不是压缩包；本项目只保留 `pixel-art-to-3mf-skill`，通用 Codex skills 不随项目分发。生成或转换任务需要使用它时，可直接查看 `skills/pixel-art-to-3mf-skill/SKILL.md`。动作类任务的案例参考图位于 `examples/reference-action-interaction.png`。
 
 ## 环境准备
 
@@ -73,7 +73,7 @@ UV_CACHE_DIR=.uv-cache uv pip install -r requirements-pixel3mf.txt
 
 > 生成单个指定角色的自然上半身像，主体居中，正面或清晰的三分之四视角；画面只到上胸，不向胸部以下延伸；不要对手、手臂或关节施加特殊限制，姿势保持自然。严格按 `24×24` 逻辑像素画设计：使用明显的大方块、阶梯状外轮廓、约 1 个逻辑像素宽的深色描边和很少的内部细节；脸部只保留最关键的眼睛、嘴和发型特征；使用约 8–12 种大面积离散颜色，其中头发可有 3–4 个青绿色阶、肤色 2–3 个色阶，并保留少量深蓝紫和粉色点缀以展示叠色。禁止细碎发丝、纹理、抖色、连续渐变、抗锯齿、柔边和高精插画式高光；不要文字，不要其他角色；背景纯白或透明。若生成器输出高分辨率位图，它必须看起来像 `24×24` 逻辑图的最近邻放大，而不是增加更多逻辑细节。
 
-生成后只检查它是否呈现参考图那种 24×24 大块、低信息量外观以及自然上半身构图。若仍像精细插画，应修改提示词并重新生成；后处理不强制缩放到 24×24 或 55×55。
+生成后只检查它是否呈现参考图那种 24×24 大块、低信息量外观以及自然上半身构图。若仍像精细插画，应修改提示词并重新生成；后处理不强制缩放到 24×24 或 65×65。
 
 生成结果不必在 Python 中模拟 image generation，只需把生成文件的绝对路径传给 `--source-image`。
 
@@ -85,14 +85,16 @@ UV_CACHE_DIR=.uv-cache uv pip install -r requirements-pixel3mf.txt
 
 其余默认值：
 
-- 成品宽度 `55 mm`；输入强制为正方形，因此目标理解为 `55 mm × 55 mm`
-- 生图提示词默认要求 `24×24` 逻辑像素风格；Perfect Pixel 后续只自动识别并保留实际网格，不强制改成 24×24 或 55×55
+- 成品宽度 `65 mm`；输入强制为正方形，因此目标理解为 `65 mm × 65 mm`
+- 生图提示词默认要求 `24×24` 逻辑像素风格；Perfect Pixel 后续只自动识别并保留实际网格，不强制改成 24×24 或 65×65
+- 生成 3MF 前先调用 Lumina 生成 2D 预览，并保留 PNG 产物
 - 背板 `1.2 mm`
 - `Double-sided`
 - 不启用 loop（Lumina batch worker 固定为 `add_loop=False`）
 - LUT 实际检测出的 `color_mode`，当前为 `RYBW`
 - `modeling_mode=pixel`
 - `quantize_colors=256`
+- 高级设置里的色相保护 `hue_weight=0.6`
 - Lumina 内置孤立像素清理开启
 - 优先调用 `/api/convert/batch`，即使只有一张图
 - 保留 Lumina 生成的原始 3MF 项目配置；流水线不改写打印机、层高、首层或 G-code 等切片参数
@@ -106,13 +108,14 @@ output/<timestamp>_<slug>/
 ├── 03_square_prepared.png
 ├── 04_pixel_perfect.png
 ├── 05_pixel_preview_8x.png
-├── 06_lumina_batch_result.zip
-├── 07_<角色名>.3mf
+├── 06_lumina_2d_preview.png
+├── 07_lumina_batch_result.zip
+├── 08_<角色名>.3mf
 ├── lumina_api.log          # 仅在脚本自行启动 API 时出现
 └── manifest.json
 ```
 
-`manifest.json` 在流程开始时就创建；成功或异常退出时都会更新。最终 3MF 会按 `--character-name` 命名，例如 `07_初音未来.3mf`。manifest 记录输入、角色名、所有文件路径、背景策略、Perfect Pixel 检测网格、清理统计、Lumina 实际 LUT/参数、最终 3MF、状态和错误堆栈。
+`manifest.json` 在流程开始时就创建；成功或异常退出时都会更新。最终 3MF 会按 `--character-name` 命名，例如 `08_初音未来.3mf`。manifest 记录输入、角色名、所有文件路径、背景策略、Perfect Pixel 检测网格、清理统计、Lumina 实际 LUT/参数、2D 预览路径和生成方式、最终 3MF、状态和错误堆栈。
 
 ## 独立工具
 
@@ -120,7 +123,7 @@ output/<timestamp>_<slug>/
 - `tools/prepare_square_canvas.py`：按透明区域裁剪、加 padding、居中到透明正方形。
 - `tools/refine_pixel.py`：Perfect Pixel 自动网格检测并保留检测结果；只补透明区域成为正方形并输出最近邻 8 倍预览，不强制目标网格。检测失败时要求回到生图阶段重生。
 - `tools/cleanup_pixel.py`：只删除没有任何邻居的孤立前景像素。
-- `tools/lumina_batch.py`：启动或复用 Lumina API、查询 LUT、上传单图 batch、保存 ZIP 并取出唯一 3MF。API 不能启动，或当前 checkout 的 batch worker 因核心返回值版本差异失败时，会调用同一 Lumina 核心完成转换、自行打包 ZIP，并在 manifest 记录 `batch_error`。
+- `tools/lumina_batch.py`：启动或复用 Lumina API、查询 LUT、先生成并保存 2D 预览，再上传单图 batch、保存 ZIP 并取出唯一 3MF。API 不能启动，或当前 checkout 的 batch worker 因核心返回值版本差异失败时，会先调用 Lumina 核心生成预览，再完成转换、自行打包 ZIP，并在 manifest 记录 `batch_error`。
 - `tools/run_pipeline.py`：总入口和 manifest 生命周期管理。
 
 每个工具都可用 `--help` 查看独立调用方法。例如只检查像素整理：

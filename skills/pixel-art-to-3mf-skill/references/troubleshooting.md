@@ -49,7 +49,7 @@
 
 ### Batch result contains a zip instead of direct 3MF
 - Preserve the original zip.
-- Extract the single 3MF and save it as `07_<character-slug>.3mf`.
+- Extract the single 3MF and save it as `08_<character-slug>.3mf`.
 
 ### Final aspect ratio is not square
 - The user explicitly chose a square workflow.

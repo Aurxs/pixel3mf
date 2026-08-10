@@ -1,6 +1,6 @@
 ---
 name: pixel-art-to-3mf
-description: Use this skill when the user wants to turn an anime/game character name or a provided reference image into a printable layered 3MF inside a project that contains a cloned Lumina-Layers repository. The skill covers image generation, background removal to transparency, square-canvas preparation, Perfect Pixel refinement, optional cleanup, and Lumina conversion. Default behavior is a 55 mm × 55 mm square workflow with full intermediate outputs saved in a timestamped output run folder, using the BambuLab PLA 4-color RYBW LUT, 1.2 mm backing, double-sided structure, no hanging loop, pixel modeling mode, quantize_colors 256, and batch conversion when possible.
+description: Use this skill when the user wants to turn an anime/game character name or a provided reference image into a printable layered 3MF inside a project that contains a cloned Lumina-Layers repository. The skill covers image generation, background removal to transparency, square-canvas preparation, Perfect Pixel refinement, optional cleanup, and Lumina conversion. Default behavior is a 65 mm × 65 mm square workflow with full intermediate outputs saved in a timestamped output run folder, using the BambuLab PLA 4-color RYBW LUT, 1.2 mm backing, double-sided structure, no hanging loop, pixel modeling mode, quantize_colors 256, hue protection 0.6, and batch conversion when possible.
 ---
 
 # Pixel Art to 3MF
@@ -33,7 +33,7 @@ Load the first three assets with the image-viewing tool before generation so the
 Unless the user overrides them, use these exact defaults:
 - **Canvas rule**: force a square composition.
 - **Default framing**: a natural upper-body portrait—head, shoulders, and upper chest. Keep the subject horizontally centered but shift it upward by about `1–2` logical pixels so the head and hair are the dominant visual mass. Do not extend below the chest unless the user explicitly requests a wider framing.
-- **Final physical size**: `55 mm × 55 mm`.
+- **Final physical size**: `65 mm × 65 mm`.
 - **Generation density**: explicitly request an internal `24 × 24` logical canvas, rendered only as a nearest-neighbor enlargement. This is a deliberate preventive undershoot because image generators often produce a finer grid than requested. Keep every contour and color boundary on one uniform grid.
 - **Density acceptance**: treat the requested `24 × 24` as prompt guidance, not the measured output requirement. Use Perfect Pixel auto-detection after generation and prefer approximately `44–60` detected cells per axis for a square character portrait. Reject and regenerate when either axis exceeds `60`; values below `44` may be accepted when the subject remains readable and visually matches the bundled coarse references. Never resize to force this range.
 - **Silhouette outline**: fully enclose the subject in a one-logical-pixel pure-black exterior outline. Make the bottom-most occupied subject row a continuous black baseline and leave at least one background row below it.
@@ -47,6 +47,7 @@ Unless the user overrides them, use these exact defaults:
 - **LUT**: `Bambulab&PLA&4色&RYBW&红-蓝-黄-白.npy` from Lumina’s `lut-npy预设/bambulab/` preset set.
 - **Modeling mode**: `pixel` / pixel-art mode.
 - **Color detail**: `quantize_colors = 256`.
+- **Hue protection**: `hue_weight = 0.6` in Lumina's advanced conversion settings.
 - **Batch mode**: use Lumina batch conversion when practical, even for a single image.
 - **Output retention**: keep all intermediate files.
 - **Run folder**: create a new subfolder under `output/` for every run.
@@ -62,8 +63,9 @@ Expected contents (or the closest practical equivalent):
 - `03_square_prepared.png` — square high-resolution canvas, horizontally centered and slightly raised subject
 - `04_pixel_perfect.png` — low-resolution refined pixel art
 - `05_pixel_preview_8x.png` — enlarged preview for visual inspection
-- `06_lumina_batch_result.zip` — preserved Lumina batch archive (if batch endpoint returns zip)
-- `07_<character-slug>.3mf` — extracted final 3MF named after the requested character
+- `06_lumina_2d_preview.png` — Lumina-generated 2D color preview, created before 3MF generation
+- `07_lumina_batch_result.zip` — preserved Lumina batch archive (if batch endpoint returns zip)
+- `08_<character-slug>.3mf` — extracted final 3MF named after the requested character
 - `manifest.json` — metadata, parameters, and status summary
 - `notes.txt` — optional diagnostics or manual observations
 
@@ -111,7 +113,7 @@ Generation acceptance gate:
 - Reject and regenerate if the subject touches the bottom canvas edge, the exterior outline is open, or the bottom-most occupied subject row is not a continuous pure-black baseline with background visible below it.
 - Reject and regenerate if the default pose is flatly frontal or hides an eye in full profile, the eye centers occupy different logical rows, the eyes have different top/bottom rows, the irises or pupils use different row counts, the far eye is shorter or more than one cell narrower, or the pupils look in different directions. Ignore sclera-only occlusion when judging eye height.
 - Reject and regenerate if the neck becomes a long narrow connector, the head appears detached from the shoulders, or eye correction changes the accepted pose, silhouette, face shape, neck, shoulders, crop, prop, palette, or pixel scale.
-- Do not enforce a fixed grid or `55 × 55` later by resizing, sharpening, or adding detail. Let source generation determine the logical density.
+- Do not enforce a fixed grid or `65 × 65` later by resizing, sharpening, or adding detail. Let source generation determine the logical density.
 
 ### 2) Remove the background to transparency
 This project prefers transparent PNGs before pixel refinement.
@@ -155,17 +157,20 @@ Use the local `Lumina-Layers/` repository in the project.
 Preferred conversion behavior:
 - Prefer **batch mode** for repeatability.
 - Use a single-image batch when converting one image.
+- Generate the Lumina 2D color preview first with the same LUT and conversion parameters; save it as a run artifact before generating the 3MF.
 - If using the API path, read the current repo’s accepted parameter names rather than guessing.
 - If a `color_mode` field is required by the current repo version, derive the correct accepted value from the repo/API for the chosen LUT instead of guessing.
 
 Default conversion intent:
-- square workflow with 55 mm physical output
+- square workflow with 65 mm physical output
+- generate and retain the Lumina 2D preview before final conversion
 - 1.2 mm backing
 - double-sided structure
 - no loop / no keychain hole
 - chosen BambuLab PLA 4-color RYBW LUT
 - pixel modeling mode
 - quantize colors 256
+- hue protection weight 0.6
 - final pixel grid derived from Perfect Pixel automatic detection, with no forced target
 - preserve Lumina's original 3MF project and slicing settings
 - preserve full outputs

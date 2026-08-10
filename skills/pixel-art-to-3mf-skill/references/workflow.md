@@ -45,7 +45,7 @@ Create `03_square_prepared.png`.
 Create `04_pixel_perfect.png` and `05_pixel_preview_8x.png`.
 - Use automatic grid detection first.
 - Save both the raw detected grid and final output grid in metadata.
-- Preserve the automatic result instead of resizing to 24 × 24 or 55 × 55.
+- Preserve the automatic result instead of resizing to 24 × 24 or 65 × 65.
 - If automatic detection fails, return to source generation instead of choosing a fixed fallback grid.
 - If the refined image is not square, pad the shorter side with transparent rows/columns.
 
@@ -59,14 +59,16 @@ Keep cleanup light.
 Use the local `Lumina-Layers/` checkout.
 Preferred path:
 1. start or reuse Lumina API server
-2. call batch conversion for one image
-3. download batch zip
-4. preserve zip and extract final 3MF
+2. call `/api/convert/preview` for one image with the final conversion parameters
+3. download and save the returned 2D PNG as `06_lumina_2d_preview.png`
+4. call batch conversion for one image
+5. download batch zip
+6. preserve zip and extract final 3MF
 
-Name the extracted 3MF after the requested character, for example `07_初音未来.3mf`, so multiple opened models remain distinguishable.
+Name the extracted 3MF after the requested character, for example `08_初音未来.3mf`, so multiple opened models remain distinguishable.
 
 Fallback path:
-- call the repo’s core conversion logic directly if the API path is unavailable.
+- call the repo’s core preview function first, then the core conversion logic, if the API path is unavailable.
 
 After conversion, keep Lumina's original 3MF project settings unchanged. Printer model, layer heights, first-layer settings, bed geometry, and machine G-code should be reviewed later in Bambu Studio.
 
@@ -78,7 +80,8 @@ Create `manifest.json` with:
 - prepared image path
 - pixel-perfect image path
 - refined grid size
-- nominal pixel pitch in millimeters at the 55 mm target width
+- nominal pixel pitch in millimeters at the 65 mm target width
 - Lumina parameter values
+- Lumina 2D preview path and generation method
 - final 3MF path
 - status and notes

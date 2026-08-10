@@ -20,13 +20,15 @@ Use these defaults unless the user explicitly overrides them.
 - Per-run subfolder: `output/<timestamp>_<slug>/`
 
 ## Lumina Defaults
-- Size goal: 55 mm × 55 mm square
+- Size goal: 65 mm × 65 mm square
 - Backing thickness: 1.2 mm
 - Structure mode: Double-sided
 - Hanging loop: disabled
 - LUT preset target: `Bambulab&PLA&4色&RYBW&红-蓝-黄-白.npy`
 - Modeling mode: pixel / pixel-art mode
 - Quantize colors: 256
+- Hue protection weight: 0.6
+- 2D preview: generate before 3MF conversion and retain the PNG artifact
 - Batch conversion: preferred
 - Intermediate outputs: always retain
 
@@ -38,8 +40,8 @@ Use a two-stage strategy:
 ## Pixel Refinement
 - Use Perfect Pixel with auto grid detection by default.
 - Use auto-detection once as a source-density acceptance diagnostic before conversion: prefer approximately 44–60 detected cells per axis and regenerate when either axis exceeds 60.
-- Preserve the automatically detected grid; do not force 24 × 24 or 55 × 55 during refinement.
-- Record the actual nominal pixel pitch from the detected output width and the 55 mm physical target.
+- Preserve the automatically detected grid; do not force 24 × 24 or 65 × 65 during refinement.
+- Record the actual nominal pixel pitch from the detected output width and the 65 mm physical target.
 - If automatic detection fails, regenerate a clearer coarse-pixel source rather than selecting a fallback grid.
 - After refinement, if width != height, pad with transparency to square.
 - Save an enlarged nearest-neighbor preview.

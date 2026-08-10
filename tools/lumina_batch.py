@@ -20,7 +20,7 @@ import requests
 
 LUT_FILENAME = "Bambulab&PLA&4色&RYBW&红-蓝-黄-白.npy"
 DEFAULT_PARAMS: dict[str, object] = {
-    "target_width_mm": 55.0,
+    "target_width_mm": 65.0,
     "spacer_thick": 1.2,
     "structure_mode": "Double-sided",
     "auto_bg": False,
@@ -28,7 +28,7 @@ DEFAULT_PARAMS: dict[str, object] = {
     "modeling_mode": "pixel",
     "quantize_colors": 256,
     "enable_cleanup": True,
-    "hue_weight": 0.0,
+    "hue_weight": 0.6,
     "add_loop": False,
 }
 
@@ -121,15 +121,119 @@ def _discover_local_lut(lumina_dir: Path) -> dict[str, str]:
         sys.path.remove(str(lumina_dir))
 
 
+def _preview_form_data(lut: dict[str, str]) -> dict[str, str]:
+    """Build the 2D-preview form with the same color parameters as batch conversion."""
+    return {
+        "lut_name": lut["name"],
+        "target_width_mm": str(DEFAULT_PARAMS["target_width_mm"]),
+        "auto_bg": str(DEFAULT_PARAMS["auto_bg"]).lower(),
+        "bg_tol": str(DEFAULT_PARAMS["bg_tol"]),
+        "color_mode": lut["color_mode"],
+        "modeling_mode": str(DEFAULT_PARAMS["modeling_mode"]),
+        "quantize_colors": str(DEFAULT_PARAMS["quantize_colors"]),
+        "enable_cleanup": str(DEFAULT_PARAMS["enable_cleanup"]).lower(),
+        "hue_weight": str(DEFAULT_PARAMS["hue_weight"]),
+    }
+
+
+def _generate_api_preview(
+    input_path: Path,
+    preview_path: Path,
+    base_url: str,
+    lut: dict[str, str],
+) -> dict[str, object]:
+    """Ask Lumina for its 2D preview and save the returned PNG locally."""
+    with input_path.open("rb") as image_file:
+        response = requests.post(
+            _endpoint(base_url, "/api/convert/preview"),
+            files={"image": (input_path.name, image_file, "image/png")},
+            data=_preview_form_data(lut),
+            timeout=600,
+        )
+    if not response.ok:
+        raise RuntimeError(f"preview HTTP {response.status_code}: {response.text[:1000]}")
+
+    preview = response.json()
+    preview_url = preview.get("preview_url")
+    if preview.get("status") != "ok" or not preview_url:
+        raise RuntimeError(f"preview generation failed: {preview}")
+
+    download = requests.get(_endpoint(base_url, preview_url), timeout=120)
+    download.raise_for_status()
+    preview_path.parent.mkdir(parents=True, exist_ok=True)
+    preview_path.write_bytes(download.content)
+    if not preview_path.is_file() or preview_path.stat().st_size == 0:
+        raise RuntimeError("Lumina returned an empty 2D preview")
+
+    return {
+        "preview_method": "api",
+        "preview_url": preview_url,
+        "preview_session_id": preview.get("session_id"),
+        "preview_dimensions": preview.get("dimensions"),
+    }
+
+
+def _generate_core_preview(
+    input_path: Path,
+    preview_path: Path,
+    lumina_dir: Path,
+    lut: dict[str, str],
+) -> dict[str, object]:
+    """Generate the same 2D preview through Lumina core when the API is unavailable."""
+    sys.path.insert(0, str(lumina_dir))
+    try:
+        from config import ModelingMode
+        from core.converter import generate_preview_cached
+
+        preview_image, _cache, status_message = generate_preview_cached(
+            image_path=str(input_path),
+            lut_path=lut["path"],
+            target_width_mm=DEFAULT_PARAMS["target_width_mm"],
+            auto_bg=DEFAULT_PARAMS["auto_bg"],
+            bg_tol=DEFAULT_PARAMS["bg_tol"],
+            color_mode=lut["color_mode"],
+            modeling_mode=ModelingMode(DEFAULT_PARAMS["modeling_mode"]),
+            quantize_colors=DEFAULT_PARAMS["quantize_colors"],
+            enable_cleanup=DEFAULT_PARAMS["enable_cleanup"],
+            is_dark=True,
+            hue_weight=DEFAULT_PARAMS["hue_weight"],
+        )
+    finally:
+        sys.path.remove(str(lumina_dir))
+
+    if preview_image is None:
+        raise RuntimeError(f"Lumina core preview failed: {status_message}")
+
+    preview_path.parent.mkdir(parents=True, exist_ok=True)
+    if hasattr(preview_image, "save"):
+        preview_image.save(preview_path)
+    else:
+        from PIL import Image
+
+        Image.fromarray(preview_image).save(preview_path)
+    if not preview_path.is_file() or preview_path.stat().st_size == 0:
+        raise RuntimeError("Lumina core returned an empty 2D preview")
+
+    return {
+        "preview_method": "core",
+        "preview_status": status_message,
+    }
+
+
 def _core_fallback(
     input_path: Path,
+    preview_path: Path,
     zip_path: Path,
     final_path: Path,
     lumina_dir: Path,
     lut: dict[str, str],
     batch_error: str,
+    preview_metadata: dict[str, object] | None = None,
 ) -> dict[str, object]:
     """Use Lumina's current core when its batch endpoint is incompatible."""
+    if preview_metadata is None or not preview_path.is_file():
+        preview_metadata = _generate_core_preview(input_path, preview_path, lumina_dir, lut)
+
     sys.path.insert(0, str(lumina_dir))
     try:
         from config import ModelingMode
@@ -168,6 +272,8 @@ def _core_fallback(
         "method": "batch-api-core-fallback",
         "batch_error": batch_error,
         "core_status": status_message,
+        "preview_path": str(preview_path),
+        **preview_metadata,
     }
 
 
@@ -178,12 +284,19 @@ def convert_with_lumina_batch(
     lumina_dir: str | Path,
     base_url: str = "http://127.0.0.1:8000",
     start_if_needed: bool = True,
+    preview_path: str | Path | None = None,
 ) -> dict[str, object]:
     input_path = Path(input_path).resolve()
     zip_path = Path(zip_path).resolve()
     final_path = Path(final_path).resolve()
     lumina_dir = Path(lumina_dir).resolve()
+    preview_path = (
+        Path(preview_path).resolve()
+        if preview_path is not None
+        else final_path.with_name("06_lumina_2d_preview.png")
+    )
     zip_path.parent.mkdir(parents=True, exist_ok=True)
+    preview_path.parent.mkdir(parents=True, exist_ok=True)
 
     process: subprocess.Popen[bytes] | None = None
     log_handle = None
@@ -203,6 +316,7 @@ def convert_with_lumina_batch(
             lut = _discover_local_lut(lumina_dir)
             fallback = _core_fallback(
                 input_path,
+                preview_path,
                 zip_path,
                 final_path,
                 lumina_dir,
@@ -223,6 +337,23 @@ def convert_with_lumina_batch(
         params = DEFAULT_PARAMS.copy()
         params["lut_name"] = lut["name"]
         params["color_mode"] = lut["color_mode"]
+
+        preview_metadata: dict[str, object]
+        try:
+            preview_metadata = _generate_api_preview(
+                input_path, preview_path, base_url, lut
+            )
+        except Exception as preview_exc:
+            try:
+                preview_metadata = _generate_core_preview(
+                    input_path, preview_path, lumina_dir, lut
+                )
+            except Exception as core_preview_exc:
+                raise RuntimeError(
+                    "2D preview generation failed: "
+                    f"API={preview_exc}; core={core_preview_exc}"
+                ) from core_preview_exc
+            preview_metadata["preview_api_error"] = f"{type(preview_exc).__name__}: {preview_exc}"
 
         batch: dict[str, object] | None = None
         fallback: dict[str, object] | None = None
@@ -258,11 +389,13 @@ def convert_with_lumina_batch(
         except Exception as exc:
             fallback = _core_fallback(
                 input_path,
+                preview_path,
                 zip_path,
                 final_path,
                 lumina_dir,
                 lut,
                 f"{type(exc).__name__}: {exc}",
+                preview_metadata,
             )
 
         return {
@@ -273,7 +406,9 @@ def convert_with_lumina_batch(
             "lut_path": lut["path"],
             "color_mode": lut["color_mode"],
             **DEFAULT_PARAMS,
+            "preview_path": str(preview_path),
             "batch_response": batch,
+            **preview_metadata,
             **(fallback or {}),
         }
     finally:
@@ -291,8 +426,9 @@ def convert_with_lumina_batch(
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("input")
-    parser.add_argument("--zip-output", default="06_lumina_batch_result.zip")
-    parser.add_argument("--final-output", default="07_final.3mf")
+    parser.add_argument("--preview-output", default="06_lumina_2d_preview.png")
+    parser.add_argument("--zip-output", default="07_lumina_batch_result.zip")
+    parser.add_argument("--final-output", default="08_final.3mf")
     parser.add_argument("--lumina-dir", default="Lumina-Layers")
     parser.add_argument("--api-url", default="http://127.0.0.1:8000")
     parser.add_argument("--no-start", action="store_true")
@@ -304,6 +440,7 @@ def main() -> None:
         args.lumina_dir,
         args.api_url,
         not args.no_start,
+        args.preview_output,
     )
     print(json.dumps(result, ensure_ascii=False, indent=2))
 

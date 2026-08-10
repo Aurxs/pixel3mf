@@ -65,8 +65,9 @@ def run_pipeline(
         "square_prepared": run_dir / "03_square_prepared.png",
         "pixel_perfect": run_dir / "04_pixel_perfect.png",
         "pixel_preview_8x": run_dir / "05_pixel_preview_8x.png",
-        "lumina_batch_zip": run_dir / "06_lumina_batch_result.zip",
-        "final_3mf": run_dir / f"07_{_slug(character_name)}.3mf",
+        "lumina_2d_preview": run_dir / "06_lumina_2d_preview.png",
+        "lumina_batch_zip": run_dir / "07_lumina_batch_result.zip",
+        "final_3mf": run_dir / f"08_{_slug(character_name)}.3mf",
         "manifest": run_dir / "manifest.json",
     }
     manifest: dict[str, object] = {
@@ -117,6 +118,7 @@ def run_pipeline(
             files["final_3mf"],
             PROJECT_ROOT / "Lumina-Layers",
             api_url,
+            preview_path=files["lumina_2d_preview"],
         )
         manifest["lumina"] = lumina_metadata
         manifest["final_3mf"] = str(files["final_3mf"])
