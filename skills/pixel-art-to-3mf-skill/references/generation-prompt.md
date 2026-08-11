@@ -41,4 +41,8 @@ Edit the supplied image with minimum possible change. Preserve the exact composi
 
 If the result still looks like a polished illustration, uses many tiny cells, places the subject too low, minimizes the head, becomes frontal, hides an eye, misaligns the eyes or pupils, creates a long thin neck, touches the bottom edge, or lacks the closed pure-black baseline, regenerate. Do not correct logical density or major geometry later in the conversion pipeline.
 
-Before accepting the source, run Perfect Pixel auto-detection as a diagnostic. The requested `24 × 24` is prompt guidance; do not require the detector to return 24. Require approximately `55–72` detected cells per axis. If either axis is below `55` or exceeds `72`, regenerate with an adjusted logical density while preserving the coarse style. Do not resize or force a downstream grid.
+Before accepting the source, run Perfect Pixel auto-detection as a diagnostic. The requested `24 × 24` is prompt guidance; do not require the detector to return 24. Require `60–90` detected cells per axis, inclusive. If either axis is below `60` or above `90`, regenerate with an adjusted logical density while preserving the coarse style. Do not resize or force a downstream grid.
+
+## Over-density retry rule
+
+If the first generated image is above `90` detected cells on either axis, do not use the local-correction addendum. Start a new image-generation call and create a new composition from scratch. The rejected generated image must not be an edit target, an attached reference, or part of recent-image context. Do not describe the retry as a simplification, expansion, repair, or edit of that image. Reuse only the text request, official-character brief, Images 1–3 (and Image 4 when applicable), and any original user-provided reference that existed before the rejected image.

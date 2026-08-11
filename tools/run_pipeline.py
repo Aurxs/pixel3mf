@@ -103,6 +103,7 @@ def run_pipeline(
         )
         output_width = pixel_metadata["output_grid"]["width"]
         pixel_metadata["physical_target_width_mm"] = DEFAULT_PARAMS["target_width_mm"]
+        pixel_metadata["physical_target_height_mm"] = DEFAULT_PARAMS["target_width_mm"]
         pixel_metadata["pixel_pitch_mm"] = round(
             float(DEFAULT_PARAMS["target_width_mm"]) / output_width, 4
         )

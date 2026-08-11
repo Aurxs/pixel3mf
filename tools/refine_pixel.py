@@ -12,6 +12,29 @@ from PIL import Image
 from perfect_pixel import get_perfect_pixel
 
 
+MIN_ACCEPTED_GRID = 60
+MAX_ACCEPTED_GRID = 90
+
+
+def validate_detected_grid(grid_w: int, grid_h: int) -> None:
+    """Reject source densities that should be regenerated before conversion."""
+    if grid_w > MAX_ACCEPTED_GRID or grid_h > MAX_ACCEPTED_GRID:
+        raise ValueError(
+            "Perfect Pixel detected an overly dense source grid "
+            f"({grid_w}x{grid_h}); the accepted range is "
+            f"{MIN_ACCEPTED_GRID}-{MAX_ACCEPTED_GRID} cells per axis. Generate a "
+            "brand-new pixel artwork and do not use the rejected generated image "
+            "as an edit target or image reference"
+        )
+    if grid_w < MIN_ACCEPTED_GRID or grid_h < MIN_ACCEPTED_GRID:
+        raise ValueError(
+            "Perfect Pixel detected an overly coarse source grid "
+            f"({grid_w}x{grid_h}); the accepted range is "
+            f"{MIN_ACCEPTED_GRID}-{MAX_ACCEPTED_GRID} cells per axis. Regenerate "
+            "the source instead of resizing or forcing a downstream grid"
+        )
+
+
 def _pad_square(array: np.ndarray) -> np.ndarray:
     height, width = array.shape[:2]
     if width == height:
@@ -41,6 +64,7 @@ def refine_pixel(
             "Perfect Pixel could not detect a logical grid; regenerate a clearer "
             "low-resolution pixel-art source instead of forcing a downstream grid"
         )
+    validate_detected_grid(int(grid_w), int(grid_h))
     detected_grid = (
         {"width": int(grid_w), "height": int(grid_h)} if auto_detected else None
     )
@@ -71,6 +95,11 @@ def refine_pixel(
         "detected_grid": detected_grid,
         "refined_grid": refined_grid,
         "output_grid": {"width": final.width, "height": final.height},
+        "accepted_grid_range": {
+            "minimum_per_axis": MIN_ACCEPTED_GRID,
+            "maximum_per_axis": MAX_ACCEPTED_GRID,
+            "inclusive": True,
+        },
         "auto_detected": auto_detected,
         "auto_accepted": True,
         "forced_grid": None,

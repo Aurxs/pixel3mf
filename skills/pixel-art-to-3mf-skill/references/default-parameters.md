@@ -20,7 +20,7 @@ Use these defaults unless the user explicitly overrides them.
 - Per-run subfolder: `output/<timestamp>_<slug>/`
 
 ## Lumina Defaults
-- Size goal: 65 mm × 65 mm square
+- Size goal: 75 mm × 75 mm square
 - Backing thickness: 1.2 mm
 - Structure mode: Double-sided
 - Hanging loop: disabled
@@ -39,9 +39,10 @@ Use a two-stage strategy:
 
 ## Pixel Refinement
 - Use Perfect Pixel with auto grid detection by default.
-- Use auto-detection once as a source-density acceptance diagnostic before conversion: require approximately 55–72 detected cells per axis and regenerate when either axis is below 55 or exceeds 72.
-- Preserve the automatically detected grid; do not force 24 × 24 or 65 × 65 during refinement.
-- Record the actual nominal pixel pitch from the detected output width and the 65 mm physical target.
+- Use auto-detection once as a source-density acceptance diagnostic before conversion: require 60–90 detected cells per axis, inclusive, and regenerate when either axis is below 60 or above 90.
+- When the first generated image exceeds 90 cells on either axis, generate the retry from scratch without editing, attaching, referencing, or implicitly including the rejected generated image.
+- Preserve the automatically detected grid; do not force 24 × 24 or 75 × 75 during refinement.
+- Record the actual nominal pixel pitch from the detected output width and the 75 mm physical target.
 - If automatic detection fails, regenerate a clearer coarse-pixel source rather than selecting a fallback grid.
 - After refinement, if width != height, pad with transparency to square.
 - Save an enlarged nearest-neighbor preview.

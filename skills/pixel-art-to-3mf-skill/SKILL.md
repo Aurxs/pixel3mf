@@ -1,6 +1,6 @@
 ---
 name: pixel-art-to-3mf
-description: Use this skill when the user wants to turn an anime/game character name or a provided reference image into a printable layered 3MF inside a project that contains a cloned Lumina-Layers repository. Before any image generation or editing of a recognizable character, mascot, or branded figure, research official character sources and use that brief as the visual identity authority. The skill covers image generation, background removal to transparency, square-canvas preparation, Perfect Pixel refinement, optional cleanup, and Lumina conversion. Default behavior is a 65 mm × 65 mm square workflow with full intermediate outputs saved in a timestamped output run folder, using the BambuLab PLA 4-color RYBW LUT, 1.2 mm backing, double-sided structure, no hanging loop, pixel modeling mode, quantize_colors 256, hue protection 0.6, and batch conversion when possible.
+description: Use this skill when the user wants to turn an anime/game character name or a provided reference image into a printable layered 3MF inside a project that contains a cloned Lumina-Layers repository. Before any image generation or editing of a recognizable character, mascot, or branded figure, research official character sources and use that brief as the visual identity authority. The skill covers image generation, background removal to transparency, square-canvas preparation, Perfect Pixel refinement, optional cleanup, and Lumina conversion. Default behavior is a 75 mm × 75 mm square workflow with full intermediate outputs saved in a timestamped output run folder, using the BambuLab PLA 4-color RYBW LUT, 1.2 mm backing, double-sided structure, no hanging loop, pixel modeling mode, quantize_colors 256, hue protection 0.6, and batch conversion when possible.
 ---
 
 # Pixel Art to 3MF
@@ -43,9 +43,10 @@ Load the first three assets with the image-viewing tool before generation so the
 Unless the user overrides them, use these exact defaults:
 - **Canvas rule**: force a square composition.
 - **Default framing**: a natural upper-body portrait—head, shoulders, and upper chest. Keep the subject horizontally centered but shift it upward by about `1–2` logical pixels so the head and hair are the dominant visual mass. Do not extend below the chest unless the user explicitly requests a wider framing.
-- **Final physical size**: `65 mm × 65 mm`.
+- **Final physical size**: `75 mm × 75 mm`.
 - **Generation density**: explicitly request an internal `24 × 24` logical canvas, rendered only as a nearest-neighbor enlargement. This is a deliberate preventive undershoot because image generators often produce a finer grid than requested. Keep every contour and color boundary on one uniform grid.
-- **Density acceptance**: treat the requested `24 × 24` as prompt guidance, not the measured output requirement. Use Perfect Pixel auto-detection after generation and require approximately `55–72` detected cells per axis for a square character portrait. Reject and regenerate when either axis is below `55` or exceeds `72`. Never resize to force this range.
+- **Density acceptance**: treat the requested `24 × 24` as prompt guidance, not the measured output requirement. Use Perfect Pixel auto-detection after generation and require `60–90` detected cells per axis, inclusive, for a square character portrait. Reject and regenerate when either axis is below `60` or above `90`. Never resize to force this range.
+- **Over-density retry isolation**: when the first generated image exceeds `90` detected cells on either axis, create the retry as a brand-new image. Never edit the rejected image, attach it as a reference, include it through recent-image context, or ask the model to expand/simplify its details. Build the retry only from the user's request, the official-character brief, the bundled style/density references, and any original user-provided reference that predates the rejected generation.
 - **Silhouette outline**: fully enclose the subject in a one-logical-pixel pure-black exterior outline. Make the bottom-most occupied subject row a continuous black baseline and leave at least one background row below it.
 - **Default pose**: use a readable three-quarter head turn by default, with both eyes visible and the shoulders allowed to angle naturally. Use a fully frontal or full-profile pose only when the user explicitly requests it.
 - **Facial alignment**: preserve the lively three-quarter geometry while building both eyes from the same vertical pixel template. Use the same top and bottom rows and the same iris/pupil row counts, with aligned centers and matching gaze. Perspective may make the far eye at most one logical cell narrower, but never shorter. Hair, glasses, or props may overlap the sclera only; occlusion must not shorten the iris/pupil or move the eyelid anchors.
@@ -120,12 +121,13 @@ Recommended generation style guidance:
 Generation acceptance gate:
 - Inspect whether the generated image visually matches the bundled coarse, low-information references; do not trust the prompt claim alone.
 - Compare its visible cell size and information density against the two bundled coarse-density references.
-- Run Perfect Pixel auto-detection as a diagnostic before accepting the source. Require `55–72` cells per axis; treat any axis below `55` or above `72` as outside the target density and regenerate. Do not resample or force the grid.
+- Run Perfect Pixel auto-detection as a diagnostic before accepting the source. Require `60–90` cells per axis, inclusive; treat any axis below `60` or above `90` as outside the target density and regenerate. Do not resample or force the grid.
+- If the first generation exceeds `90` cells on either axis, make the retry an independent generation. Exclude the rejected generated image from `referenced_image_paths`, recent-image inclusion, edit instructions, and every other image input. Do not ask the model to simplify, expand, repair, or otherwise transform that image. Keep only the original request, official-character research, bundled coarse-density references, and any original user-provided reference.
 - Reject and regenerate during the image-generation stage if it extends below the chest, uses fine hair strands or micro-texture, resembles a polished high-resolution illustration, lacks large readable color blocks, places the subject too low, or fails to make the head the dominant visual mass.
 - Reject and regenerate if the subject touches the bottom canvas edge, the exterior outline is open, or the bottom-most occupied subject row is not a continuous pure-black baseline with background visible below it.
 - Reject and regenerate if the default pose is flatly frontal or hides an eye in full profile, the eye centers occupy different logical rows, the eyes have different top/bottom rows, the irises or pupils use different row counts, the far eye is shorter or more than one cell narrower, or the pupils look in different directions. Ignore sclera-only occlusion when judging eye height.
 - Reject and regenerate if the neck becomes a long narrow connector, the head appears detached from the shoulders, or eye correction changes the accepted pose, silhouette, face shape, neck, shoulders, crop, prop, palette, or pixel scale.
-- Do not enforce a fixed grid or `65 × 65` later by resizing, sharpening, or adding detail. Let source generation determine the logical density.
+- Do not enforce a fixed grid or `75 × 75` later by resizing, sharpening, or adding detail. Let source generation determine the logical density.
 
 ### 2) Remove the background to transparency
 This project prefers transparent PNGs before pixel refinement.
@@ -174,7 +176,7 @@ Preferred conversion behavior:
 - If a `color_mode` field is required by the current repo version, derive the correct accepted value from the repo/API for the chosen LUT instead of guessing.
 
 Default conversion intent:
-- square workflow with 65 mm physical output
+- square workflow with 75 mm physical output
 - generate and retain the Lumina 2D preview before final conversion
 - 1.2 mm backing
 - double-sided structure

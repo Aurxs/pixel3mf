@@ -26,7 +26,9 @@ If a provided image already has the desired composition and style but needs one 
 
 When the textual request includes a clear action or handheld-object interaction, load `assets/reference-action-interaction.png` in addition to the standard style/density references. Use it only to guide action readability, hand/prop integration, and head-dominant three-quarter framing; do not inherit its subject, palette, clothing, hand side, exact pose, drink, or accessories.
 
-After generation, inspect the image before accepting it and compare its cell scale against the bundled coarse-density references. Run Perfect Pixel auto-detection as a diagnostic: require approximately 55–72 detected cells per axis and regenerate when either axis is below 55 or exceeds 72. Reject and regenerate when the composition extends below the chest, remains too detailed, sits too low, minimizes the head, defaults to a flat frontal pose, hides an eye, gives the eyes different top/bottom rows or different iris/pupil row counts, touches the canvas bottom, or lacks the closed black exterior outline and bottom baseline. Sclera-only occlusion is allowed. Do not force the logical grid, repair facial geometry, or paint a missing outline later.
+After generation, inspect the image before accepting it and compare its cell scale against the bundled coarse-density references. Run Perfect Pixel auto-detection as a diagnostic: require 60–90 detected cells per axis, inclusive, and regenerate when either axis is below 60 or above 90. Reject and regenerate when the composition extends below the chest, remains too detailed, sits too low, minimizes the head, defaults to a flat frontal pose, hides an eye, gives the eyes different top/bottom rows or different iris/pupil row counts, touches the canvas bottom, or lacks the closed black exterior outline and bottom baseline. Sclera-only occlusion is allowed. Do not force the logical grid, repair facial geometry, or paint a missing outline later.
+
+When the first generated image exceeds 90 cells on either axis, the retry must be a brand-new generation rather than an edit or variation of that image. Do not pass the rejected image as an edit target, explicit reference, or recent-image context. Rebuild the image from the text request, official-character brief, bundled style references, and any original user-provided reference only.
 
 ## 2. Background Removal
 Create `02_bg_removed.png` as transparent PNG.
@@ -45,7 +47,7 @@ Create `03_square_prepared.png`.
 Create `04_pixel_perfect.png` and `05_pixel_preview_8x.png`.
 - Use automatic grid detection first.
 - Save both the raw detected grid and final output grid in metadata.
-- Preserve the automatic result instead of resizing to 24 × 24 or 65 × 65.
+- Preserve the automatic result instead of resizing to 24 × 24 or 75 × 75.
 - If automatic detection fails, return to source generation instead of choosing a fixed fallback grid.
 - If the refined image is not square, pad the shorter side with transparent rows/columns.
 
@@ -80,7 +82,7 @@ Create `manifest.json` with:
 - prepared image path
 - pixel-perfect image path
 - refined grid size
-- nominal pixel pitch in millimeters at the 65 mm target width
+- nominal pixel pitch in millimeters at the 75 mm target width
 - Lumina parameter values
 - Lumina 2D preview path and generation method
 - final 3MF path

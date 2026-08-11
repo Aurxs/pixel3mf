@@ -20,7 +20,7 @@ import requests
 
 LUT_FILENAME = "Bambulab&PLA&4色&RYBW&红-蓝-黄-白.npy"
 DEFAULT_PARAMS: dict[str, object] = {
-    "target_width_mm": 65.0,
+    "target_width_mm": 75.0,
     "spacer_thick": 1.2,
     "structure_mode": "Double-sided",
     "auto_bg": False,
