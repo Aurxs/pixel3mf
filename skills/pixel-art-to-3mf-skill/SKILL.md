@@ -54,7 +54,7 @@ Record source acceptance before opening the refinement instructions.
 
 ## Stage 3 — Prepare and refine pixels
 
-Only after Gate 2, read [pixel-refinement.md](references/pixel-refinement.md). Produce the transparent, square-prepared, refined, and preview artifacts described there.
+Only after Gate 2, read [pixel-refinement.md](references/pixel-refinement.md). Produce the transparent, aspect-preserving canvas, rectangular refined grid, and preview artifacts described there.
 
 ### Gate 3
 
@@ -62,13 +62,13 @@ Do not open conversion settings until the refined pixel artifact and its preview
 
 ## Stage 4 — Convert with Lumina and finalize
 
-Only after Gate 3, read [lumina-conversion.md](references/lumina-conversion.md). Generate the Lumina preview, final 3MF, manifest, and retained archive using that stage's defaults.
+Only after Gate 3, read [lumina-conversion.md](references/lumina-conversion.md). Derive an exact physical size from the final logical grid, then generate the Lumina preview, final 3MF, manifest, and retained archive using that stage's defaults.
 
 ## Failure routing
 
 - Failure before `01_source.png`: use only `generation-prompt.md`.
 - Failed source acceptance: use only `source-acceptance.md`, then return to the isolated Stage 1 prompt builder if regenerating.
-- Background, square-canvas, or refinement failure: use only `pixel-refinement.md`.
+- Background, canvas-preparation, or refinement failure: use only `pixel-refinement.md`.
 - Lumina, LUT, archive, or 3MF failure: use only `lumina-conversion.md`.
 
 Never solve a later-stage failure by adding its measurements or settings to the image-generation prompt.

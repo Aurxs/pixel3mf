@@ -14,8 +14,13 @@ import traceback
 from PIL import Image
 
 from cleanup_pixel import cleanup_pixel
-from lumina_batch import DEFAULT_PARAMS, LUT_FILENAME, convert_with_lumina_batch
-from prepare_square_canvas import prepare_square
+from lumina_batch import (
+    DEFAULT_PARAMS,
+    LUT_FILENAME,
+    build_pixel_size_plan,
+    convert_with_lumina_batch,
+)
+from prepare_square_canvas import prepare_canvas
 from refine_pixel import refine_pixel
 from remove_background import remove_background
 
@@ -53,6 +58,7 @@ def run_pipeline(
     official_character_research_path: str | Path | None = None,
     official_character_sources: list[str] | None = None,
     official_character_research_status: str | None = None,
+    square_output: bool = False,
 ) -> Path:
     started = datetime.now().astimezone()
     source_image = Path(source_image).expanduser().resolve()
@@ -91,7 +97,7 @@ def run_pipeline(
     files = {
         "source": run_dir / "01_source.png",
         "background_removed": run_dir / "02_bg_removed.png",
-        "square_prepared": run_dir / "03_square_prepared.png",
+        "canvas_prepared": run_dir / "03_canvas_prepared.png",
         "pixel_perfect": run_dir / "04_pixel_perfect.png",
         "pixel_preview_8x": run_dir / "05_pixel_preview_8x.png",
         "lumina_2d_preview": run_dir / "06_lumina_2d_preview.png",
@@ -131,25 +137,32 @@ def run_pipeline(
         manifest["background_removal"] = remove_background(
             files["source"], files["background_removed"], background_method
         )
-        prepare_square(files["background_removed"], files["square_prepared"])
+        prepare_canvas(
+            files["background_removed"],
+            files["canvas_prepared"],
+            square=square_output,
+        )
         pixel_metadata = refine_pixel(
-            files["square_prepared"],
+            files["canvas_prepared"],
             files["pixel_perfect"],
             files["pixel_preview_8x"],
+            square_output=square_output,
         )
-        output_width = pixel_metadata["output_grid"]["width"]
-        pixel_metadata["physical_target_width_mm"] = DEFAULT_PARAMS["target_width_mm"]
-        pixel_metadata["physical_target_height_mm"] = DEFAULT_PARAMS["target_width_mm"]
-        pixel_metadata["pixel_pitch_mm"] = round(
-            float(DEFAULT_PARAMS["target_width_mm"]) / output_width, 4
-        )
-        manifest["perfect_pixel"] = pixel_metadata
         cleanup_metadata = cleanup_pixel(
             files["pixel_perfect"],
             files["pixel_perfect"],
             preview_path=files["pixel_preview_8x"],
         )
         manifest["cleanup"] = cleanup_metadata
+        with Image.open(files["pixel_perfect"]) as final_pixel_image:
+            final_width, final_height = final_pixel_image.size
+        size_plan = build_pixel_size_plan(final_width, final_height)
+        pixel_metadata["final_output_grid"] = {
+            "width": final_width,
+            "height": final_height,
+        }
+        pixel_metadata["pixel_size_plan"] = size_plan
+        manifest["perfect_pixel"] = pixel_metadata
         lumina_metadata = convert_with_lumina_batch(
             files["pixel_perfect"],
             files["lumina_batch_zip"],
@@ -157,6 +170,7 @@ def run_pipeline(
             PROJECT_ROOT / "Lumina-Layers",
             api_url,
             preview_path=files["lumina_2d_preview"],
+            size_plan=size_plan,
         )
         manifest["lumina"] = lumina_metadata
         manifest["final_3mf"] = str(files["final_3mf"])
@@ -197,6 +211,11 @@ def main() -> None:
     parser.add_argument("--output-root", default="output")
     parser.add_argument("--background-method", choices=("auto", "rembg", "white"), default="auto")
     parser.add_argument("--api-url", default="http://127.0.0.1:8000")
+    parser.add_argument(
+        "--square-output",
+        action="store_true",
+        help="Explicitly pad the prepared and refined canvases to a square",
+    )
     args = parser.parse_args()
     run_dir = run_pipeline(
         source_image=args.source_image,
@@ -208,6 +227,7 @@ def main() -> None:
         official_character_research_path=args.official_character_research_path,
         official_character_sources=args.official_character_sources,
         official_character_research_status=args.official_character_research_status,
+        square_output=args.square_output,
     )
     print(run_dir)
 

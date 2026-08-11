@@ -4,8 +4,11 @@
 from __future__ import annotations
 
 import argparse
+import ast
+from decimal import Decimal
 import io
 import json
+import math
 import os
 from pathlib import Path
 import shutil
@@ -16,11 +19,13 @@ from urllib.parse import urljoin, urlparse
 import zipfile
 
 import requests
+from PIL import Image
 
 
 LUT_FILENAME = "Bambulab&PLA&4色&RYBW&红-蓝-黄-白.npy"
+EXPECTED_LUMINA_CELL_MM = Decimal("0.42")
+LUMINA_CELLS_PER_LOGICAL_PIXEL = 3
 DEFAULT_PARAMS: dict[str, object] = {
-    "target_width_mm": 75.0,
     "spacer_thick": 1.2,
     "structure_mode": "Double-sided",
     "auto_bg": False,
@@ -31,6 +36,116 @@ DEFAULT_PARAMS: dict[str, object] = {
     "hue_weight": 0.6,
     "add_loop": False,
 }
+
+
+def build_pixel_size_plan(
+    logical_width: int,
+    logical_height: int,
+    *,
+    cell_mm: Decimal = EXPECTED_LUMINA_CELL_MM,
+    cells_per_logical_pixel: int = LUMINA_CELLS_PER_LOGICAL_PIXEL,
+) -> dict[str, object]:
+    """Build and verify an exact integer logical-pixel to Lumina-cell mapping."""
+    if logical_width <= 0 or logical_height <= 0:
+        raise ValueError("logical grid dimensions must be positive")
+    if cell_mm <= 0:
+        raise ValueError("Lumina cell size must be positive")
+    if cells_per_logical_pixel <= 0:
+        raise ValueError("cells_per_logical_pixel must be positive")
+
+    expected_width_cells = logical_width * cells_per_logical_pixel
+    expected_height_cells = logical_height * cells_per_logical_pixel
+    logical_pixel_pitch_mm = cell_mm * cells_per_logical_pixel
+    nominal_width_mm = Decimal(logical_width) * logical_pixel_pitch_mm
+    nominal_height_mm = Decimal(logical_height) * logical_pixel_pitch_mm
+
+    # HTTP form parsing and Lumina's core both ultimately use binary floats.
+    # Start from the canonical decimal representation, then move upward by the
+    # smallest possible float only if Lumina's int(width / cell) would lose a
+    # column at a representation boundary.
+    transport_width_mm = float(format(nominal_width_mm, "f"))
+    cell_mm_float = float(cell_mm)
+    simulated_width_cells = int(transport_width_mm / cell_mm_float)
+    for _ in range(8):
+        if simulated_width_cells >= expected_width_cells:
+            break
+        transport_width_mm = math.nextafter(transport_width_mm, math.inf)
+        simulated_width_cells = int(transport_width_mm / cell_mm_float)
+    if simulated_width_cells != expected_width_cells:
+        raise RuntimeError(
+            "could not encode an exact Lumina target width: "
+            f"expected {expected_width_cells} cells, got {simulated_width_cells}"
+        )
+
+    # Match Lumina's current aspect-ratio formula exactly.
+    simulated_height_cells = int(
+        simulated_width_cells * logical_height / logical_width
+    )
+    if simulated_height_cells != expected_height_cells:
+        raise RuntimeError(
+            "Lumina aspect-ratio rounding would change the logical grid: "
+            f"expected {expected_width_cells}x{expected_height_cells}, got "
+            f"{simulated_width_cells}x{simulated_height_cells}"
+        )
+
+    return {
+        "logical_grid": {"width": logical_width, "height": logical_height},
+        "lumina_cell_mm": format(cell_mm, "f"),
+        "cells_per_logical_pixel": cells_per_logical_pixel,
+        "logical_pixel_pitch_mm": format(logical_pixel_pitch_mm, "f"),
+        "expected_lumina_grid": {
+            "width": expected_width_cells,
+            "height": expected_height_cells,
+        },
+        "nominal_target_width_mm": format(nominal_width_mm, "f"),
+        "nominal_target_height_mm": format(nominal_height_mm, "f"),
+        "transport_target_width_mm": transport_width_mm,
+        "simulated_lumina_grid": {
+            "width": simulated_width_cells,
+            "height": simulated_height_cells,
+        },
+        "exact_integer_mapping": True,
+    }
+
+
+def _read_lumina_nozzle_width(lumina_dir: Path) -> Decimal:
+    """Read PrinterConfig.NOZZLE_WIDTH without importing or modifying Lumina."""
+    config_path = lumina_dir / "config.py"
+    if not config_path.is_file():
+        raise FileNotFoundError(f"Lumina config not found: {config_path}")
+    tree = ast.parse(
+        config_path.read_text(encoding="utf-8"), filename=str(config_path)
+    )
+    for node in tree.body:
+        if not isinstance(node, ast.ClassDef) or node.name != "PrinterConfig":
+            continue
+        for statement in node.body:
+            target_name = None
+            value_node = None
+            if isinstance(statement, ast.AnnAssign) and isinstance(
+                statement.target, ast.Name
+            ):
+                target_name = statement.target.id
+                value_node = statement.value
+            elif isinstance(statement, ast.Assign) and len(statement.targets) == 1:
+                target = statement.targets[0]
+                if isinstance(target, ast.Name):
+                    target_name = target.id
+                    value_node = statement.value
+            if target_name == "NOZZLE_WIDTH" and value_node is not None:
+                value = ast.literal_eval(value_node)
+                return Decimal(str(value))
+    raise RuntimeError(f"PrinterConfig.NOZZLE_WIDTH not found in {config_path}")
+
+
+def _validate_lumina_pixel_cell(lumina_dir: Path) -> Decimal:
+    actual = _read_lumina_nozzle_width(lumina_dir)
+    if actual != EXPECTED_LUMINA_CELL_MM:
+        raise RuntimeError(
+            "Lumina pixel-cell size changed: "
+            f"expected {EXPECTED_LUMINA_CELL_MM} mm, found {actual} mm"
+        )
+    return actual
 
 
 def _endpoint(base_url: str, path: str) -> str:
@@ -121,18 +236,20 @@ def _discover_local_lut(lumina_dir: Path) -> dict[str, str]:
         sys.path.remove(str(lumina_dir))
 
 
-def _preview_form_data(lut: dict[str, str]) -> dict[str, str]:
+def _preview_form_data(
+    lut: dict[str, str], params: dict[str, object]
+) -> dict[str, str]:
     """Build the 2D-preview form with the same color parameters as batch conversion."""
     return {
         "lut_name": lut["name"],
-        "target_width_mm": str(DEFAULT_PARAMS["target_width_mm"]),
-        "auto_bg": str(DEFAULT_PARAMS["auto_bg"]).lower(),
-        "bg_tol": str(DEFAULT_PARAMS["bg_tol"]),
+        "target_width_mm": str(params["target_width_mm"]),
+        "auto_bg": str(params["auto_bg"]).lower(),
+        "bg_tol": str(params["bg_tol"]),
         "color_mode": lut["color_mode"],
-        "modeling_mode": str(DEFAULT_PARAMS["modeling_mode"]),
-        "quantize_colors": str(DEFAULT_PARAMS["quantize_colors"]),
-        "enable_cleanup": str(DEFAULT_PARAMS["enable_cleanup"]).lower(),
-        "hue_weight": str(DEFAULT_PARAMS["hue_weight"]),
+        "modeling_mode": str(params["modeling_mode"]),
+        "quantize_colors": str(params["quantize_colors"]),
+        "enable_cleanup": str(params["enable_cleanup"]).lower(),
+        "hue_weight": str(params["hue_weight"]),
     }
 
 
@@ -141,13 +258,14 @@ def _generate_api_preview(
     preview_path: Path,
     base_url: str,
     lut: dict[str, str],
+    params: dict[str, object],
 ) -> dict[str, object]:
     """Ask Lumina for its 2D preview and save the returned PNG locally."""
     with input_path.open("rb") as image_file:
         response = requests.post(
             _endpoint(base_url, "/api/convert/preview"),
             files={"image": (input_path.name, image_file, "image/png")},
-            data=_preview_form_data(lut),
+            data=_preview_form_data(lut, params),
             timeout=600,
         )
     if not response.ok:
@@ -178,6 +296,7 @@ def _generate_core_preview(
     preview_path: Path,
     lumina_dir: Path,
     lut: dict[str, str],
+    params: dict[str, object],
 ) -> dict[str, object]:
     """Generate the same 2D preview through Lumina core when the API is unavailable."""
     sys.path.insert(0, str(lumina_dir))
@@ -188,15 +307,15 @@ def _generate_core_preview(
         preview_image, _cache, status_message = generate_preview_cached(
             image_path=str(input_path),
             lut_path=lut["path"],
-            target_width_mm=DEFAULT_PARAMS["target_width_mm"],
-            auto_bg=DEFAULT_PARAMS["auto_bg"],
-            bg_tol=DEFAULT_PARAMS["bg_tol"],
+            target_width_mm=params["target_width_mm"],
+            auto_bg=params["auto_bg"],
+            bg_tol=params["bg_tol"],
             color_mode=lut["color_mode"],
-            modeling_mode=ModelingMode(DEFAULT_PARAMS["modeling_mode"]),
-            quantize_colors=DEFAULT_PARAMS["quantize_colors"],
-            enable_cleanup=DEFAULT_PARAMS["enable_cleanup"],
+            modeling_mode=ModelingMode(params["modeling_mode"]),
+            quantize_colors=params["quantize_colors"],
+            enable_cleanup=params["enable_cleanup"],
             is_dark=True,
-            hue_weight=DEFAULT_PARAMS["hue_weight"],
+            hue_weight=params["hue_weight"],
         )
     finally:
         sys.path.remove(str(lumina_dir))
@@ -227,12 +346,15 @@ def _core_fallback(
     final_path: Path,
     lumina_dir: Path,
     lut: dict[str, str],
+    params: dict[str, object],
     batch_error: str,
     preview_metadata: dict[str, object] | None = None,
 ) -> dict[str, object]:
     """Use Lumina's current core when its batch endpoint is incompatible."""
     if preview_metadata is None or not preview_path.is_file():
-        preview_metadata = _generate_core_preview(input_path, preview_path, lumina_dir, lut)
+        preview_metadata = _generate_core_preview(
+            input_path, preview_path, lumina_dir, lut, params
+        )
 
     sys.path.insert(0, str(lumina_dir))
     try:
@@ -242,21 +364,21 @@ def _core_fallback(
         result = convert_image_to_3d(
             image_path=str(input_path),
             lut_path=lut["path"],
-            target_width_mm=DEFAULT_PARAMS["target_width_mm"],
-            spacer_thick=DEFAULT_PARAMS["spacer_thick"],
-            structure_mode=DEFAULT_PARAMS["structure_mode"],
-            auto_bg=DEFAULT_PARAMS["auto_bg"],
-            bg_tol=DEFAULT_PARAMS["bg_tol"],
+            target_width_mm=params["target_width_mm"],
+            spacer_thick=params["spacer_thick"],
+            structure_mode=params["structure_mode"],
+            auto_bg=params["auto_bg"],
+            bg_tol=params["bg_tol"],
             color_mode=lut["color_mode"],
             add_loop=False,
             loop_width=4.0,
             loop_length=8.0,
             loop_hole=2.5,
             loop_pos=None,
-            modeling_mode=ModelingMode(DEFAULT_PARAMS["modeling_mode"]),
-            quantize_colors=DEFAULT_PARAMS["quantize_colors"],
-            enable_cleanup=DEFAULT_PARAMS["enable_cleanup"],
-            hue_weight=DEFAULT_PARAMS["hue_weight"],
+            modeling_mode=ModelingMode(params["modeling_mode"]),
+            quantize_colors=params["quantize_colors"],
+            enable_cleanup=params["enable_cleanup"],
+            hue_weight=params["hue_weight"],
         )
     finally:
         sys.path.remove(str(lumina_dir))
@@ -285,11 +407,29 @@ def convert_with_lumina_batch(
     base_url: str = "http://127.0.0.1:8000",
     start_if_needed: bool = True,
     preview_path: str | Path | None = None,
+    size_plan: dict[str, object] | None = None,
 ) -> dict[str, object]:
     input_path = Path(input_path).resolve()
     zip_path = Path(zip_path).resolve()
     final_path = Path(final_path).resolve()
     lumina_dir = Path(lumina_dir).resolve()
+    cell_mm = _validate_lumina_pixel_cell(lumina_dir)
+    with Image.open(input_path) as input_image:
+        logical_width, logical_height = input_image.size
+    authoritative_size_plan = build_pixel_size_plan(
+        logical_width, logical_height, cell_mm=cell_mm
+    )
+    if size_plan is None:
+        size_plan = authoritative_size_plan
+    elif size_plan != authoritative_size_plan:
+        raise ValueError(
+            "pixel size plan does not match the authoritative plan derived from "
+            f"the final {logical_width}x{logical_height} input image"
+        )
+    params = {
+        **DEFAULT_PARAMS,
+        "target_width_mm": size_plan["transport_target_width_mm"],
+    }
     preview_path = (
         Path(preview_path).resolve()
         if preview_path is not None
@@ -321,6 +461,7 @@ def convert_with_lumina_batch(
                 final_path,
                 lumina_dir,
                 lut,
+                params,
                 f"API unavailable ({type(exc).__name__}): {exc}",
             )
             return {
@@ -330,23 +471,23 @@ def convert_with_lumina_batch(
                 "lut_name": lut["name"],
                 "lut_path": lut["path"],
                 "color_mode": lut["color_mode"],
-                **DEFAULT_PARAMS,
+                **params,
+                "pixel_size_plan": size_plan,
                 "batch_response": None,
             }
 
-        params = DEFAULT_PARAMS.copy()
         params["lut_name"] = lut["name"]
         params["color_mode"] = lut["color_mode"]
 
         preview_metadata: dict[str, object]
         try:
             preview_metadata = _generate_api_preview(
-                input_path, preview_path, base_url, lut
+                input_path, preview_path, base_url, lut, params
             )
         except Exception as preview_exc:
             try:
                 preview_metadata = _generate_core_preview(
-                    input_path, preview_path, lumina_dir, lut
+                    input_path, preview_path, lumina_dir, lut, params
                 )
             except Exception as core_preview_exc:
                 raise RuntimeError(
@@ -394,6 +535,7 @@ def convert_with_lumina_batch(
                 final_path,
                 lumina_dir,
                 lut,
+                params,
                 f"{type(exc).__name__}: {exc}",
                 preview_metadata,
             )
@@ -405,7 +547,8 @@ def convert_with_lumina_batch(
             "lut_name": lut["name"],
             "lut_path": lut["path"],
             "color_mode": lut["color_mode"],
-            **DEFAULT_PARAMS,
+            **params,
+            "pixel_size_plan": size_plan,
             "preview_path": str(preview_path),
             "batch_response": batch,
             **preview_metadata,

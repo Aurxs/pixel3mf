@@ -52,6 +52,7 @@ def refine_pixel(
     input_path: str | Path,
     output_path: str | Path,
     preview_path: str | Path,
+    square_output: bool = False,
 ) -> dict[str, object]:
     rgba = np.asarray(Image.open(input_path).convert("RGBA"))
     grid_w, grid_h, refined = get_perfect_pixel(
@@ -79,8 +80,10 @@ def refine_pixel(
         refined = np.dstack((rgb, alpha))
 
     refined_grid = {"width": int(refined.shape[1]), "height": int(refined.shape[0])}
-    squared = _pad_square(refined.astype(np.uint8))
-    final = Image.fromarray(squared, "RGBA")
+    final_array = refined.astype(np.uint8)
+    if square_output:
+        final_array = _pad_square(final_array)
+    final = Image.fromarray(final_array, "RGBA")
 
     output_path = Path(output_path)
     preview_path = Path(preview_path)
@@ -94,6 +97,11 @@ def refine_pixel(
         "detected_grid": detected_grid,
         "refined_grid": refined_grid,
         "output_grid": {"width": final.width, "height": final.height},
+        "square_output": square_output,
+        "square_padding": {
+            "columns_added": final.width - refined_grid["width"],
+            "rows_added": final.height - refined_grid["height"],
+        },
         "accepted_grid_range": {
             "minimum_per_axis": MIN_ACCEPTED_GRID,
             "maximum_per_axis": MAX_ACCEPTED_GRID,
@@ -110,8 +118,15 @@ def main() -> None:
     parser.add_argument("input")
     parser.add_argument("output")
     parser.add_argument("preview")
+    parser.add_argument(
+        "--square-output",
+        action="store_true",
+        help="Pad the refined grid to a square with complete transparent cells",
+    )
     args = parser.parse_args()
-    metadata = refine_pixel(args.input, args.output, args.preview)
+    metadata = refine_pixel(
+        args.input, args.output, args.preview, square_output=args.square_output
+    )
     print(json.dumps(metadata, ensure_ascii=False))
 
 
