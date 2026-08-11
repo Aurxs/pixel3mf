@@ -65,7 +65,7 @@ UV_CACHE_DIR=.uv-cache uv pip install -r requirements-pixel3mf.txt
 - `--official-character-research-path`：已有 `00_official_character_research.md` 的路径；状态为 `completed` 时必填，脚本会把它复制到本次 run 文件夹。
 - `--official-character-source URL`：官方来源 URL，可重复传入；状态为 `completed` 时至少传入一个。
 - `--output-root`：输出根目录，默认 `output`。
-- `--background-method auto|rembg|white`：默认先用 rembg；失败时自动退回到边缘连通的近白背景转透明。
+- `--background-method auto|rembg|white`：默认先用 rembg；失败时自动退回到 8 邻域外部连通的近白背景转透明。内部白色脸部、衣服和配饰默认保留。
 - `--api-url`：Lumina API 地址，默认 `http://127.0.0.1:8000`。若没有服务，脚本会自动启动并在结束后关闭；已有服务会直接复用。
 
 第一次使用 rembg 时，它可能需要下载分割模型。对已带正确透明通道的 PNG，脚本会直接保留透明通道；对纯白或近白背景，也可显式使用 `--background-method white`，无需模型。
@@ -122,10 +122,10 @@ output/<timestamp>_<slug>/
 
 ## 独立工具
 
-- `tools/remove_background.py`：rembg 主策略与近白背景 fallback。
+- `tools/remove_background.py`：rembg 主策略与保守的近白背景 fallback；只删除可连通到画布外部的近白区域，并记录清理统计。
 - `tools/prepare_square_canvas.py`：按透明区域裁剪、加 padding、居中到透明正方形。
 - `tools/refine_pixel.py`：Perfect Pixel 自动网格检测并保留检测结果；只补透明区域成为正方形并输出最近邻 8 倍预览，不强制目标网格。检测失败时要求回到生图阶段重生。
-- `tools/cleanup_pixel.py`：只删除没有任何邻居的孤立前景像素。
+- `tools/cleanup_pixel.py`：删除孤立前景像素，并在逻辑网格上清理最多两个单元的外轮廓白噪点；内部、较大或有疑义的白色区域会被保留并记录，流水线继续生成，不会中途要求复查。
 - `tools/lumina_batch.py`：启动或复用 Lumina API、查询 LUT、先生成并保存 2D 预览，再上传单图 batch、保存 ZIP 并取出唯一 3MF。API 不能启动，或当前 checkout 的 batch worker 因核心返回值版本差异失败时，会先调用 Lumina 核心生成预览，再完成转换、自行打包 ZIP，并在 manifest 记录 `batch_error`。
 - `tools/run_pipeline.py`：总入口和 manifest 生命周期管理。
 

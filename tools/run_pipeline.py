@@ -144,11 +144,12 @@ def run_pipeline(
             float(DEFAULT_PARAMS["target_width_mm"]) / output_width, 4
         )
         manifest["perfect_pixel"] = pixel_metadata
-        manifest["cleanup"] = {
-            "removed_isolated_pixels": cleanup_pixel(
-                files["pixel_perfect"], files["pixel_perfect"]
-            )
-        }
+        cleanup_metadata = cleanup_pixel(
+            files["pixel_perfect"],
+            files["pixel_perfect"],
+            preview_path=files["pixel_preview_8x"],
+        )
+        manifest["cleanup"] = cleanup_metadata
         lumina_metadata = convert_with_lumina_batch(
             files["pixel_perfect"],
             files["lumina_batch_zip"],

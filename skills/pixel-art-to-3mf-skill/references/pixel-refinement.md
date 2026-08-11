@@ -8,9 +8,9 @@ Create `02_bg_removed.png` as a transparent PNG.
 
 1. Keep existing correct alpha.
 2. Otherwise prefer subject/background segmentation.
-3. If segmentation is unavailable or poor and the background is plain, convert near-white background regions to transparency.
+3. If segmentation is unavailable or poor and the background is plain, remove only near-white regions connected to the exterior background, using 8-connectivity so diagonal accessory/body gaps remain reachable.
 
-Preserve the complete subject and save diagnostics when removal is imperfect.
+Treat white RGB as foreground by default. Preserve enclosed white face, clothing, eye, highlight, and accessory regions. Before refinement, remove only high-confidence exterior-connected white background and record the cleanup method and counts. Keep ambiguous enclosed white regions, record them for later inspection, and continue without interrupting the pipeline.
 
 ## Prepare a square canvas
 
@@ -34,7 +34,8 @@ Create `04_pixel_perfect.png` and `05_pixel_preview_8x.png`.
 
 ## Cleanup
 
-- Remove only obvious isolated noise.
+- Remove obvious isolated foreground noise.
+- On the refined logical grid, remove only near-white exterior components of at most two cells. Preserve interior white components and larger or otherwise ambiguous exterior white components, record them in metadata, and continue the pipeline without requesting an intermediate review.
 - Preserve transparency, silhouette, palette, and detected grid.
 - Avoid painting missing anatomy, rebuilding outlines, or applying complex heuristics after refinement.
 

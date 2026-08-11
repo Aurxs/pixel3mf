@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Remove an image background, preferring rembg with a near-white fallback."""
+"""Remove a background while conservatively preserving white subject regions."""
 
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 import cv2
@@ -16,19 +17,53 @@ def _has_useful_alpha(image: Image.Image) -> bool:
     return low < 250 and high > 0
 
 
-def _near_white_to_alpha(image: Image.Image, threshold: int = 245) -> Image.Image:
+def _refine_exterior_near_white(
+    image: Image.Image,
+    threshold: int = 245,
+) -> tuple[Image.Image, dict[str, int]]:
+    """Remove only near-white pixels connected to the exterior background.
+
+    Transparent pixels and near-white pixels form the traversable background. A
+    one-pixel erosion separates narrow bridges before exterior flood-fill; enclosed
+    near-white cores are then restored first so a pinhole in the outline cannot expose
+    and delete an entire white face or clothing region.
+    """
     rgba = np.asarray(image.convert("RGBA")).copy()
-    near_white = np.all(rgba[:, :, :3] >= threshold, axis=2).astype(np.uint8)
-    count, labels = cv2.connectedComponents(near_white, connectivity=4)
+    alpha = rgba[:, :, 3]
+    near_white = np.all(rgba[:, :, :3] >= threshold, axis=2)
+    traversable = ((alpha <= 8) | near_white).astype(np.uint8)
+    kernel = np.ones((3, 3), dtype=np.uint8)
+    padded = np.pad(traversable, 1, constant_values=1)
+    stable = cv2.erode(padded, kernel, iterations=1)[1:-1, 1:-1]
+    count, labels = cv2.connectedComponents(stable, connectivity=8)
     if count <= 1:
-        return Image.fromarray(rgba, "RGBA")
+        return Image.fromarray(rgba, "RGBA"), {
+            "removed_exterior_near_white_pixels": 0,
+            "preserved_interior_near_white_components": 0,
+        }
 
     border_labels = np.unique(
         np.concatenate((labels[0], labels[-1], labels[:, 0], labels[:, -1]))
     )
-    background = np.isin(labels, border_labels[border_labels != 0])
-    rgba[background, 3] = 0
-    return Image.fromarray(rgba, "RGBA")
+    exterior_core = np.isin(labels, border_labels[border_labels != 0])
+    interior_near_white_core = (stable > 0) & near_white & ~exterior_core
+    protected_interior = cv2.dilate(
+        interior_near_white_core.astype(np.uint8), kernel, iterations=1
+    ).astype(bool) & near_white
+    exterior = cv2.dilate(
+        exterior_core.astype(np.uint8), kernel, iterations=1
+    ).astype(bool) & (traversable > 0) & ~protected_interior
+    removable = near_white & (alpha > 8) & exterior
+    rgba[removable] = 0
+
+    preserved = near_white & (rgba[:, :, 3] > 8)
+    preserved_count, _ = cv2.connectedComponents(
+        preserved.astype(np.uint8), connectivity=8
+    )
+    return Image.fromarray(rgba, "RGBA"), {
+        "removed_exterior_near_white_pixels": int(removable.sum()),
+        "preserved_interior_near_white_components": max(0, preserved_count - 1),
+    }
 
 
 def _rembg_result_is_usable(image: Image.Image) -> bool:
@@ -42,7 +77,7 @@ def remove_background(
     output_path: str | Path,
     method: str = "auto",
     white_threshold: int = 245,
-) -> str:
+) -> dict[str, object]:
     source = Image.open(input_path).convert("RGBA")
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -60,14 +95,21 @@ def remove_background(
         except Exception as exc:
             if method == "rembg":
                 raise RuntimeError(f"rembg failed: {exc}") from exc
-            result = _near_white_to_alpha(source, white_threshold)
+            result = source
             used = f"near-white-fallback ({type(exc).__name__})"
     else:
-        result = _near_white_to_alpha(source, white_threshold)
+        result = source
         used = "near-white"
 
+    result, cleanup = _refine_exterior_near_white(result, white_threshold)
     result.save(output_path)
-    return used
+    return {
+        "method": used,
+        "white_threshold": int(white_threshold),
+        "background_connectivity": 8,
+        "narrow_bridge_guard_radius": 1,
+        **cleanup,
+    }
 
 
 def main() -> None:
@@ -77,8 +119,8 @@ def main() -> None:
     parser.add_argument("--method", choices=("auto", "rembg", "white"), default="auto")
     parser.add_argument("--white-threshold", type=int, default=245)
     args = parser.parse_args()
-    used = remove_background(args.input, args.output, args.method, args.white_threshold)
-    print(f"background_method={used}")
+    metadata = remove_background(args.input, args.output, args.method, args.white_threshold)
+    print(json.dumps(metadata, ensure_ascii=False))
 
 
 if __name__ == "__main__":
