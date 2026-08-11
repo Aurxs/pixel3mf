@@ -122,7 +122,7 @@ Use image inspection before conversion. Confirm:
 - no accidental text, watermark, duplicate subject, broken anatomy, or generation artifact is present;
 - the resolution is adequate for the current Lumina processing size.
 
-If a generated/reference-guided image fails, regenerate or edit the smallest necessary region. If a direct input has a quality limitation, report it and preserve the source; do not silently redesign it.
+If a generated/reference-guided image fails, regenerate it from scratch by default. Do not use the rejected generated image as an edit target, explicit reference, or recent-image context. Edit only a user-provided source when the user explicitly requests a local correction. If a direct input has a quality limitation, report it and preserve the source; do not silently redesign it.
 
 ### 4. Handle background and square preparation
 

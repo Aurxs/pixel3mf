@@ -61,6 +61,9 @@ UV_CACHE_DIR=.uv-cache uv pip install -r requirements-pixel3mf.txt
 可选参数：
 
 - `--reference-image`：只记录到 manifest，供后续追溯。
+- `--official-character-research-status completed|not_applicable|unknown`：官方角色研究状态；可识别角色应使用 `completed`，原创主体或直接转换使用 `not_applicable`。
+- `--official-character-research-path`：已有 `00_official_character_research.md` 的路径；状态为 `completed` 时必填，脚本会把它复制到本次 run 文件夹。
+- `--official-character-source URL`：官方来源 URL，可重复传入；状态为 `completed` 时至少传入一个。
 - `--output-root`：输出根目录，默认 `output`。
 - `--background-method auto|rembg|white`：默认先用 rembg；失败时自动退回到边缘连通的近白背景转透明。
 - `--api-url`：Lumina API 地址，默认 `http://127.0.0.1:8000`。若没有服务，脚本会自动启动并在结束后关闭；已有服务会直接复用。
@@ -73,7 +76,7 @@ UV_CACHE_DIR=.uv-cache uv pip install -r requirements-pixel3mf.txt
 
 > 生成单个指定角色的自然上半身像，主体居中，正面或清晰的三分之四视角；画面只到上胸，不向胸部以下延伸；不要对手、手臂或关节施加特殊限制，姿势保持自然。严格按 `24×24` 逻辑像素画设计：使用明显的大方块、阶梯状外轮廓、约 1 个逻辑像素宽的深色描边和很少的内部细节；脸部只保留最关键的眼睛、嘴和发型特征；使用约 8–12 种大面积离散颜色，其中头发可有 3–4 个青绿色阶、肤色 2–3 个色阶，并保留少量深蓝紫和粉色点缀以展示叠色。禁止细碎发丝、纹理、抖色、连续渐变、抗锯齿、柔边和高精插画式高光；不要文字，不要其他角色；背景纯白或透明。若生成器输出高分辨率位图，它必须看起来像 `24×24` 逻辑图的最近邻放大，而不是增加更多逻辑细节。
 
-生成后只检查它是否呈现参考图那种 24×24 大块、低信息量外观以及自然上半身构图。若仍像精细插画，应修改提示词并重新生成；后处理不强制缩放到 24×24 或 65×65。
+生成后用 Perfect Pixel 自动检测实际网格并进行流程验收。若仍像精细插画或检测结果超出配置范围，应从头重新生成；后处理不强制缩放到 24×24 或 75×75。
 
 生成结果不必在 Python 中模拟 image generation，只需把生成文件的绝对路径传给 `--source-image`。
 
@@ -85,8 +88,8 @@ UV_CACHE_DIR=.uv-cache uv pip install -r requirements-pixel3mf.txt
 
 其余默认值：
 
-- 成品宽度 `65 mm`；输入强制为正方形，因此目标理解为 `65 mm × 65 mm`
-- 生图提示词默认要求 `24×24` 逻辑像素风格；Perfect Pixel 后续只自动识别并保留实际网格，不强制改成 24×24 或 65×65
+- 成品宽度 `75 mm`；输入强制为正方形，因此目标理解为 `75 mm × 75 mm`
+- 生图提示词默认要求 `24×24` 逻辑像素风格；Perfect Pixel 只接受每轴 `60–85` 的实际网格并保留检测结果，不强制改成 24×24 或 75×75
 - 生成 3MF 前先调用 Lumina 生成 2D 预览，并保留 PNG 产物
 - 背板 `1.2 mm`
 - `Double-sided`

@@ -33,7 +33,7 @@ Use this addendum:
 Use the supplied image as a reference for <requested properties>. Preserve those properties faithfully while producing the requested high-fidelity target. Use the verified official-character brief at `<official-character-research-file>` when the subject is a named or recognizable character. Do not copy unrelated defects, background clutter, text, watermark, crop, or pose unless the user asks for them. Keep smooth high-resolution rendering and do not pixelate the result.
 ```
 
-For a local correction, preserve all accepted geometry and change only the named defect:
+For an explicitly requested local correction to a user-provided target, preserve all accepted geometry and change only the named defect. Do not use this for defects in a generated target; regenerate those from scratch instead:
 
 ```text
 Edit the supplied target with the minimum possible change. Preserve the composition, crop, identity, face and body geometry, palette, lighting, texture, edges, background treatment, and resolution. Correct only <named defect>. Do not pixelate, simplify, or redesign unrelated regions.
@@ -45,4 +45,4 @@ Do not generate or edit. Preserve the uploaded file in `01_source.<ext>`, create
 
 ## Acceptance
 
-Reject and regenerate/edit a generated target when it is visibly pixelated, unexpectedly low-resolution, contains accidental text/watermark, duplicates the subject, breaks requested identity or composition, or contains obvious generation artifacts. Do not reject a direct-conversion source for creative reasons; report limitations instead.
+Reject and regenerate a generated target when it is visibly pixelated, unexpectedly low-resolution, contains accidental text/watermark, duplicates the subject, breaks requested identity or composition, or contains obvious generation artifacts. Do not use the failed generated target as an edit target or image reference. Do not reject a direct-conversion source for creative reasons; report limitations instead.

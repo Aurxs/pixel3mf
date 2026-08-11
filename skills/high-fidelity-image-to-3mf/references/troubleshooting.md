@@ -19,6 +19,12 @@
 - Identify the specific properties requested as references.
 - Generate/edit a separate `02_target_image.png`; keep provenance explicit in the manifest.
 
+## A generated target has a defect
+
+- Regenerate from the original request, research brief, and approved references by default.
+- Do not use the failed generated target as an edit target, attached reference, or recent-image context.
+- Edit only a user-provided source when the user explicitly requests a local correction.
+
 ## Background removal damages pale or fine details
 
 - Prefer existing alpha.
