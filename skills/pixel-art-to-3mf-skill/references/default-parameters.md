@@ -39,7 +39,7 @@ Use a two-stage strategy:
 
 ## Pixel Refinement
 - Use Perfect Pixel with auto grid detection by default.
-- Use auto-detection once as a source-density acceptance diagnostic before conversion: prefer approximately 44–60 detected cells per axis and regenerate when either axis exceeds 60.
+- Use auto-detection once as a source-density acceptance diagnostic before conversion: require approximately 55–72 detected cells per axis and regenerate when either axis is below 55 or exceeds 72.
 - Preserve the automatically detected grid; do not force 24 × 24 or 65 × 65 during refinement.
 - Record the actual nominal pixel pitch from the detected output width and the 65 mm physical target.
 - If automatic detection fails, regenerate a clearer coarse-pixel source rather than selecting a fallback grid.

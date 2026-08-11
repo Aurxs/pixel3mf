@@ -15,7 +15,7 @@
 ### Generated pixel art is too detailed
 - Fix the image-generation prompt first: request an internal 24 × 24 logical canvas as a preventive undershoot, enlarged only with nearest-neighbor sampling. The detector is not expected to return exactly 24 × 24.
 - Load and explicitly match the cell scale of `reference-coarse-density-a.png` and `reference-coarse-density-b.png` without copying their content.
-- Run Perfect Pixel auto-detection as a diagnostic. Treat either axis above 60 cells as too detailed and regenerate; do not resize down.
+- Run Perfect Pixel auto-detection as a diagnostic. Treat either axis below 55 or above 72 cells as outside the target density and regenerate; do not resize.
 - Require every contour and color boundary to align to the same grid, with no feature or color region smaller than one logical cell.
 - Reject fine hair strands, micro-texture, dithering, smooth gradients, anti-aliasing, and polished illustration-style highlights.
 - Do not force the image to a fixed grid later; regenerate until the source has the intended low-information style.
