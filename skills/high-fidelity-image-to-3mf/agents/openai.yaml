@@ -1,0 +1,4 @@
+interface:
+  display_name: "High-Fidelity Image to 3MF"
+  short_description: "Convert high-fidelity images into layered Lumina 3MF files"
+  default_prompt: "Use $high-fidelity-image-to-3mf to turn this high-fidelity image or subject into a layered printable 3MF."
