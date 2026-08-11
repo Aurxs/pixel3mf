@@ -85,23 +85,25 @@ def _wait_for_api(base_url: str, process: subprocess.Popen[bytes], timeout: int 
     raise TimeoutError(f"Lumina API did not become ready within {timeout}s")
 
 
-def _discover_lut(base_url: str) -> dict[str, str]:
+def _discover_lut(base_url: str, lut_filename: str = LUT_FILENAME) -> dict[str, str]:
     response = requests.get(_endpoint(base_url, "/api/lut/list"), timeout=30)
     response.raise_for_status()
     matches = [
         item
         for item in response.json().get("luts", [])
-        if Path(item.get("path", "")).name == LUT_FILENAME
+        if Path(item.get("path", "")).name == lut_filename
     ]
     if len(matches) != 1:
-        raise RuntimeError(f"expected one LUT named {LUT_FILENAME!r}, found {len(matches)}")
+        raise RuntimeError(f"expected one LUT named {lut_filename!r}, found {len(matches)}")
     return matches[0]
 
 
-def _discover_local_lut(lumina_dir: Path) -> dict[str, str]:
-    matches = list((lumina_dir / "lut-npy预设").rglob(LUT_FILENAME))
+def _discover_local_lut(
+    lumina_dir: Path, lut_filename: str = LUT_FILENAME
+) -> dict[str, str]:
+    matches = list((lumina_dir / "lut-npy预设").rglob(lut_filename))
     if len(matches) != 1:
-        raise RuntimeError(f"expected one local LUT named {LUT_FILENAME!r}, found {len(matches)}")
+        raise RuntimeError(f"expected one local LUT named {lut_filename!r}, found {len(matches)}")
     path = matches[0].resolve()
     sys.path.insert(0, str(lumina_dir))
     try:
@@ -285,6 +287,7 @@ def convert_with_lumina_batch(
     base_url: str = "http://127.0.0.1:8000",
     start_if_needed: bool = True,
     preview_path: str | Path | None = None,
+    lut_filename: str = LUT_FILENAME,
 ) -> dict[str, object]:
     input_path = Path(input_path).resolve()
     zip_path = Path(zip_path).resolve()
@@ -311,9 +314,9 @@ def convert_with_lumina_batch(
                 )
                 started_api = True
                 _wait_for_api(base_url, process)
-            lut = _discover_lut(base_url)
+            lut = _discover_lut(base_url, lut_filename)
         except Exception as exc:
-            lut = _discover_local_lut(lumina_dir)
+            lut = _discover_local_lut(lumina_dir, lut_filename)
             fallback = _core_fallback(
                 input_path,
                 preview_path,
@@ -432,6 +435,11 @@ def main() -> None:
     parser.add_argument("--lumina-dir", default="Lumina-Layers")
     parser.add_argument("--api-url", default="http://127.0.0.1:8000")
     parser.add_argument("--no-start", action="store_true")
+    parser.add_argument(
+        "--lut-filename",
+        default=LUT_FILENAME,
+        help="LUT basename to select from Lumina-Layers/lut-npy预设",
+    )
     args = parser.parse_args()
     result = convert_with_lumina_batch(
         args.input,
@@ -441,6 +449,7 @@ def main() -> None:
         args.api_url,
         not args.no_start,
         args.preview_output,
+        args.lut_filename,
     )
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
