@@ -1,6 +1,6 @@
 ---
 name: pixel-art-to-3mf
-description: Use this skill when the user wants to turn an anime/game character name or a provided reference image into a printable layered 3MF inside a project that contains a cloned Lumina-Layers repository. The skill covers image generation, background removal to transparency, square-canvas preparation, Perfect Pixel refinement, optional cleanup, and Lumina conversion. Default behavior is a 65 mm × 65 mm square workflow with full intermediate outputs saved in a timestamped output run folder, using the BambuLab PLA 4-color RYBW LUT, 1.2 mm backing, double-sided structure, no hanging loop, pixel modeling mode, quantize_colors 256, hue protection 0.6, and batch conversion when possible.
+description: Use this skill when the user wants to turn an anime/game character name or a provided reference image into a printable layered 3MF inside a project that contains a cloned Lumina-Layers repository. Before any image generation or editing of a recognizable character, mascot, or branded figure, research official character sources and use that brief as the visual identity authority. The skill covers image generation, background removal to transparency, square-canvas preparation, Perfect Pixel refinement, optional cleanup, and Lumina conversion. Default behavior is a 65 mm × 65 mm square workflow with full intermediate outputs saved in a timestamped output run folder, using the BambuLab PLA 4-color RYBW LUT, 1.2 mm backing, double-sided structure, no hanging loop, pixel modeling mode, quantize_colors 256, hue protection 0.6, and batch conversion when possible.
 ---
 
 # Pixel Art to 3MF
@@ -20,6 +20,16 @@ At least one of:
 - a source image / reference image.
 
 If a source image is not provided, create one first with image generation. Prefer a single centered subject with clean silhouette and simple colors.
+
+## Mandatory official-character research gate
+
+Before every image-generation or image-editing call in this skill—including the first source, a retry, a repair, or a variant—complete this gate. Direct conversion and deterministic local processing do not count as image generation and do not need a new search.
+
+- For a named or recognizable anime, game, cartoon, film, historical, mascot, or branded character, use web search first. Use only the official character page, publisher/developer/franchise site, official guide, press kit, or another first-party source. Do not substitute a secondary source unless the user explicitly allows it.
+- Search narrowly for the canonical identity, for example: `<character name> official character profile` and `<character name> official site`. Do not generate while the search is pending.
+- Save `00_official_character_research.md` in the run folder before generation. Record the canonical name/version, 1–4 official source URLs (prefer 2–4 when available), verified visual attributes (face/hair/body, clothing, palette, props, motifs), and an explicit `Verified facts` versus `Inferences` distinction. Treat the brief as the identity source of truth for the prompt, but do not copy logos, readable marks, slogans, or long source text.
+- If the request is an original/non-character subject, still evaluate the gate and record `official_character_research_status=not_applicable`; never invent an official profile. If a named character has no reliable official source or the identity is ambiguous, stop before generation and ask for an approved reference or permission to proceed without official data.
+- Carry the research file path and source URLs into `manifest.json` as `official_character_research_path` and `official_character_sources`.
 
 ## Bundled generation references
 When the user does not provide a stronger style reference, use these bundled assets:
@@ -58,6 +68,7 @@ Each run should create a new folder:
 - `output/<timestamp>_<slug>/`
 
 Expected contents (or the closest practical equivalent):
+- `00_official_character_research.md` — required before generation for recognizable characters; record `not_applicable` for original/non-character subjects
 - `01_source.png` — initial generated or provided source image
 - `02_bg_removed.png` — transparent-background image after background removal
 - `03_square_prepared.png` — square high-resolution canvas, horizontally centered and slightly raised subject
@@ -73,6 +84,7 @@ Expected contents (or the closest practical equivalent):
 
 ### 1) Prepare or generate the source image
 If the user only gives a character name / textual description:
+- Complete the mandatory official-character research gate and read `00_official_character_research.md` before constructing the prompt or calling image generation.
 - Generate a source image first.
 - Favor one character in a readable three-quarter pose with both eyes visible, horizontally centered and slightly above vertical center, minimal background, strong silhouette, readable accessories, and simple color blocks. Let the shoulders, hand, and prop remain naturally asymmetric.
 - For a requested action, use the optional bundled action reference to keep the gesture and object readable without reducing the head's visual dominance. Adapt the interaction to the requested action instead of copying the example.
@@ -179,6 +191,7 @@ Default conversion intent:
 Always keep intermediates. Save a concise `manifest.json` that includes:
 - run timestamp
 - subject / character name
+- official-character research status, brief path, and source URLs
 - source image path
 - final source-to-3MF parameter values
 - detected pixel grid size

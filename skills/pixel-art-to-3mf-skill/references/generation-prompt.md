@@ -7,6 +7,8 @@ Use the following structure when generating a character source image. Treat user
 - `../assets/reference-coarse-density-b.png` as Image 3
 - When the request includes a clear action or handheld-object interaction, also load `../assets/reference-action-interaction.png` as Image 4
 
+Before writing or sending this prompt, complete the skill's mandatory official-character research gate. For a named or recognizable character, use the saved official-character research brief as the identity authority and keep verified facts separate from inference. For an original/non-character subject, record `official_character_research_status=not_applicable` instead of inventing official data. Never call image generation before this gate is complete.
+
 ```text
 Use case: stylized-concept
 Asset type: source image for a layered RYBW 3MF plaque
@@ -19,6 +21,8 @@ Priority 2 — character and pose: Draw one natural upper-body portrait ending a
 Priority 3 — eyes and anatomy: Build both eyes from the same vertical pixel template. Give them identical top/bottom anchor rows and identical iris/pupil row counts, with aligned centers and matching gaze. Three-quarter perspective may make the far eye at most one logical cell narrower, but never shorter. Hair, glasses, or props may overlap the eye white; do not let occlusion shorten an iris/pupil or move an eyelid anchor. Keep the neck short and naturally broad at the base, flowing into the collar and shoulders; unless the character design requires otherwise, the visible neck opening is roughly one-quarter to one-third of the lower-face width and the collar begins within a few rows below the jaw.
 
 Priority 4 — printable silhouette: Use a one-logical-pixel pure-black outline around the complete subject. Make the lowest occupied subject row a continuous black baseline, with at least one clean background row below it. Use a uniform pure-white or easily removable flat background.
+
+Official-character research rule: Use the verified research brief at `<official-character-research-file>` for canonical identity, appearance, costume, palette, props, and signature motifs. Treat any unverified adaptation as inference. Do not copy logos, readable marks, slogans, or text from official sources.
 
 Reference rule: Images 1–3 control only cell scale, information density, outline weight, and simplification. Do not copy their identity, palette, pose, clothing, hand placement, drink, or accessories. Follow the user's requested character and action.
 
