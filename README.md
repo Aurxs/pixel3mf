@@ -97,11 +97,13 @@ UV_CACHE_DIR=.uv-cache uv pip install -r requirements-pixel3mf.txt
 尺寸规则：
 
 - 最终紧裁的 `04_pixel_perfect.png`（`export_grid`）是唯一尺寸依据，不使用原始分辨率、语义遮罩、临时工作边距或固定 `75 mm`
-- Lumina 像素单元必须为 `0.42 mm`；每次都从同一逻辑网格导出 `2×2` 与 `3×3` 两个版本
-- `2×2` 版本的逻辑像素边长为 `0.84 mm`，`3×3` 版本为 `1.26 mm`
-- 例如 `80×79` 会同时导出 `67.20×66.36 mm`（内部 `160×158` 网格）与 `100.80×99.54 mm`（内部 `240×237` 网格）；奇数边不补方、不割裂
+- Lumina 生成阶段的像素单元必须为 `0.42 mm`；每次都从同一逻辑网格导出 `2×2` 与 `3×3` 两个版本
+- `2×2` 版本保持原始尺寸，逻辑像素边长为 `0.84 mm`
+- `3×3` 版本先按 `1.26 mm` 逻辑像素边长生成精确 Lumina 栅格，再对最终 3MF 的 X/Y 顶点统一乘以 `43/42`（`102.380952%`）；最终等效 Lumina cell 为 `0.43 mm`、逻辑像素边长为 `1.29 mm`，Z 不变
+- 例如 `80×79` 的 `3×3` 版本先用 `100.80×99.54 mm` 生成内部 `240×237` 网格，最终 3MF 的物理画布为 `103.20×101.91 mm`；`2×2` 仍为 `67.20×66.36 mm`（内部 `160×158` 网格）
 - 尺寸使用十进制定点数生成，并在调用前分别模拟 Lumina 的取整公式；任一版本无法证明精确整数映射时直接失败
 - 运行时核对本地 Lumina 的 `PrinterConfig.NOZZLE_WIDTH`；不是 `0.42 mm` 时停止转换
+- 不能直接把 `1.29 mm` 对应的总宽度传给 Lumina，否则 `int(target_width_mm / 0.42)` 会改变栅格列数；XY 补偿只发生在 Lumina 已完成颜色堆叠和 3MF 生成之后
 - 生图提示词默认要求 `24×24` 逻辑像素风格；`60–85` 仅约束未处理源图的自动检测结果，不对临时 padding 或紧裁后的导出网格重复应用
 
 动态尺寸通过 Lumina 已有的浮点 API/Core 参数传入，不修改 Lumina-Layers 源码。其 GUI 宽高滑块的整数步长不影响本项目的自动流水线。
@@ -118,7 +120,9 @@ UV_CACHE_DIR=.uv-cache uv pip install -r requirements-pixel3mf.txt
 - 高级设置里的色相保护 `hue_weight=0.6`
 - Lumina 内置孤立像素清理开启
 - 优先调用 `/api/convert/batch`，即使只有一张图
-- 保留 Lumina 生成的原始 3MF 项目配置；流水线不改写打印机、层高、首层或 G-code 等切片参数
+- 保留 Lumina 生成的原始 3MF 项目配置；流水线不改写打印机、层高、首层、Arachne、`0.42 mm` 线宽或 G-code 等切片参数
+- `3×3` 的补偿会以共同中心烘焙到所有颜色零件的 X/Y 顶点；三角拓扑、颜色/挤出机映射、Z 坐标和装配关系保持不变，并在 3MF 内写入幂等标记，防止重复放大
+- `07_lumina_batch_result_3x3.zip` 保留 Lumina 返回的未补偿原件；`08_<角色名>_3x3.3mf` 是可直接以 `100%` 导入切片器的补偿后成品
 
 ## 输出目录
 
@@ -154,7 +158,10 @@ output/<timestamp>_<slug>/
 - `tools/refine_pixel.py`：先预检原图 `60–85` 网格，再验证语义遮罩后的同网格采样，并产生带临时逻辑边距的工作网格。
 - `tools/cleanup_pixel.py`：按输入路由清理封闭背景组件；透明源图禁用 RGB 颜色键和孤立像素删除，并保护原 Alpha 轮廓；最后将 Alpha 二值化、保存歧义诊断并紧裁出唯一导出网格。
 - `tools/lumina_batch.py`：按指定的每逻辑像素单元数生成并校验精确动态尺寸；总流程会分别用 `2` 和 `3` 调用它，生成两套 2D 预览、ZIP 与 3MF。API 不能启动，或当前 checkout 的 batch worker 因核心返回值版本差异失败时，会使用对应版本的相同动态尺寸调用 Lumina 核心、自行打包 ZIP，并在 manifest 记录 `batch_error`。
+- `tools/three_mf_xy_scale.py`：对已有 `3×3` 3MF 进行幂等的 XY `43/42` 补偿；统一缩放所有颜色零件、保持中心和 Z，不依赖切片器手动缩放。
 - `tools/run_pipeline.py`：总入口和 manifest 生命周期管理。
+
+XY 补偿本身只使用 Python 标准库处理 ZIP/XML，不调用也不要求安装 Bambu Studio。Bambu Studio 仅用于开发时的额外兼容性验收；没有安装切片器的机器仍可正常运行流水线或独立补偿已有 3MF。
 
 每个工具都可用 `--help` 查看独立调用方法。例如只检查像素整理：
 
@@ -165,10 +172,18 @@ output/<timestamp>_<slug>/
   output/example/05_pixel_preview_8x.png
 ```
 
+对旧的 `3×3` 成品补做 XY 补偿：
+
+```bash
+.venv/bin/python tools/three_mf_xy_scale.py \
+  output/example/08_character_3x3.3mf \
+  --output output/example/08_character_3x3_scaled.3mf
+```
+
 ## 排查
 
 - 背景移除不理想：先查看 `02_semantic_mask.png`、`02_mask_review_overlay.png` 与 `02_mask_components.json`；已抠干净的二值透明图可用 `--alpha-policy preserve`，半抠图默认用 `auto` 或显式 `repair`，也可提供权威的 `--mask-override`。纯色浅背景可显式使用 `--background-method white`。
 - Perfect Pixel 检测失败：重新生成更清晰的 24×24 大块像素源图；流水线不会用固定网格硬压或插值挽救。
 - Lumina 失败：查看运行目录内 `lumina_api.log` 和 manifest 的 `error`；确认 8000 端口没有被无关服务占用。
 - 最终矩形尺寸异常：检查 `03_working_grid.png`、`04_pixel_perfect.png` 和 manifest 的 `source_grid` / `working_grid` / `export_grid`；临时边距不得出现在尺寸计划中。
-- 在 Bambu Studio 中优先保持 `100%`，直接比较 `_2x2.3mf` 与 `_3x3.3mf` 的实际尺寸后选择打印文件。
+- 在 Bambu Studio 中保持 Arachne、`0.42 mm` 线宽和模型 `100%` 缩放；不要再次把新的 `_3x3.3mf` 放大到 `102.38%`。

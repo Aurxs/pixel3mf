@@ -21,6 +21,8 @@ import zipfile
 import requests
 from PIL import Image
 
+from three_mf_xy_scale import THREE_BY_THREE_XY_SCALE, apply_centered_xy_scale
+
 
 LUT_FILENAME = "Bambulab&PLA&4色&RYBW&红-蓝-黄-白.npy"
 EXPECTED_LUMINA_CELL_MM = Decimal("0.42")
@@ -36,6 +38,58 @@ DEFAULT_PARAMS: dict[str, object] = {
     "hue_weight": 0.6,
     "add_loop": False,
 }
+
+
+def _format_physical_mm(value: Decimal) -> str:
+    return format(value.quantize(Decimal("0.01")), "f")
+
+
+def _variant_geometry_postprocess(
+    final_path: Path,
+    size_plan: dict[str, object],
+    cells_per_logical_pixel: int,
+) -> dict[str, object]:
+    """Finalize physical pitch without changing Lumina's integer raster."""
+    nominal_width = Decimal(str(size_plan["nominal_target_width_mm"]))
+    nominal_height = Decimal(str(size_plan["nominal_target_height_mm"]))
+    source_pitch = Decimal(str(size_plan["logical_pixel_pitch_mm"]))
+    if cells_per_logical_pixel != 3:
+        return {
+            "applied": False,
+            "reason": "XY printability compensation is only required for 3x3",
+            "axis": "none",
+            "z_unchanged": True,
+            "scale_factor": "1",
+            "source_logical_pixel_pitch_mm": _format_physical_mm(source_pitch),
+            "effective_logical_pixel_pitch_mm": _format_physical_mm(source_pitch),
+            "final_target_width_mm": _format_physical_mm(nominal_width),
+            "final_target_height_mm": _format_physical_mm(nominal_height),
+        }
+
+    result = apply_centered_xy_scale(
+        final_path,
+        scale=THREE_BY_THREE_XY_SCALE,
+    )
+    return {
+        **result,
+        "source_lumina_cell_pitch_mm": _format_physical_mm(EXPECTED_LUMINA_CELL_MM),
+        "effective_lumina_cell_pitch_mm": _format_physical_mm(
+            EXPECTED_LUMINA_CELL_MM * THREE_BY_THREE_XY_SCALE
+        ),
+        "source_logical_pixel_pitch_mm": _format_physical_mm(source_pitch),
+        "effective_logical_pixel_pitch_mm": _format_physical_mm(
+            source_pitch * THREE_BY_THREE_XY_SCALE
+        ),
+        "source_target_width_mm": _format_physical_mm(nominal_width),
+        "source_target_height_mm": _format_physical_mm(nominal_height),
+        "final_target_width_mm": _format_physical_mm(
+            nominal_width * THREE_BY_THREE_XY_SCALE
+        ),
+        "final_target_height_mm": _format_physical_mm(
+            nominal_height * THREE_BY_THREE_XY_SCALE
+        ),
+        "raw_batch_archive_is_unscaled": True,
+    }
 
 
 def build_pixel_size_plan(
@@ -468,6 +522,11 @@ def convert_with_lumina_batch(
                 params,
                 f"API unavailable ({type(exc).__name__}): {exc}",
             )
+            geometry_postprocess = _variant_geometry_postprocess(
+                final_path,
+                size_plan,
+                cells_per_logical_pixel,
+            )
             return {
                 **fallback,
                 "api_url": base_url,
@@ -477,6 +536,7 @@ def convert_with_lumina_batch(
                 "color_mode": lut["color_mode"],
                 **params,
                 "pixel_size_plan": size_plan,
+                "xy_printability_compensation": geometry_postprocess,
                 "batch_response": None,
             }
 
@@ -544,6 +604,12 @@ def convert_with_lumina_batch(
                 preview_metadata,
             )
 
+        geometry_postprocess = _variant_geometry_postprocess(
+            final_path,
+            size_plan,
+            cells_per_logical_pixel,
+        )
+
         return {
             "method": fallback["method"] if fallback else "batch-api",
             "api_url": base_url,
@@ -553,6 +619,7 @@ def convert_with_lumina_batch(
             "color_mode": lut["color_mode"],
             **params,
             "pixel_size_plan": size_plan,
+            "xy_printability_compensation": geometry_postprocess,
             "preview_path": str(preview_path),
             "batch_response": batch,
             **preview_metadata,
