@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""WorkBuddy orchestration for research, TokenHub generation, and Pixel3MF."""
+"""WorkBuddy orchestration for image generation and Pixel3MF conversion."""
 
 from __future__ import annotations
 
@@ -968,6 +968,81 @@ def generate_source(
     return attempt
 
 
+def import_workbuddy_candidate(
+    run_dir: str | Path,
+    *,
+    source_image: str | Path,
+    model: str = "workbuddy-default",
+) -> dict[str, Any]:
+    """Register one image made by WorkBuddy's native generator as an attempt."""
+    resolved, state = load_state(run_dir)
+    if state["route"] == "direct":
+        raise ValueError("direct conversion cannot import a generated candidate")
+    if state.get("cleanup_required"):
+        raise RuntimeError("COS reference cleanup is required before continuing")
+    attempts = state["attempts"]
+    if len(attempts) >= MAX_GENERATION_ATTEMPTS:
+        raise RuntimeError("maximum of three generation attempts has been reached")
+    if state.get("status") not in {"initialized", "ready_for_retry"}:
+        raise RuntimeError(
+            f"cannot import a candidate while WorkBuddy run status is {state.get('status')}"
+        )
+    if state.get("selected_attempt") is not None:
+        raise RuntimeError("a source attempt is already accepted")
+
+    source = Path(source_image).expanduser().resolve()
+    if not source.is_file():
+        raise FileNotFoundError(f"WorkBuddy candidate image not found: {source}")
+    number = len(attempts) + 1
+    candidate = resolved / f"01_source_attempt_{number:02d}.png"
+    if candidate.exists():
+        raise FileExistsError(f"generation candidate already exists: {candidate}")
+    with Image.open(source) as image:
+        image.convert("RGBA").save(candidate)
+
+    validation = _objective_preflight(candidate)
+    attempt: dict[str, Any] = {
+        "number": number,
+        "created_at": _now_iso(),
+        "finished_at": _now_iso(),
+        "file": str(candidate),
+        "provider": "workbuddy",
+        "model": model.strip() or "workbuddy-default",
+        "logo_add": None,
+        "prompt_sha256": hashlib.sha256(
+            render_prompt(state).encode("utf-8")
+        ).hexdigest(),
+        "reference_files": [str(path) for path in prepare_references(resolved, state)],
+        "reference_transport": "workbuddy-native",
+        "task_id": None,
+        "request_id": None,
+        "submission_mode": "host-native",
+        "objective_validation": validation,
+        "visual_decision": None if validation["passed"] else "not_required",
+        "visual_reason": None if validation["passed"] else "; ".join(validation["reasons"]),
+        "cos_objects": [],
+        "cos_cleanup": [],
+        "duration_seconds": None,
+        "status": (
+            "awaiting_visual_decision" if validation["passed"] else "objective_rejected"
+        ),
+        "error": None,
+    }
+    attempts.append(attempt)
+    state["status"] = (
+        "awaiting_visual_decision"
+        if validation["passed"]
+        else (
+            "attempts_exhausted"
+            if number >= MAX_GENERATION_ATTEMPTS
+            else "ready_for_retry"
+        )
+    )
+    state["updated_at"] = _now_iso()
+    _write_json(resolved / STATE_FILENAME, state)
+    return attempt
+
+
 def resume_generation(
     run_dir: str | Path,
     *,
@@ -1168,16 +1243,22 @@ def _alpha_profile(path: Path) -> dict[str, Any]:
 def _generation_manifest(state: dict[str, Any]) -> dict[str, Any] | None:
     if state["route"] == "direct":
         return None
+    selected_number = state.get("selected_attempt")
+    selected = next(
+        (
+            attempt
+            for attempt in state["attempts"]
+            if attempt.get("number") == selected_number
+        ),
+        None,
+    )
     return {
         "version": 1,
-        "provider": "tokenhub",
-        "model": next(
-            (attempt["model"] for attempt in state["attempts"] if attempt.get("model")),
-            "hy-image-v3.0",
-        ),
-        "logo_add": 0,
+        "provider": (selected or {}).get("provider", "unknown"),
+        "model": (selected or {}).get("model", "unknown"),
+        "logo_add": (selected or {}).get("logo_add"),
         "attempts": state["attempts"],
-        "selected_attempt": state["selected_attempt"],
+        "selected_attempt": selected_number,
     }
 
 
@@ -1385,6 +1466,12 @@ def doctor(config_path: str | Path | None = None) -> dict[str, Any]:
         "configured" if tokenhub_key else "missing; direct conversion remains available",
         severity="warning",
     )
+    record(
+        "workbuddy_candidate_import",
+        True,
+        "available through render-prompt and import-candidate",
+        severity="warning",
+    )
     secret_id, secret_key = _cos_credentials()
     cos_complete = bool(secret_id and secret_key and config["cos"].get("bucket"))
     record(
@@ -1425,10 +1512,13 @@ def doctor(config_path: str | Path | None = None) -> dict[str, Any]:
     core_ready = all(
         check["ok"] for check in checks.values() if check["severity"] == "error"
     )
-    generation_ready = core_ready and bool(tokenhub_key)
+    tokenhub_generation_ready = core_ready and bool(tokenhub_key)
+    generation_ready = core_ready
     return {
         "core_ready": core_ready,
         "generation_ready": generation_ready,
+        "tokenhub_generation_ready": tokenhub_generation_ready,
+        "workbuddy_candidate_import_ready": core_ready,
         "cos_fallback_ready": cos_complete and cos_sdk,
         "config_path": str(Path(config_path).resolve()) if config_path else str(DEFAULT_CONFIG_PATH),
         "checks": checks,
@@ -1441,6 +1531,14 @@ def _print_doctor(report: dict[str, Any]) -> None:
         print(f"[{symbol}] {name}: {check['detail']}")
     print(f"core_ready={str(report['core_ready']).lower()}")
     print(f"generation_ready={str(report['generation_ready']).lower()}")
+    print(
+        "tokenhub_generation_ready="
+        + str(report["tokenhub_generation_ready"]).lower()
+    )
+    print(
+        "workbuddy_candidate_import_ready="
+        + str(report["workbuddy_candidate_import_ready"]).lower()
+    )
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -1482,6 +1580,14 @@ def _build_parser() -> argparse.ArgumentParser:
 
     generate_parser = subparsers.add_parser("generate")
     generate_parser.add_argument("--run-dir", required=True)
+
+    prompt_parser = subparsers.add_parser("render-prompt")
+    prompt_parser.add_argument("--run-dir", required=True)
+
+    import_parser = subparsers.add_parser("import-candidate")
+    import_parser.add_argument("--run-dir", required=True)
+    import_parser.add_argument("--source-image", required=True)
+    import_parser.add_argument("--model", default="workbuddy-default")
 
     resume_parser = subparsers.add_parser("resume-generation")
     resume_parser.add_argument("--run-dir", required=True)
@@ -1550,6 +1656,20 @@ def main() -> None:
         return
     if args.command == "generate":
         attempt = generate_source(args.run_dir, config_path=args.config)
+        print(json.dumps(attempt, ensure_ascii=False, indent=2))
+        return
+    if args.command == "render-prompt":
+        _, state = load_state(args.run_dir)
+        if state["route"] == "direct":
+            raise ValueError("direct conversion does not have an image-generation prompt")
+        print(render_prompt(state))
+        return
+    if args.command == "import-candidate":
+        attempt = import_workbuddy_candidate(
+            args.run_dir,
+            source_image=args.source_image,
+            model=args.model,
+        )
         print(json.dumps(attempt, ensure_ascii=False, indent=2))
         return
     if args.command == "resume-generation":

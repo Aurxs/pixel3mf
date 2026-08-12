@@ -41,7 +41,7 @@ uv pip install -r requirements-pixel3mf.txt
 
 项目级 WorkBuddy 说明保存在 `workbuddy/project-instructions.md`，非敏感配置模板保存在 `workbuddy/config.example.json`。把模板复制为仓库根目录的 `.workbuddy.local.json` 后填写私有 COS bucket；该本地配置和 `dist/` 均被 Git 忽略。
 
-WorkBuddy 总入口提供环境检查、任务初始化、单次生图、视觉决定和转换：
+WorkBuddy 总入口提供环境检查、任务初始化、隔离提示词渲染、单次生图/候选导入、视觉决定和转换：
 
 ```bash
 .venv/bin/python tools/workbuddy_pixel3mf.py doctor
@@ -50,6 +50,8 @@ WorkBuddy 总入口提供环境检查、任务初始化、单次生图、视觉�
 .venv/bin/python tools/workbuddy_pixel3mf.py configure-keychain cos-secret-key
 .venv/bin/python tools/workbuddy_pixel3mf.py init-run --help
 .venv/bin/python tools/workbuddy_pixel3mf.py generate --help
+.venv/bin/python tools/workbuddy_pixel3mf.py render-prompt --help
+.venv/bin/python tools/workbuddy_pixel3mf.py import-candidate --help
 .venv/bin/python tools/workbuddy_pixel3mf.py resume-generation --help
 .venv/bin/python tools/workbuddy_pixel3mf.py cleanup-references --help
 .venv/bin/python tools/workbuddy_pixel3mf.py decide --help
@@ -57,6 +59,8 @@ WorkBuddy 总入口提供环境检查、任务初始化、单次生图、视觉�
 ```
 
 TokenHub 与 COS 密钥优先从 macOS Keychain 的 `pixel3mf.tokenhub` / `pixel3mf.cos` service 读取；CI 可使用 `PIXEL3MF_TOKENHUB_API_KEY`、`PIXEL3MF_COS_SECRET_ID`、`PIXEL3MF_COS_SECRET_KEY`、`PIXEL3MF_COS_BUCKET` 和 `PIXEL3MF_COS_REGION`。不要把密钥写进 `.workbuddy.local.json`。
+
+TokenHub 未配置时，可在 WorkBuddy 中用 `render-prompt` 输出的隔离提示词调用默认生图能力，并用 `import-candidate` 登记每张候选。该入口与 TokenHub 共用最多 3 次的硬限制、客观预检和 `decide` 视觉验收；它不是已提交 TokenHub 任务的自动回退。
 
 COS 只作为 TokenHub 拒绝 data URI 时的后备。桶必须保持私有读，预签名 URL 固定 15 分钟，任务结束后由编排器删除对象；`workbuddy/cos-cam-policy.example.json` 给出仅限 `workbuddy-reference/` 前缀上传、读取和删除的子账号策略，`workbuddy/cos-lifecycle.example.json` 给出 1 天生命周期兜底。把示例中的 APPID 与桶名占位符替换后再通过腾讯云控制台应用，不要授予公共读。
 

@@ -72,6 +72,11 @@ class WorkBuddyStateTests(unittest.TestCase):
 
         self.assertIn("python_dependencies", report["checks"])
         self.assertIsInstance(report["core_ready"], bool)
+        self.assertEqual(report["generation_ready"], report["core_ready"])
+        self.assertFalse(report["tokenhub_generation_ready"])
+        self.assertEqual(
+            report["workbuddy_candidate_import_ready"], report["core_ready"]
+        )
 
     def test_keychain_configuration_uses_interactive_prompt_not_process_argument(self) -> None:
         completed = MagicMock(returncode=0)
@@ -479,6 +484,77 @@ class WorkBuddyGenerationTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, "maximum of three"):
                     workbuddy.generate_source(run_dir)
 
+    def test_import_workbuddy_candidate_uses_shared_attempt_gate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = workbuddy.init_run(
+                character_name="native",
+                character_request="an original pixel fox",
+                original_request="make it",
+                route="generate",
+                output_root=tmp,
+            )
+            sources = []
+            for number in range(1, 4):
+                source = Path(tmp) / f"native-{number}.png"
+                _opaque_png(source)
+                sources.append(source)
+            passed = {
+                "passed": True,
+                "fully_opaque": True,
+                "pure_white_border": True,
+                "detected_grid": {"width": 72, "height": 72},
+                "reasons": [],
+            }
+            with patch.object(workbuddy, "_objective_preflight", return_value=passed):
+                first = workbuddy.import_workbuddy_candidate(
+                    run_dir, source_image=sources[0]
+                )
+                self.assertEqual(first["provider"], "workbuddy")
+                self.assertEqual(first["reference_transport"], "workbuddy-native")
+                workbuddy.decide_source(
+                    run_dir,
+                    attempt_number=1,
+                    decision="rejected",
+                    reason="visual mismatch",
+                )
+                second = workbuddy.import_workbuddy_candidate(
+                    run_dir, source_image=sources[1]
+                )
+                workbuddy.decide_source(
+                    run_dir,
+                    attempt_number=2,
+                    decision="rejected",
+                    reason="visual mismatch",
+                )
+                workbuddy.import_workbuddy_candidate(run_dir, source_image=sources[2])
+                with self.assertRaisesRegex(RuntimeError, "maximum of three"):
+                    workbuddy.import_workbuddy_candidate(
+                        run_dir, source_image=sources[2]
+                    )
+
+    def test_import_workbuddy_candidate_requires_decision_before_next_attempt(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = workbuddy.init_run(
+                character_name="native",
+                character_request="an original pixel fox",
+                original_request="make it",
+                route="generate",
+                output_root=tmp,
+            )
+            source = Path(tmp) / "native.png"
+            _opaque_png(source)
+            passed = {
+                "passed": True,
+                "fully_opaque": True,
+                "pure_white_border": True,
+                "detected_grid": {"width": 72, "height": 72},
+                "reasons": [],
+            }
+            with patch.object(workbuddy, "_objective_preflight", return_value=passed):
+                workbuddy.import_workbuddy_candidate(run_dir, source_image=source)
+                with self.assertRaisesRegex(RuntimeError, "awaiting_visual_decision"):
+                    workbuddy.import_workbuddy_candidate(run_dir, source_image=source)
+
     def test_reference_url_rejection_falls_back_to_cos_and_cleans_up(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             run_dir = self._run_dir(tmp)
@@ -804,6 +880,26 @@ class WorkBuddyConversionTests(unittest.TestCase):
             self.assertEqual(metadata["selected_attempt"], 1)
             self.assertEqual(metadata["provider"], "tokenhub")
             self.assertNotIn("api_key", json.dumps(metadata))
+
+    def test_workbuddy_candidate_is_selected_manifest_provider(self) -> None:
+        state = {
+            "route": "generate",
+            "attempts": [
+                {
+                    "number": 1,
+                    "provider": "workbuddy",
+                    "model": "workbuddy-default",
+                    "logo_add": None,
+                }
+            ],
+            "selected_attempt": 1,
+        }
+
+        metadata = workbuddy._generation_manifest(state)
+
+        self.assertEqual(metadata["provider"], "workbuddy")
+        self.assertEqual(metadata["model"], "workbuddy-default")
+        self.assertIsNone(metadata["logo_add"])
 
     def test_failed_pipeline_is_archived_before_mask_retry(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
