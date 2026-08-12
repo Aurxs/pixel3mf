@@ -84,6 +84,15 @@ class ThreeMfXYScaleTests(unittest.TestCase):
                 {"x": "10.238095238095", "y": "20.47619047619", "z": "2"},
             )
             self.assertEqual(result["scale_center_mm"], {"x": "15", "y": "40"})
+            self.assertEqual(
+                result["placement_translation_mm"],
+                {"x": "0.119047619048", "y": "0.238095238095"},
+            )
+            self.assertTrue(result["lower_left_placement_preserved"])
+            self.assertEqual(
+                result["bounds_after_mm"]["min"],
+                {"x": "10", "y": "30", "z": "0"},
+            )
             self.assertEqual(result["geometry_representation"], "baked_mesh_vertices")
             self.assertEqual(result["transformed_vertex_count"], 4)
 

@@ -32,7 +32,7 @@ Treat the final cleaned and tight-cropped `04_pixel_perfect.png` dimensions as t
 5. Before each conversion, simulate Lumina's current `int(target_width_mm / 0.42)` and aspect-ratio calculation. Continue only when the result exactly matches that variant's `2W × 2H` or `3W × 3H` plan.
 6. Compensate only for binary-float representation at an integer boundary by nudging the transport width upward by the smallest representable float. Never round to a different Lumina cell count.
 7. Fail if Lumina's configured pixel cell is not `0.42 mm`, or if exact integer mapping cannot be proven.
-8. Only after the `3 × 3` 3MF exists, bake a centered XY `43 / 42` scale into every mesh vertex in every color part. Preserve Z coordinates, triangle topology, component assembly, material/extruder mapping, and all slicer settings. Mark the package so the operation is idempotent and fail on an ambiguous pre-existing build transform.
+8. Only after the `3 × 3` 3MF exists, bake a centered XY `43 / 42` scale into every mesh vertex in every color part, then translate the complete result to preserve its original lower-left placement and prevent negative X/Y coordinates. Preserve Z coordinates, triangle topology, component assembly, material/extruder mapping, and all slicer settings. Mark the package so the operation is idempotent and fail on an ambiguous pre-existing build transform.
 
 Do not send the final `W × 1.29` width to Lumina. Lumina would evaluate `int(target_width_mm / 0.42)` and eventually add columns, breaking the exact `3W × 3H` raster. The `1.29 mm` pitch is a final-geometry property only.
 
@@ -77,7 +77,7 @@ Create `manifest.json` with:
 - source, refined, temporary working, and tight export grids; removed outer-transparent cells; plus any explicitly requested square padding
 - Lumina generation cell size and a keyed `2x2` / `3x3` record of cells per logical pixel, generation pitch, and final physical pitch
 - for both variants, nominal Lumina-generation width and height, transport width, expected Lumina raster, simulated raster, and exact-mapping result
-- for `3x3`, the XY scale factor, before/after mesh bounds, vertex count, package hash, final `W × 1.29` / `H × 1.29` physical dimensions, unchanged-Z verification, and the fact that the retained batch archive is unscaled
+- for `3x3`, the XY scale factor, placement translation, before/after mesh bounds, vertex count, package hash, final `W × 1.29` / `H × 1.29` physical dimensions, unchanged-Z verification, and the fact that the retained batch archive is unscaled
 - Lumina method, LUT, and conversion parameters
 - A1 mini profile source, profile path, color count, preserved filament colors, prime-tower placement, project-settings hashes before/after, package hashes before/after, and whether normalization was applied
 - both Lumina preview, archive, and final 3MF paths

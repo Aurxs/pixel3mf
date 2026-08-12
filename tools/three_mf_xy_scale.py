@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Apply a centered XY-only scale to a multipart 3MF.
 
-Every component's mesh vertices receive the same centered XY compensation.
+Every component's mesh vertices receive the same centered XY compensation, then
+the complete model is translated to preserve its original lower-left placement.
 Triangle topology, component assembly, material-part mapping, and Z coordinates
 remain unchanged. Baking the scale into vertices is deliberate: Bambu Studio's
 project importer does not consistently apply a non-uniform top-level transform.
@@ -143,7 +144,7 @@ def _bounds_record(bounds: dict[str, Decimal]) -> dict[str, object]:
 
 def _transformed_bounds(
     bounds: dict[str, Decimal], scale: Decimal
-) -> tuple[dict[str, Decimal], Decimal, Decimal]:
+) -> tuple[dict[str, Decimal], Decimal, Decimal, Decimal, Decimal]:
     center_x = (bounds["min_x"] + bounds["max_x"]) / 2
     center_y = (bounds["min_y"] + bounds["max_y"]) / 2
     transformed = dict(bounds)
@@ -151,7 +152,17 @@ def _transformed_bounds(
     transformed["max_x"] = center_x + (bounds["max_x"] - center_x) * scale
     transformed["min_y"] = center_y + (bounds["min_y"] - center_y) * scale
     transformed["max_y"] = center_y + (bounds["max_y"] - center_y) * scale
-    return transformed, center_x, center_y
+
+    # Lumina places the raw model almost flush with the X/Y origin. A centered
+    # enlargement would therefore create negative coordinates. Translate the
+    # already-centered result so its lower-left placement remains unchanged.
+    translate_x = bounds["min_x"] - transformed["min_x"]
+    translate_y = bounds["min_y"] - transformed["min_y"]
+    transformed["min_x"] += translate_x
+    transformed["max_x"] += translate_x
+    transformed["min_y"] += translate_y
+    transformed["max_y"] += translate_y
+    return transformed, center_x, center_y, translate_x, translate_y
 
 
 def _inspect_root_model(root_xml: bytes) -> tuple[ET.Element, list[ET.Element]]:
@@ -191,6 +202,8 @@ def _transform_vertex_data(
     center_x: Decimal,
     center_y: Decimal,
     scale: Decimal,
+    translate_x: Decimal,
+    translate_y: Decimal,
 ) -> tuple[bytes, int]:
     transformed_vertices = 0
 
@@ -204,7 +217,8 @@ def _transform_vertex_data(
             seen_axes.add(axis)
             value = Decimal(attribute_match.group("value").decode("ascii"))
             center = center_x if axis == b"x" else center_y
-            transformed = center + (value - center) * scale
+            translation = translate_x if axis == b"x" else translate_y
+            transformed = center + (value - center) * scale + translation
             return (
                 attribute_match.group("prefix")
                 + _decimal_text(transformed).encode("ascii")
@@ -278,7 +292,13 @@ def apply_centered_xy_scale(
             )
 
         bounds_before, source_vertex_count = _mesh_bounds(source_archive)
-        bounds_after, center_x, center_y = _transformed_bounds(bounds_before, scale)
+        (
+            bounds_after,
+            center_x,
+            center_y,
+            translate_x,
+            translate_y,
+        ) = _transformed_bounds(bounds_before, scale)
         rewritten_root = _add_compensation_metadata(root_xml, scale_text)
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -305,6 +325,8 @@ def apply_centered_xy_scale(
                                     center_x=center_x,
                                     center_y=center_y,
                                     scale=scale,
+                                    translate_x=translate_x,
+                                    translate_y=translate_y,
                                 )
                                 transformed_vertex_count += count
                                 target_member.write(transformed_root)
@@ -315,6 +337,8 @@ def apply_centered_xy_scale(
                                     center_x=center_x,
                                     center_y=center_y,
                                     scale=scale,
+                                    translate_x=translate_x,
+                                    translate_y=translate_y,
                                 )
                                 transformed_vertex_count += count
                                 target_member.write(transformed_line)
@@ -374,6 +398,11 @@ def apply_centered_xy_scale(
             "x": _decimal_text(center_x),
             "y": _decimal_text(center_y),
         },
+        "placement_translation_mm": {
+            "x": _decimal_text(translate_x),
+            "y": _decimal_text(translate_y),
+        },
+        "lower_left_placement_preserved": True,
         "root_model_path": root_model_path,
         "build_item_count": len(build_items),
         "bounds_before_mm": _bounds_record(bounds_before),
