@@ -120,7 +120,11 @@ UV_CACHE_DIR=.uv-cache uv pip install -r requirements-pixel3mf.txt
 - 高级设置里的色相保护 `hue_weight=0.6`
 - Lumina 内置孤立像素清理开启
 - 优先调用 `/api/convert/batch`，即使只有一张图
-- 保留 Lumina 生成的原始 3MF 项目配置；流水线不改写打印机、层高、首层、Arachne、`0.42 mm` 线宽或 G-code 等切片参数
+- `07_lumina_batch_result_*.zip` 原样保留 Lumina 返回的 3MF 及项目配置；只对已解压并命名的 `08_*.3mf` 成品做幂等配置规范化
+- 最终 3MF 使用固定的 Bambu Lab A1 mini 0.4 mm 机型与官方 `0.08mm Extra Fine @BBL A1M` 基线；机器 G-code、热床/喷嘴温度、速度、加速度和 PLA 流量来自该基线快照
+- 对基线固定覆盖：`0.08 mm` 首层，相关线宽全部 `0.42 mm`，Arachne，1 圈墙，首层仅单层墙，顶/底壳 0 层，100% `zig-zag` 填充且方向 `0°`，关闭狭窄内部实心填充识别，关闭支撑，自动边缘宽 `5 mm`
+- 开启单喷头多材料和擦料塔；塔宽 `170 mm`，位置 `X=5 mm, Y=160 mm`（A1 mini 打印板上方），关闭擦料塔斜肋外墙
+- 只替换 `Metadata/project_settings.config`；Lumina 动态颜色、冲刷量、颜色/挤出机映射、模型几何和 `2×2` / `3×3` XY 补偿保持不变
 - `3×3` 的补偿会以共同中心烘焙到所有颜色零件的 X/Y 顶点；三角拓扑、颜色/挤出机映射、Z 坐标和装配关系保持不变，并在 3MF 内写入幂等标记，防止重复放大
 - `07_lumina_batch_result_3x3.zip` 保留 Lumina 返回的未补偿原件；`08_<角色名>_3x3.3mf` 是可直接以 `100%` 导入切片器的补偿后成品
 
@@ -148,7 +152,7 @@ output/<timestamp>_<slug>/
 └── manifest.json
 ```
 
-`manifest.json` 在流程开始时就创建；成功或异常退出时都会更新。两个最终 3MF 会按 `--character-name` 命名，例如 `08_初音未来_2x2.3mf` 与 `08_初音未来_3x3.3mf`。manifest 顶层记录 `source_grid`、`working_grid` 与 `export_grid`，并按 `2x2` / `3x3` 记录所有文件路径、精确尺寸计划、Lumina 参数、预览、归档和最终 3MF；模型条目还记录实际 provider、回退原因、耗时、峰值 RSS 与内存上限。歧义阻断时也会保留组件统计、标记预览、状态和错误堆栈。
+`manifest.json` 在流程开始时就创建；成功或异常退出时都会更新。两个最终 3MF 会按 `--character-name` 命名，例如 `08_初音未来_2x2.3mf` 与 `08_初音未来_3x3.3mf`。manifest 顶层记录 `source_grid`、`working_grid` 与 `export_grid`，并按 `2x2` / `3x3` 记录所有文件路径、精确尺寸计划、Lumina 参数、预览、归档、XY 补偿、A1 mini 配置规范化的前后哈希与最终 3MF；模型条目还记录实际 provider、回退原因、耗时、峰值 RSS 与内存上限。歧义阻断时也会保留组件统计、标记预览、状态和错误堆栈。
 
 ## 独立工具
 
@@ -157,11 +161,12 @@ output/<timestamp>_<slug>/
 - `tools/prepare_square_canvas.py`：仅保留旧版比例 padding 的独立工具兼容接口；总流水线不再调用。
 - `tools/refine_pixel.py`：先预检原图 `60–85` 网格，再验证语义遮罩后的同网格采样，并产生带临时逻辑边距的工作网格。
 - `tools/cleanup_pixel.py`：按输入路由清理封闭背景组件；透明源图禁用 RGB 颜色键和孤立像素删除，并保护原 Alpha 轮廓；最后将 Alpha 二值化、保存歧义诊断并紧裁出唯一导出网格。
-- `tools/lumina_batch.py`：按指定的每逻辑像素单元数生成并校验精确动态尺寸；总流程会分别用 `2` 和 `3` 调用它，生成两套 2D 预览、ZIP 与 3MF。API 不能启动，或当前 checkout 的 batch worker 因核心返回值版本差异失败时，会使用对应版本的相同动态尺寸调用 Lumina 核心、自行打包 ZIP，并在 manifest 记录 `batch_error`。
+- `tools/lumina_batch.py`：按指定的每逻辑像素单元数生成并校验精确动态尺寸；总流程会分别用 `2` 和 `3` 调用它，生成两套 2D 预览、原始 ZIP 与已规范化的成品 3MF。API 不能启动，或当前 checkout 的 batch worker 因核心返回值版本差异失败时，会使用对应版本的相同动态尺寸调用 Lumina 核心、自行打包 ZIP，并在 manifest 记录 `batch_error`。
 - `tools/three_mf_xy_scale.py`：对已有 `3×3` 3MF 进行幂等的 XY `43/42` 补偿；统一缩放所有颜色零件、保持中心和 Z，不依赖切片器手动缩放。
+- `tools/three_mf_a1mini_profile.py`：对已有 Lumina 3MF 幂等套用固定的 A1 mini 机器/工艺/耗材配置；支持 `--output` 写入新文件，不修改输入原件。固定快照位于 `profiles/bambu_a1mini_0.4_0.08_extra_fine_pixel3mf.json`。
 - `tools/run_pipeline.py`：总入口和 manifest 生命周期管理。
 
-XY 补偿本身只使用 Python 标准库处理 ZIP/XML，不调用也不要求安装 Bambu Studio。Bambu Studio 仅用于开发时的额外兼容性验收；没有安装切片器的机器仍可正常运行流水线或独立补偿已有 3MF。
+XY 补偿和 A1 mini 配置规范化都只使用 Python 标准库处理 3MF，运行时不调用也不要求安装 Bambu Studio。Bambu Studio 仅用于开发时的额外兼容性验收；没有安装切片器的机器仍可正常运行流水线。
 
 每个工具都可用 `--help` 查看独立调用方法。例如只检查像素整理：
 
@@ -180,10 +185,18 @@ XY 补偿本身只使用 Python 标准库处理 ZIP/XML，不调用也不要求�
   --output output/example/08_character_3x3_scaled.3mf
 ```
 
+对旧的 Lumina 3MF 生成新的 A1 mini 成品（输入保持不变）：
+
+```bash
+.venv/bin/python tools/three_mf_a1mini_profile.py \
+  output/example/raw.3mf \
+  --output output/example/a1mini.3mf
+```
+
 ## 排查
 
 - 背景移除不理想：先查看 `02_semantic_mask.png`、`02_mask_review_overlay.png` 与 `02_mask_components.json`；已抠干净的二值透明图可用 `--alpha-policy preserve`，半抠图默认用 `auto` 或显式 `repair`，也可提供权威的 `--mask-override`。纯色浅背景可显式使用 `--background-method white`。
 - Perfect Pixel 检测失败：重新生成更清晰的 24×24 大块像素源图；流水线不会用固定网格硬压或插值挽救。
 - Lumina 失败：查看运行目录内 `lumina_api.log` 和 manifest 的 `error`；确认 8000 端口没有被无关服务占用。
 - 最终矩形尺寸异常：检查 `03_working_grid.png`、`04_pixel_perfect.png` 和 manifest 的 `source_grid` / `working_grid` / `export_grid`；临时边距不得出现在尺寸计划中。
-- 在 Bambu Studio 中保持 Arachne、`0.42 mm` 线宽和模型 `100%` 缩放；不要再次把新的 `_3x3.3mf` 放大到 `102.38%`。
+- 最终 3MF 已内置 A1 mini、Arachne、`0.42 mm` 线宽和其余固定参数；在 Bambu Studio 中保持模型 `100%` 缩放，不要再次把新的 `_3x3.3mf` 放大到 `102.38%`。

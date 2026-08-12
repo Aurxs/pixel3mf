@@ -18,7 +18,8 @@ Do not read this file until `04_pixel_perfect.png` and `05_pixel_preview_8x.png`
 - `hue_weight = 0.6`
 - Preserve the automatically refined grid without forcing a target grid
 - Prefer batch conversion, including a single-image batch
-- Preserve all intermediate outputs and Lumina's generated 3MF project settings
+- Preserve all intermediate outputs and the raw batch archive, including Lumina's generated 3MF project settings
+- Normalize only each extracted final 3MF to the pinned Bambu Lab A1 mini 0.4 mm profile after geometry finalization; never modify the `Lumina-Layers/` checkout
 
 ## Exact sizing gate
 
@@ -48,13 +49,23 @@ Use the local `Lumina-Layers/` checkout.
 5. Run batch conversion for each variant with the width used by its preview.
 6. Preserve the returned archives as `07_lumina_batch_result_2x2.zip` and `07_lumina_batch_result_3x3.zip` when applicable.
 7. Extract and name the models `08_<character-slug>_2x2.3mf` and `08_<character-slug>_3x3.3mf`.
-8. Leave the `2 × 2` model unchanged. Apply the verified centered XY vertex compensation to the final `3 × 3` model only. Keep the batch ZIP as the raw, unscaled Lumina archive.
+8. Leave the `2 × 2` geometry unchanged. Apply the verified centered XY vertex compensation to the final `3 × 3` model only. Keep the batch ZIP as the raw, unscaled and unnormalized Lumina archive.
+9. Apply `tools/three_mf_a1mini_profile.py` to each extracted final 3MF. Preserve Lumina's dynamic colors, flush volumes, geometry, color/extruder mapping, and the completed XY compensation.
 
-Treat both 3MFs as required final deliverables. Do not stop after the first succeeds, do not substitute manual slicer scaling for the baked `3 × 3` compensation, and do not ask the user to choose until both files and their exact final physical dimensions are available for comparison. Bambu Studio should remain at `100%` model scale with Arachne and `0.42 mm` line width.
+Treat both 3MFs as required final deliverables. Do not stop after the first succeeds, do not substitute manual slicer scaling for the baked `3 × 3` compensation, and do not ask the user to choose until both files and their exact final physical dimensions are available for comparison. Bambu Studio should remain at `100%` model scale; Arachne and `0.42 mm` line widths are embedded by the final profile normalization.
 
 If the API path is unavailable, call the repository's core preview function first and then its core conversion logic. Inspect the current repository for accepted parameter and LUT names instead of guessing enum values.
 
-Do not rewrite printer model, layer height, first-layer, bed geometry, or machine G-code fields. Leave those for later review in Bambu Studio.
+The pinned profile starts from Bambu Studio 02.07.01.62's official `0.08mm Extra Fine @BBL A1M`, A1 mini 0.4 mm machine, current A1 mini machine G-code, and Bambu PLA Basic settings. Apply these deliberate overrides:
+
+- `0.08 mm` initial layer; all relevant line widths `0.42 mm`
+- Arachne, one wall loop, only one wall on the first layer, zero top/bottom shell layers
+- 100% zig-zag sparse infill at `0°`; narrow internal solid infill detection disabled
+- support disabled; automatic brim width `5 mm`
+- single-extruder multimaterial and prime tower enabled
+- prime tower width `170 mm`, `X=5 mm`, `Y=160 mm`, prime-tower rib wall disabled
+
+Keep the official A1 mini baseline for all unlisted machine, temperature, speed, acceleration, and filament parameters. This normalization belongs to the outer `pixel3mf` project only, so replacing or upgrading `Lumina-Layers/` cannot erase it.
 
 ## Manifest
 
@@ -68,6 +79,7 @@ Create `manifest.json` with:
 - for both variants, nominal Lumina-generation width and height, transport width, expected Lumina raster, simulated raster, and exact-mapping result
 - for `3x3`, the XY scale factor, before/after mesh bounds, vertex count, package hash, final `W × 1.29` / `H × 1.29` physical dimensions, unchanged-Z verification, and the fact that the retained batch archive is unscaled
 - Lumina method, LUT, and conversion parameters
+- A1 mini profile source, profile path, color count, preserved filament colors, prime-tower placement, project-settings hashes before/after, package hashes before/after, and whether normalization was applied
 - both Lumina preview, archive, and final 3MF paths
 - status, gate results, and failure notes
 
