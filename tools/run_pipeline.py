@@ -13,16 +13,15 @@ import traceback
 
 from PIL import Image
 
-from cleanup_pixel import cleanup_pixel
+from cleanup_pixel import finalize_pixel_grid
 from lumina_batch import (
     DEFAULT_PARAMS,
     LUT_FILENAME,
     build_pixel_size_plan,
     convert_with_lumina_batch,
 )
-from prepare_square_canvas import prepare_canvas
-from refine_pixel import refine_pixel
-from remove_background import remove_background
+from refine_pixel import detect_source_grid, refine_mask_to_grid, refine_pixel
+from remove_background import ALPHA_POLICIES, remove_background
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -60,6 +59,13 @@ def run_pipeline(
     official_character_sources: list[str] | None = None,
     official_character_research_status: str | None = None,
     square_output: bool = False,
+    background_model: str = "auto",
+    segmentation_device: str = "cpu",
+    segmentation_memory_limit_gb: float = 8.0,
+    working_padding_cells: int = 2,
+    mask_override: str | Path | None = None,
+    allow_ambiguous_mask: bool = False,
+    alpha_policy: str = "auto",
 ) -> Path:
     started = datetime.now().astimezone()
     source_image = Path(source_image).expanduser().resolve()
@@ -89,6 +95,17 @@ def run_pipeline(
         )
     if research_path is not None and not research_path.is_file():
         raise FileNotFoundError(f"official research file not found: {research_path}")
+    if working_padding_cells < 0:
+        raise ValueError("working_padding_cells must be non-negative")
+    if segmentation_device != "cpu":
+        raise ValueError("segmentation_device is CPU-only and must be 'cpu'")
+    if alpha_policy not in ALPHA_POLICIES:
+        raise ValueError(f"unsupported alpha policy: {alpha_policy}")
+    mask_override_path = (
+        Path(mask_override).expanduser().resolve() if mask_override else None
+    )
+    if mask_override_path is not None and not mask_override_path.is_file():
+        raise FileNotFoundError(f"mask override not found: {mask_override_path}")
     run_dir = _new_run_dir(output_root, character_name, started)
     research_output_path = None
     if research_path is not None:
@@ -97,8 +114,13 @@ def run_pipeline(
 
     files = {
         "source": run_dir / "01_source.png",
+        "semantic_mask": run_dir / "02_semantic_mask.png",
+        "mask_review_overlay": run_dir / "02_mask_review_overlay.png",
+        "mask_components": run_dir / "02_mask_components.json",
         "background_removed": run_dir / "02_bg_removed.png",
-        "canvas_prepared": run_dir / "03_canvas_prepared.png",
+        "working_grid": run_dir / "03_working_grid.png",
+        "working_grid_preview_8x": run_dir / "03_working_grid_preview_8x.png",
+        "source_alpha_working_grid": run_dir / "03_source_alpha_working_grid.png",
         "pixel_perfect": run_dir / "04_pixel_perfect.png",
         "pixel_preview_8x": run_dir / "05_pixel_preview_8x.png",
         **{
@@ -135,6 +157,21 @@ def run_pipeline(
         "official_character_sources": research_sources,
         "files": {key: str(path) for key, path in files.items()},
         "perfect_pixel": None,
+        "source_acceptance": None,
+        "source_grid": None,
+        "working_grid": None,
+        "export_grid": None,
+        "pipeline_v2": {
+            "enabled": True,
+            "working_padding_cells": working_padding_cells,
+            "allow_ambiguous_mask": allow_ambiguous_mask,
+            "background_model": background_model,
+            "segmentation_device": segmentation_device,
+            "segmentation_memory_limit_gb": segmentation_memory_limit_gb,
+            "mask_override": str(mask_override_path) if mask_override_path else None,
+            "alpha_policy_requested": alpha_policy,
+            "alpha_policy_effective": None,
+        },
         "background_removal": None,
         "cleanup": None,
         "lumina": {
@@ -154,24 +191,92 @@ def run_pipeline(
         with Image.open(source_image) as image:
             image.convert("RGBA").save(files["source"])
 
+        source_grid = detect_source_grid(files["source"])
+        manifest["source_acceptance"] = {
+            "source_grid": {
+                "width": source_grid["width"],
+                "height": source_grid["height"],
+            },
+            "density_gate": "passed",
+            "soft_rendering_policy": "warning-only",
+            "warnings": source_grid.get("warnings", []),
+            "render_metrics": source_grid.get("render_metrics", {}),
+            "recoverable_conditions": [
+                "minor_blur",
+                "antialiasing",
+                "near-identical-tones",
+                "whole-cell-gradients",
+            ],
+        }
+        manifest["source_grid"] = dict(manifest["source_acceptance"]["source_grid"])
         manifest["background_removal"] = remove_background(
-            files["source"], files["background_removed"], background_method
-        )
-        prepare_canvas(
+            files["source"],
             files["background_removed"],
-            files["canvas_prepared"],
-            square=square_output,
+            background_method,
+            background_model=background_model,
+            segmentation_device=segmentation_device,
+            segmentation_memory_limit_gb=segmentation_memory_limit_gb,
+            semantic_mask_path=files["semantic_mask"],
+            mask_override=mask_override_path,
+            alpha_policy=alpha_policy,
+            project_root=PROJECT_ROOT,
+        )
+        effective_alpha_policy = manifest["background_removal"].get(
+            "alpha_policy_effective", "semantic"
+        )
+        manifest["pipeline_v2"]["alpha_policy_effective"] = (
+            effective_alpha_policy
         )
         pixel_metadata = refine_pixel(
-            files["canvas_prepared"],
+            files["background_removed"],
+            files["working_grid"],
+            files["working_grid_preview_8x"],
+            expected_source_grid={
+                "width": int(source_grid["width"]),
+                "height": int(source_grid["height"]),
+            },
+            validate_source_density=False,
+            working_padding_cells=working_padding_cells,
+        )
+        manifest["working_grid"] = dict(pixel_metadata["working_grid"])
+        manifest["perfect_pixel"] = pixel_metadata
+        source_alpha_metadata = None
+        source_alpha_grid_path = None
+        if effective_alpha_policy == "repair":
+            source_alpha_grid_path = files["source_alpha_working_grid"]
+            source_alpha_metadata = refine_mask_to_grid(
+                files["source"],
+                source_alpha_grid_path,
+                expected_source_grid={
+                    "width": int(source_grid["width"]),
+                    "height": int(source_grid["height"]),
+                },
+                working_padding_cells=working_padding_cells,
+                square_output=square_output,
+            )
+        manifest["pipeline_v2"]["source_alpha_working_grid"] = (
+            source_alpha_metadata
+        )
+        cleanup_metadata = finalize_pixel_grid(
+            files["working_grid"],
             files["pixel_perfect"],
             files["pixel_preview_8x"],
+            background_rgb=manifest["background_removal"]["background_rgb"],
+            components_path=files["mask_components"],
+            overlay_path=files["mask_review_overlay"],
+            alpha_policy=effective_alpha_policy,
+            source_alpha_grid_path=source_alpha_grid_path,
+            foreground_threshold=manifest["background_removal"][
+                "foreground_threshold"
+            ],
+            background_threshold=manifest["background_removal"][
+                "background_threshold"
+            ],
+            background_color_tolerance=manifest["background_removal"][
+                "background_color_tolerance"
+            ],
+            allow_ambiguous=allow_ambiguous_mask,
             square_output=square_output,
-        )
-        cleanup_metadata = cleanup_pixel(
-            files["pixel_perfect"],
-            files["pixel_perfect"],
-            preview_path=files["pixel_preview_8x"],
         )
         manifest["cleanup"] = cleanup_metadata
         with Image.open(files["pixel_perfect"]) as final_pixel_image:
@@ -184,12 +289,16 @@ def run_pipeline(
             )
             for cells in EXPORT_CELL_VARIANTS
         }
-        pixel_metadata["final_output_grid"] = {
+        pixel_metadata["export_grid"] = {
             "width": final_width,
             "height": final_height,
         }
+        pixel_metadata["final_output_grid"] = dict(pixel_metadata["export_grid"])
+        pixel_metadata["cleanup"] = cleanup_metadata
         pixel_metadata["pixel_size_plans"] = size_plans
         manifest["perfect_pixel"] = pixel_metadata
+        manifest["working_grid"] = dict(pixel_metadata["working_grid"])
+        manifest["export_grid"] = dict(pixel_metadata["export_grid"])
         lumina_variants: dict[str, object] = {}
         final_3mfs: dict[str, str] = {}
         for cells in EXPORT_CELL_VARIANTS:
@@ -223,6 +332,18 @@ def run_pipeline(
         _write_manifest(files["manifest"], manifest)
         return run_dir
     except Exception as exc:
+        if manifest["cleanup"] is None and files["mask_components"].is_file():
+            component_review = json.loads(
+                files["mask_components"].read_text(encoding="utf-8")
+            )
+            manifest["cleanup"] = {
+                "status": "blocked_before_export",
+                "ambiguous_component_count": component_review.get(
+                    "ambiguous_component_count", 0
+                ),
+                "components_path": str(files["mask_components"]),
+                "overlay_path": str(files["mask_review_overlay"]),
+            }
         manifest["status"] = "failed"
         manifest["finished_at"] = datetime.now().astimezone().isoformat()
         manifest["error"] = {
@@ -254,6 +375,21 @@ def main() -> None:
     )
     parser.add_argument("--output-root", default="output")
     parser.add_argument("--background-method", choices=("auto", "rembg", "white"), default="auto")
+    parser.add_argument(
+        "--background-model",
+        choices=("auto", "isnet-anime", "isnet-general-use"),
+        default="auto",
+    )
+    parser.add_argument(
+        "--segmentation-device",
+        choices=("cpu",),
+        default="cpu",
+    )
+    parser.add_argument("--segmentation-memory-limit-gb", type=float, default=8.0)
+    parser.add_argument("--working-padding-cells", type=int, default=2)
+    parser.add_argument("--mask-override")
+    parser.add_argument("--alpha-policy", choices=ALPHA_POLICIES, default="auto")
+    parser.add_argument("--allow-ambiguous-mask", action="store_true")
     parser.add_argument("--api-url", default="http://127.0.0.1:8000")
     parser.add_argument(
         "--square-output",
@@ -272,6 +408,13 @@ def main() -> None:
         official_character_sources=args.official_character_sources,
         official_character_research_status=args.official_character_research_status,
         square_output=args.square_output,
+        background_model=args.background_model,
+        segmentation_device=args.segmentation_device,
+        segmentation_memory_limit_gb=args.segmentation_memory_limit_gb,
+        working_padding_cells=args.working_padding_cells,
+        mask_override=args.mask_override,
+        allow_ambiguous_mask=args.allow_ambiguous_mask,
+        alpha_policy=args.alpha_policy,
     )
     print(run_dir)
 

@@ -1,5 +1,7 @@
 .venv/
 .uv-cache/
+.cache/
+.idea/
 __pycache__/
 *.pyc
 .DS_Store

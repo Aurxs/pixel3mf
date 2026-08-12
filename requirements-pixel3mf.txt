@@ -1,3 +1,4 @@
 perfect-pixel[opencv]
 rembg[cpu]
+psutil>=5.9
 requests

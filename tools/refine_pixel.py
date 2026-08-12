@@ -48,11 +48,135 @@ def _pad_square(array: np.ndarray) -> np.ndarray:
     return result
 
 
+def _pad_cells(array: np.ndarray, cells: int) -> np.ndarray:
+    if cells < 0:
+        raise ValueError("working_padding_cells must be non-negative")
+    if cells == 0:
+        return array
+    return np.pad(
+        array,
+        ((cells, cells), (cells, cells), (0, 0)),
+        mode="constant",
+        constant_values=0,
+    )
+
+
+def refine_mask_to_grid(
+    source_path: str | Path,
+    output_path: str | Path,
+    *,
+    expected_source_grid: dict[str, int],
+    working_padding_cells: int = 0,
+    square_output: bool = False,
+    mask_path: str | Path | None = None,
+) -> dict[str, object]:
+    """Sample source alpha or an auxiliary mask onto the validated logical grid."""
+    rgba = np.asarray(Image.open(source_path).convert("RGBA")).copy()
+    if mask_path is not None:
+        mask = Image.open(mask_path).convert("L")
+        if mask.size != (rgba.shape[1], rgba.shape[0]):
+            raise ValueError("auxiliary mask size does not match source image")
+        rgba[:, :, 3] = np.asarray(mask, dtype=np.uint8)
+
+    grid_w, grid_h, refined = get_perfect_pixel(
+        rgba, sample_method="center", fix_square=False
+    )
+    expected = (
+        int(expected_source_grid["width"]),
+        int(expected_source_grid["height"]),
+    )
+    detected = (int(grid_w), int(grid_h)) if grid_w and grid_h else (None, None)
+    if detected != expected:
+        raise ValueError(
+            "auxiliary alpha grid does not match source preflight: "
+            f"expected {expected[0]}x{expected[1]}, got {detected[0]}x{detected[1]}"
+        )
+
+    alpha = np.asarray(refined, dtype=np.uint8)[:, :, 3]
+    if working_padding_cells:
+        alpha = np.pad(
+            alpha,
+            working_padding_cells,
+            mode="constant",
+            constant_values=0,
+        )
+    if square_output and alpha.shape[0] != alpha.shape[1]:
+        side = max(alpha.shape)
+        padded = np.zeros((side, side), dtype=np.uint8)
+        x = (side - alpha.shape[1]) // 2
+        y = (side - alpha.shape[0]) // 2
+        padded[y : y + alpha.shape[0], x : x + alpha.shape[1]] = alpha
+        alpha = padded
+
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    Image.fromarray(alpha, "L").save(output_path)
+    return {
+        "grid": {"width": int(alpha.shape[1]), "height": int(alpha.shape[0])},
+        "foreground_cells": int(np.count_nonzero(alpha >= 128)),
+        "alpha_values": [int(value) for value in np.unique(alpha)],
+    }
+
+
+def detect_source_grid(input_path: str | Path) -> dict[str, object]:
+    """Auto-detect and validate density on the untouched source canvas."""
+    rgba = np.asarray(Image.open(input_path).convert("RGBA"))
+    grid_w, grid_h, refined = get_perfect_pixel(
+        rgba, sample_method="center", fix_square=False
+    )
+    if grid_w is None or grid_h is None:
+        raise ValueError(
+            "Perfect Pixel could not detect the source logical grid; regenerate "
+            "a clearer low-resolution pixel-art source"
+        )
+    validate_detected_grid(int(grid_w), int(grid_h))
+    refined = np.asarray(refined, dtype=np.uint8)
+    reconstructed = np.asarray(
+        Image.fromarray(refined, "RGBA").resize(
+            (rgba.shape[1], rgba.shape[0]), Image.Resampling.NEAREST
+        )
+    )
+    rgb_error = np.max(
+        np.abs(
+            rgba[:, :, :3].astype(np.int16)
+            - reconstructed[:, :, :3].astype(np.int16)
+        ),
+        axis=2,
+    )
+    changed_fraction = float(np.mean(rgb_error > 8))
+    palette_size = int(
+        np.unique(refined[:, :, :3].reshape(-1, 3), axis=0).shape[0]
+    )
+    warnings: list[str] = []
+    if changed_fraction > 0.01:
+        warnings.append("minor_blur_antialiasing_or_whole_cell_tone_variation")
+    if palette_size > 64:
+        warnings.append("palette_exceeds_recommended_count")
+    return {
+        "width": int(grid_w),
+        "height": int(grid_h),
+        "warnings": warnings,
+        "render_metrics": {
+            "rgb_pixels_over_delta_8_fraction": round(changed_fraction, 6),
+            "logical_palette_size": palette_size,
+        },
+        "accepted_range": {
+            "minimum_per_axis": MIN_ACCEPTED_GRID,
+            "maximum_per_axis": MAX_ACCEPTED_GRID,
+            "inclusive": True,
+        },
+    }
+
+
 def refine_pixel(
     input_path: str | Path,
     output_path: str | Path,
     preview_path: str | Path,
     square_output: bool = False,
+    *,
+    expected_source_grid: dict[str, int] | None = None,
+    validate_source_density: bool = True,
+    working_padding_cells: int = 0,
 ) -> dict[str, object]:
     rgba = np.asarray(Image.open(input_path).convert("RGBA"))
     grid_w, grid_h, refined = get_perfect_pixel(
@@ -64,7 +188,20 @@ def refine_pixel(
             "Perfect Pixel could not detect a logical grid; regenerate a clearer "
             "low-resolution pixel-art source instead of forcing a downstream grid"
         )
-    validate_detected_grid(int(grid_w), int(grid_h))
+    if validate_source_density:
+        validate_detected_grid(int(grid_w), int(grid_h))
+    if expected_source_grid is not None:
+        expected = (
+            int(expected_source_grid["width"]),
+            int(expected_source_grid["height"]),
+        )
+        detected = (int(grid_w), int(grid_h))
+        if detected != expected:
+            raise ValueError(
+                "Perfect Pixel grid changed after semantic masking: "
+                f"source preflight was {expected[0]}x{expected[1]}, refinement "
+                f"detected {detected[0]}x{detected[1]}"
+            )
     detected_grid = (
         {"width": int(grid_w), "height": int(grid_h)} if auto_detected else None
     )
@@ -80,7 +217,9 @@ def refine_pixel(
         refined = np.dstack((rgb, alpha))
 
     refined_grid = {"width": int(refined.shape[1]), "height": int(refined.shape[0])}
-    final_array = refined.astype(np.uint8)
+    final_array = _pad_cells(refined.astype(np.uint8), working_padding_cells)
+    before_square_width = int(final_array.shape[1])
+    before_square_height = int(final_array.shape[0])
     if square_output:
         final_array = _pad_square(final_array)
     final = Image.fromarray(final_array, "RGBA")
@@ -94,13 +233,21 @@ def refine_pixel(
     ).save(preview_path)
 
     return {
+        "source_grid": detected_grid,
         "detected_grid": detected_grid,
         "refined_grid": refined_grid,
+        "working_grid": {"width": final.width, "height": final.height},
         "output_grid": {"width": final.width, "height": final.height},
-        "square_output": square_output,
-        "square_padding": {
+        "working_padding_cells": working_padding_cells,
+        "temporary_padding": {
             "columns_added": final.width - refined_grid["width"],
             "rows_added": final.height - refined_grid["height"],
+            "included_in_export": False,
+        },
+        "square_output": square_output,
+        "square_padding": {
+            "columns_added": final.width - before_square_width,
+            "rows_added": final.height - before_square_height,
         },
         "accepted_grid_range": {
             "minimum_per_axis": MIN_ACCEPTED_GRID,

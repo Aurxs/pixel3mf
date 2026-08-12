@@ -7,7 +7,7 @@ Do not read this file until `04_pixel_perfect.png` and `05_pixel_preview_8x.png`
 - Lumina pixel cell: exactly `0.42 mm`; verify this against the local `PrinterConfig.NOZZLE_WIDTH` before conversion
 - Required Lumina variants per refined logical pixel: exactly `2 × 2` and `3 × 3`; always export both
 - Refined logical-pixel pitches: `0.84 mm` for `2 × 2`, and `1.26 mm` for `3 × 3`
-- Physical canvases: derive both dynamically from the same final `04_pixel_perfect.png` grid as `width × pitch` by `height × pitch`
+- Physical canvases: derive both dynamically from the tight-cropped `export_grid` in `04_pixel_perfect.png` as `width × pitch` by `height × pitch`; never include temporary working padding
 - Backing thickness: `1.2 mm`
 - Structure: `Double-sided`
 - Hanging loop: disabled
@@ -21,7 +21,7 @@ Do not read this file until `04_pixel_perfect.png` and `05_pixel_preview_8x.png`
 
 ## Exact sizing gate
 
-Treat the final cleaned `04_pixel_perfect.png` dimensions as the only sizing source of truth. Do not use the generated-source resolution, pre-refinement canvas, detected grid before cleanup, or a fixed millimeter target.
+Treat the final cleaned and tight-cropped `04_pixel_perfect.png` dimensions as the only sizing source of truth. Do not use the generated-source resolution, semantic mask, temporary working grid, detected grid before cleanup, or a fixed millimeter target.
 
 1. Preserve the final rectangular logical grid `W × H`; do not force it square.
 2. Build two independent sizing plans: `2W × 2H` and `3W × 3H` integer Lumina cells.
@@ -58,7 +58,7 @@ Create `manifest.json` with:
 - run timestamp and subject
 - official-character research status, brief path, and source URLs
 - source, background-removed, canvas-prepared, refined, and preview paths
-- detected, refined, and final rectangular pixel grids, plus any explicitly requested square padding
+- source, refined, temporary working, and tight export grids; removed outer-transparent cells; plus any explicitly requested square padding
 - Lumina cell size and a keyed `2x2` / `3x3` record of cells per logical pixel and logical-pixel pitch
 - for both variants, nominal decimal width and height, transport width, expected Lumina raster, simulated raster, and exact-mapping result
 - Lumina method, LUT, and conversion parameters

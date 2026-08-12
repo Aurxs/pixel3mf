@@ -44,21 +44,22 @@ Do not continue until `01_source.png` exists. Until then, do not inspect later-s
 
 After `01_source.png` exists, read [source-acceptance.md](references/source-acceptance.md). Apply its visual and diagnostic checks.
 
-- If the source is rejected and regeneration is allowed, return to Stage 1 and preserve the prompt boundary.
+- Treat minor blur, antialiasing, whole-cell tonal transitions, and near-identical colors as recoverable warnings. Let Pixel Fine decide whether they resolve into a stable logical grid.
+- If the source is rejected for an unrecoverable grid, composition, or identity defect and regeneration is allowed, return to Stage 1 and preserve the prompt boundary.
 - If a user-provided source is unsuitable and creative changes were not authorized, preserve it and report the limitation.
 - Do not begin refinement until the source passes or the user explicitly accepts the limitation.
 
 ### Gate 2
 
-Record source acceptance before opening the refinement instructions.
+Record the untouched-source grid and preliminary acceptance before opening the refinement instructions. Apply the `60–85` density gate only here, never after semantic masking or temporary padding.
 
 ## Stage 3 — Prepare and refine pixels
 
-Only after Gate 2, read [pixel-refinement.md](references/pixel-refinement.md). Produce the transparent, aspect-preserving canvas, rectangular refined grid, and preview artifacts described there.
+Only after Gate 2, read [pixel-refinement.md](references/pixel-refinement.md). Produce the semantic mask, temporary working grid, tight export grid, and preview artifacts described there.
 
 ### Gate 3
 
-Do not open conversion settings until the refined pixel artifact and its preview exist.
+Do not open conversion settings until the refined export artifact and its preview exist, its alpha is binary, and no unapproved ambiguous background component remains.
 
 ## Stage 4 — Convert with Lumina and finalize
 

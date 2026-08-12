@@ -40,7 +40,7 @@ Priority 2 — character and pose: Draw one natural upper-body portrait ending a
 
 Priority 3 — eyes and anatomy: Build both eyes from the same vertical pixel template. Give them identical top/bottom anchor rows and identical iris/pupil row counts, with aligned centers and matching gaze. Three-quarter perspective may make the far eye at most one logical cell narrower, but never shorter. Hair, glasses, or props may overlap the eye white; do not let occlusion shorten an iris/pupil or move an eyelid anchor. Keep the neck short and naturally broad at the base, flowing into the collar and shoulders; unless the character design requires otherwise, the visible neck opening is roughly one-quarter to one-third of the lower-face width and the collar begins within a few rows below the jaw.
 
-Priority 4 — printable silhouette: Use a one-logical-pixel pure-black outline around the complete subject. Make the lowest occupied subject row a continuous black baseline, with at least one clean background row below it. Use a uniform pure-white or easily removable flat background.
+Priority 4 — printable silhouette: Use a one-logical-pixel pure-black outline around the complete subject. Make the lowest occupied subject row a continuous black baseline, with at least one clean background row below it. Use a completely uniform pure-white background. The generated PNG must be fully opaque: every background pixel and every subject pixel has alpha 255. Do not generate transparency, partial transparency, a checkerboard, shadows, gradients, or background texture.
 
 Official-character research rule: Use the verified research brief at <official-character-research-file> for canonical identity, appearance, costume, palette, props, and signature motifs. Treat any unverified adaptation as inference. Do not copy logos, readable marks, slogans, or text from official sources.
 
@@ -48,7 +48,7 @@ Reference rule: Images 1–3 control only cell scale, information density, outli
 
 Action-reference rule: If Image 4 is present, use it only as an example of readable action staging, hand/prop integration, head-dominant framing, and preserving a lively three-quarter face when an object approaches the face. Do not copy its identity, hairstyle, palette, clothing, hand side, exact pose, drink, or accessories. Replace all content with the user's requested character, action, and object.
 
-Avoid: fine hair strands, micro-texture, tiny highlights, sub-cell marks, mixed cell sizes, dithering, gradients, antialiasing, soft edges, glossy illustration rendering, text, watermark, extra characters, a frontal mugshot, a long thin neck, unequal eye height, unequal iris/pupil row counts, or a broken exterior/bottom outline.
+Avoid: transparent or partially transparent pixels, checkerboard backgrounds, fine hair strands, micro-texture, tiny highlights, sub-cell marks, mixed cell sizes, dithering, gradients, antialiasing, soft edges, glossy illustration rendering, text, watermark, extra characters, a frontal mugshot, a long thin neck, unequal eye height, unequal iris/pupil row counts, or a broken exterior/bottom outline.
 ```
 
 ## Explicit user-source edit payload
