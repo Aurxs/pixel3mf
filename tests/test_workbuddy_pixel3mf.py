@@ -871,6 +871,43 @@ class WorkBuddyConversionTests(unittest.TestCase):
             self.assertIn("pipeline_failures", str(archived_manifest))
             self.assertTrue(archived_manifest.is_file())
 
+    def test_interrupted_pipeline_is_marked_and_archived_before_retry(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "source.png"
+            _opaque_png(source)
+            run_dir = workbuddy.init_run(
+                character_name="direct",
+                character_request="direct",
+                original_request="convert",
+                route="direct",
+                output_root=Path(tmp) / "output",
+                source_image=source,
+            )
+            _, state = workbuddy.load_state(run_dir)
+            state["status"] = "converting"
+            state["pipeline_attempts"].append(
+                {
+                    "number": 1,
+                    "started_at": workbuddy._now_iso(),
+                    "finished_at": None,
+                    "status": "running",
+                    "manifest": str(run_dir / "manifest.json"),
+                }
+            )
+            workbuddy._write_json(run_dir / workbuddy.STATE_FILENAME, state)
+            (run_dir / "manifest.json").write_text(
+                json.dumps({"status": "running"}) + "\n", encoding="utf-8"
+            )
+
+            with patch.object(workbuddy, "run_pipeline", return_value=run_dir):
+                workbuddy.convert_run(run_dir)
+
+            _, completed = workbuddy.load_state(run_dir)
+            interrupted = completed["pipeline_attempts"][0]
+            self.assertEqual(interrupted["status"], "interrupted")
+            self.assertIsNotNone(interrupted["finished_at"])
+            self.assertTrue(Path(interrupted["manifest"]).is_file())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1199,7 +1199,10 @@ def _archive_failed_pipeline(resolved: Path, state: dict[str, Any]) -> Path | No
             shutil.move(str(entry), archive / entry.name)
     if state.get("pipeline_attempts"):
         last = state["pipeline_attempts"][-1]
-        if last.get("status") == "failed":
+        if last.get("status") in {"running", "failed"}:
+            if last.get("status") == "running":
+                last["status"] = "interrupted"
+                last["finished_at"] = _now_iso()
             last["manifest"] = str(archive / "manifest.json")
     return archive
 
