@@ -123,8 +123,8 @@ UV_CACHE_DIR=.uv-cache uv pip install -r requirements-pixel3mf.txt
 - `07_lumina_batch_result_*.zip` 原样保留 Lumina 返回的 3MF 及项目配置；只对已解压并命名的 `08_*.3mf` 成品做幂等配置规范化
 - 最终 3MF 使用固定的 Bambu Lab A1 mini 0.4 mm 机型与官方 `0.08mm Extra Fine @BBL A1M` 基线；机器 G-code、热床/喷嘴温度、速度、加速度和 PLA 流量来自该基线快照
 - 对基线固定覆盖：`0.08 mm` 首层，相关线宽全部 `0.42 mm`，Arachne，1 圈墙，首层仅单层墙，顶/底壳 0 层，100% `zig-zag` 填充且方向 `0°`，关闭狭窄内部实心填充识别，关闭支撑，自动边缘宽 `5 mm`
-- 开启单喷头多材料和擦料塔；塔宽 `170 mm`，位置 `X=5 mm, Y=160 mm`（A1 mini 打印板上方），关闭擦料塔斜肋外墙
-- 只替换 `Metadata/project_settings.config`；Lumina 动态颜色、冲刷量、颜色/挤出机映射、模型几何和 `2×2` / `3×3` XY 补偿保持不变
+- 开启单喷头多材料和擦料塔；塔宽 `170 mm`，擦料塔 brim 宽 `1 mm`，位置 `X=5 mm, Y=160 mm`（A1 mini 打印板上方），关闭擦料塔斜肋外墙；模型自身仍使用自动边缘宽 `5 mm`
+- 只替换 `Metadata/project_settings.config`；Lumina 动态颜色、颜色/挤出机映射和模型几何保持不变。将 H2D 双喷嘴存储的两套冲刷表规范化为 A1 mini 所需的单套 `N×N` 表，并保留原始第一套表的全部数值
 - `3×3` 的补偿会以共同中心烘焙到所有颜色零件的 X/Y 顶点；三角拓扑、颜色/挤出机映射、Z 坐标和装配关系保持不变，并在 3MF 内写入幂等标记，防止重复放大
 - `07_lumina_batch_result_3x3.zip` 保留 Lumina 返回的未补偿原件；`08_<角色名>_3x3.3mf` 是可直接以 `100%` 导入切片器的补偿后成品
 

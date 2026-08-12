@@ -30,8 +30,9 @@ SOURCE_SETTINGS = {
     "filament_settings_id": ["Bambu PLA Basic @BBL H2D"] * 4,
     "filament_type": ["PLA"] * 4,
     "filament_map": ["1"] * 4,
-    "flush_volumes_matrix": [str(index) for index in range(16)],
+    "flush_volumes_matrix": [str(index) for index in range(32)],
     "flush_volumes_vector": ["140"] * 4,
+    "flush_multiplier": ["1", "1"],
     "layer_height": "0.08",
     "prime_tower_width": "230",
     "wipe_tower_x": ["80"],
@@ -111,10 +112,15 @@ class ThreeMfA1MiniProfileTests(unittest.TestCase):
             ["Bambu PLA Basic @BBL A1M"] * 4,
         )
         self.assertEqual(settings["filament_colour"], SOURCE_SETTINGS["filament_colour"])
-        self.assertEqual(settings["flush_volumes_matrix"], SOURCE_SETTINGS["flush_volumes_matrix"])
+        self.assertEqual(
+            settings["flush_volumes_matrix"],
+            SOURCE_SETTINGS["flush_volumes_matrix"][:16],
+        )
         self.assertEqual(settings["flush_volumes_vector"], SOURCE_SETTINGS["flush_volumes_vector"])
+        self.assertEqual(settings["flush_multiplier"], ["1"])
         self.assertEqual(settings["enable_prime_tower"], "1")
         self.assertEqual(settings["prime_tower_width"], "170")
+        self.assertEqual(settings["prime_tower_brim_width"], "1")
         self.assertEqual(settings["prime_tower_rib_wall"], "0")
         self.assertEqual(settings["wipe_tower_x"], ["5"])
         self.assertEqual(settings["wipe_tower_y"], ["160"])
@@ -151,6 +157,16 @@ class ThreeMfA1MiniProfileTests(unittest.TestCase):
             _make_3mf(model_path, {"printer_model": "Bambu Lab H2D"})
 
             with self.assertRaisesRegex(ValueError, "filament_colour"):
+                normalize_a1mini_3mf(model_path)
+
+    def test_malformed_flush_matrix_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            model_path = Path(tmp) / "model.3mf"
+            settings = dict(SOURCE_SETTINGS)
+            settings["flush_volumes_matrix"] = ["0"] * 17
+            _make_3mf(model_path, settings)
+
+            with self.assertRaisesRegex(ValueError, "whole number"):
                 normalize_a1mini_3mf(model_path)
 
 

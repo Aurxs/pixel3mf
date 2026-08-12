@@ -53,8 +53,6 @@ _DYNAMIC_PROJECT_KEYS = {
     "default_filament_colour",
     "filament_colour",
     "filament_multi_colour",
-    "flush_multiplier",
-    "flush_volumes_matrix",
     "flush_volumes_vector",
 }
 
@@ -94,6 +92,7 @@ _REQUIRED_TARGET_VALUES: dict[str, object] = {
     "single_extruder_multi_material": "1",
     "enable_prime_tower": "1",
     "prime_tower_width": "170",
+    "prime_tower_brim_width": "1",
     "prime_tower_rib_wall": "0",
     "wipe_tower_x": ["5"],
     "wipe_tower_y": ["160"],
@@ -138,6 +137,46 @@ def _resize_filament_arrays(settings: dict[str, object], color_count: int) -> No
         settings[key] = [copy.deepcopy(template_value) for _ in range(color_count)]
 
 
+def _normalize_flush_settings(
+    source: dict[str, object],
+    target: dict[str, object],
+    color_count: int,
+) -> None:
+    """Convert Lumina's dual-nozzle flush fields to A1 mini dimensions."""
+    matrix = source.get("flush_volumes_matrix")
+    expected_matrix_size = color_count * color_count
+    if not isinstance(matrix, list) or len(matrix) < expected_matrix_size:
+        raise ValueError(
+            "Lumina flush_volumes_matrix must contain at least one "
+            f"{color_count}x{color_count} table"
+        )
+    if len(matrix) % expected_matrix_size != 0:
+        raise ValueError(
+            "Lumina flush_volumes_matrix length is not a whole number of "
+            f"{color_count}x{color_count} tables: {len(matrix)}"
+        )
+
+    # Lumina's H2D template stores one NxN table per nozzle. A1 mini has one
+    # nozzle, so retain the first table—the one Bambu Studio displays in the
+    # original Lumina project—and discard the unused second-nozzle table.
+    target["flush_volumes_matrix"] = copy.deepcopy(matrix[:expected_matrix_size])
+
+    vector = source.get("flush_volumes_vector")
+    if not isinstance(vector, list) or len(vector) not in {
+        color_count,
+        color_count * 2,
+    }:
+        raise ValueError(
+            "Lumina flush_volumes_vector must contain one or two values per colour"
+        )
+    target["flush_volumes_vector"] = copy.deepcopy(vector)
+
+    multiplier = source.get("flush_multiplier", ["1"])
+    if not isinstance(multiplier, list) or not multiplier:
+        raise ValueError("Lumina flush_multiplier must be a non-empty list")
+    target["flush_multiplier"] = [copy.deepcopy(multiplier[0])]
+
+
 def _build_target_settings(
     source: dict[str, object],
     profile: dict[str, object],
@@ -167,6 +206,7 @@ def _build_target_settings(
     target["filament_ids"] = ["GFA00"] * color_count
     target["filament_map"] = ["1"] * color_count
     target["filament_extruder_variant"] = ["Direct Drive Standard"] * color_count
+    _normalize_flush_settings(source, target, color_count)
 
     for key, expected in _REQUIRED_TARGET_VALUES.items():
         target[key] = copy.deepcopy(expected)
@@ -217,6 +257,15 @@ def _validate_target(settings: dict[str, object], color_count: int) -> None:
         "Bambu PLA Basic @BBL A1M"
     ] * color_count:
         raise RuntimeError("A1 mini filament profile IDs were not applied")
+
+    matrix = settings.get("flush_volumes_matrix")
+    if not isinstance(matrix, list) or len(matrix) != color_count * color_count:
+        raise RuntimeError(
+            "A1 mini flush matrix must contain exactly one NxN table"
+        )
+    multiplier = settings.get("flush_multiplier")
+    if not isinstance(multiplier, list) or len(multiplier) != 1:
+        raise RuntimeError("A1 mini flush multiplier must contain one value")
 
 
 def _rewrite_project_settings(
@@ -311,9 +360,16 @@ def normalize_a1mini_3mf(
         "prime_tower": {
             "enabled": verified["enable_prime_tower"] == "1",
             "width_mm": verified["prime_tower_width"],
+            "brim_width_mm": verified["prime_tower_brim_width"],
             "x_mm": verified["wipe_tower_x"][0],
             "y_mm": verified["wipe_tower_y"][0],
             "rib_wall": verified["prime_tower_rib_wall"],
+        },
+        "flush_volumes": {
+            "matrix": verified["flush_volumes_matrix"],
+            "matrix_size": len(verified["flush_volumes_matrix"]),
+            "vector": verified["flush_volumes_vector"],
+            "multiplier": verified["flush_multiplier"],
         },
         "project_settings_sha256_before": _sha256_bytes(source_bytes),
         "project_settings_sha256_after": _sha256_bytes(verified_bytes),

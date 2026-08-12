@@ -50,7 +50,7 @@ Use the local `Lumina-Layers/` checkout.
 6. Preserve the returned archives as `07_lumina_batch_result_2x2.zip` and `07_lumina_batch_result_3x3.zip` when applicable.
 7. Extract and name the models `08_<character-slug>_2x2.3mf` and `08_<character-slug>_3x3.3mf`.
 8. Leave the `2 × 2` geometry unchanged. Apply the verified centered XY vertex compensation to the final `3 × 3` model only. Keep the batch ZIP as the raw, unscaled and unnormalized Lumina archive.
-9. Apply `tools/three_mf_a1mini_profile.py` to each extracted final 3MF. Preserve Lumina's dynamic colors, flush volumes, geometry, color/extruder mapping, and the completed XY compensation.
+9. Apply `tools/three_mf_a1mini_profile.py` to each extracted final 3MF. Preserve Lumina's dynamic colors, geometry, color/extruder mapping, and the completed XY compensation. Convert Lumina's H2D dual-nozzle flush data to the A1 mini single-nozzle representation by retaining exactly the first `N × N` matrix and one flush multiplier.
 
 Treat both 3MFs as required final deliverables. Do not stop after the first succeeds, do not substitute manual slicer scaling for the baked `3 × 3` compensation, and do not ask the user to choose until both files and their exact final physical dimensions are available for comparison. Bambu Studio should remain at `100%` model scale; Arachne and `0.42 mm` line widths are embedded by the final profile normalization.
 
@@ -63,7 +63,7 @@ The pinned profile starts from Bambu Studio 02.07.01.62's official `0.08mm Extra
 - 100% zig-zag sparse infill at `0°`; narrow internal solid infill detection disabled
 - support disabled; automatic brim width `5 mm`
 - single-extruder multimaterial and prime tower enabled
-- prime tower width `170 mm`, `X=5 mm`, `Y=160 mm`, prime-tower rib wall disabled
+- prime tower width `170 mm`, prime-tower brim width `1 mm`, `X=5 mm`, `Y=160 mm`, prime-tower rib wall disabled
 
 Keep the official A1 mini baseline for all unlisted machine, temperature, speed, acceleration, and filament parameters. This normalization belongs to the outer `pixel3mf` project only, so replacing or upgrading `Lumina-Layers/` cannot erase it.
 

@@ -777,7 +777,7 @@
   "pressure_advance": [
     "0.02"
   ],
-  "prime_tower_brim_width": "3",
+  "prime_tower_brim_width": "1",
   "prime_tower_enable_framework": "0",
   "prime_tower_extra_rib_length": "0",
   "prime_tower_fillet_wall": "1",
