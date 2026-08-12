@@ -31,12 +31,41 @@ uv pip install -r requirements-pixel3mf.txt
 
 `skills/` 是随本项目一起复制进来的 Codex skill 文件夹，不是压缩包；本项目只保留 `pixel-art-to-3mf-skill`，通用 Codex skills 不随项目分发。生成或转换任务需要使用它时，可直接查看 `skills/pixel-art-to-3mf-skill/SKILL.md`。动作类任务的案例参考图位于 `examples/reference-action-interaction.png`。
 
+## WorkBuddy 适配
+
+`skills/pixel-art-to-3mf-skill` 仍是唯一核心 Skill 来源。项目目录遵循 [WorkBuddy Skills 官方文档](https://cloud.tencent.com/document/product/1831/134516) 的 `.codebuddy/skills/` 约定。以下命令会生成并校验项目级 `.codebuddy/skills/pixel-art-to-3mf/`，同时制作可上传到 WorkBuddy 个人 Skills 的 ZIP：
+
+```bash
+.venv/bin/python tools/build_workbuddy_skill.py --package
+```
+
+项目级 WorkBuddy 说明保存在 `workbuddy/project-instructions.md`，非敏感配置模板保存在 `workbuddy/config.example.json`。把模板复制为仓库根目录的 `.workbuddy.local.json` 后填写私有 COS bucket；该本地配置和 `dist/` 均被 Git 忽略。
+
+WorkBuddy 总入口提供环境检查、任务初始化、单次生图、视觉决定和转换：
+
+```bash
+.venv/bin/python tools/workbuddy_pixel3mf.py doctor
+.venv/bin/python tools/workbuddy_pixel3mf.py configure-keychain tokenhub
+.venv/bin/python tools/workbuddy_pixel3mf.py configure-keychain cos-secret-id
+.venv/bin/python tools/workbuddy_pixel3mf.py configure-keychain cos-secret-key
+.venv/bin/python tools/workbuddy_pixel3mf.py init-run --help
+.venv/bin/python tools/workbuddy_pixel3mf.py generate --help
+.venv/bin/python tools/workbuddy_pixel3mf.py resume-generation --help
+.venv/bin/python tools/workbuddy_pixel3mf.py cleanup-references --help
+.venv/bin/python tools/workbuddy_pixel3mf.py decide --help
+.venv/bin/python tools/workbuddy_pixel3mf.py convert --help
+```
+
+TokenHub 与 COS 密钥优先从 macOS Keychain 的 `pixel3mf.tokenhub` / `pixel3mf.cos` service 读取；CI 可使用 `PIXEL3MF_TOKENHUB_API_KEY`、`PIXEL3MF_COS_SECRET_ID`、`PIXEL3MF_COS_SECRET_KEY`、`PIXEL3MF_COS_BUCKET` 和 `PIXEL3MF_COS_REGION`。不要把密钥写进 `.workbuddy.local.json`。
+
+COS 只作为 TokenHub 拒绝 data URI 时的后备。桶必须保持私有读，预签名 URL 固定 15 分钟，任务结束后由编排器删除对象；`workbuddy/cos-cam-policy.example.json` 给出仅限 `workbuddy-reference/` 前缀上传、读取和删除的子账号策略，`workbuddy/cos-lifecycle.example.json` 给出 1 天生命周期兜底。把示例中的 APPID 与桶名占位符替换后再通过腾讯云控制台应用，不要授予公共读。
+
 ## 环境准备
 
 整个项目只使用根目录下的 `.venv`，依赖由 `uv` 管理：
 
 ```bash
-cd /Users/aurxs/Program/pixel3mf
+cd /Users/aurxs/Program/pixel3mf_workbuddy
 uv venv .venv
 source .venv/bin/activate
 uv pip install -r Lumina-Layers/requirements.txt
@@ -82,7 +111,7 @@ UV_CACHE_DIR=.uv-cache uv pip install -r requirements-pixel3mf.txt
 
 先在 Codex 中生成图片并保存到本地，再运行上面的总入口。推荐提示词风格：
 
-> 生成单个指定角色的自然上半身像，主体居中，正面或清晰的三分之四视角；画面只到上胸，不向胸部以下延伸；不要对手、手臂或关节施加特殊限制，姿势保持自然。严格按 `24×24` 逻辑像素画设计：使用明显的大方块、阶梯状外轮廓、约 1 个逻辑像素宽的深色描边和很少的内部细节；脸部只保留最关键的眼睛、嘴和发型特征；使用约 8–12 种大面积离散颜色，其中头发可有 3–4 个青绿色阶、肤色 2–3 个色阶，并保留少量深蓝紫和粉色点缀以展示叠色。禁止细碎发丝、纹理、抖色、连续渐变、抗锯齿、柔边和高精插画式高光；不要文字，不要其他角色；背景必须是完全均匀的纯白色，整张 PNG 的每个像素都必须为 Alpha 255；禁止透明、半透明、棋盘格、阴影、渐变或背景纹理。若生成器输出高分辨率位图，它必须看起来像 `24×24` 逻辑图的最近邻放大，而不是增加更多逻辑细节。
+> 生成单个指定角色的自然上半身像，主体居中，正面或清晰的三分之四视角；画面只到上胸，不向胸部以下延伸；不要对手、手臂或关节施加特殊限制，姿势保持自然。以 `24×24` 像素画的简化程度和低信息密度作为视觉先验：使用明显的大方块、统一逻辑网格、阶梯状外轮廓、约 1 个逻辑像素宽的深色描边和很少的内部细节；脸部只保留最关键的眼睛、嘴和发型特征；使用约 8–12 种大面积离散颜色，其中头发可有 3–4 个青绿色阶、肤色 2–3 个色阶，并保留少量深蓝紫和粉色点缀以展示叠色。禁止细碎发丝、纹理、抖色、连续渐变、抗锯齿、柔边和高精插画式高光；不要文字，不要其他角色；背景必须是完全均匀的纯白色，整张 PNG 的每个像素都必须为 Alpha 255；禁止透明、半透明、棋盘格、阴影、渐变或背景纹理。若生成器输出高分辨率位图，它必须像同一粗网格的最近邻放大，而不是增加更多逻辑细节。
 
 生成后先确认它是纯白背景且完全不透明；生图结果出现任何透明或半透明像素时直接重新生成。此限制只针对生成结果，不影响用户直接提交的二值透明 PNG。之后用 Perfect Pixel 自动检测实际网格并进行源图预检。轻微模糊、抗锯齿、整格色阶和相近颜色只记为可恢复警告；最终是否通过由 Pixel Fine 后的稳定网格、二值 Alpha 和语义孔洞检查决定。后处理不强制缩放到 24×24 或 75×75。
 
@@ -104,7 +133,7 @@ UV_CACHE_DIR=.uv-cache uv pip install -r requirements-pixel3mf.txt
 - 尺寸使用十进制定点数生成，并在调用前分别模拟 Lumina 的取整公式；任一版本无法证明精确整数映射时直接失败
 - 运行时核对本地 Lumina 的 `PrinterConfig.NOZZLE_WIDTH`；不是 `0.42 mm` 时停止转换
 - 不能直接把 `1.29 mm` 对应的总宽度传给 Lumina，否则 `int(target_width_mm / 0.42)` 会改变栅格列数；XY 补偿只发生在 Lumina 已完成颜色堆叠和 3MF 生成之后
-- 生图提示词默认要求 `24×24` 逻辑像素风格；`60–85` 仅约束未处理源图的自动检测结果，不对临时 padding 或紧裁后的导出网格重复应用
+- 生图提示词以 `24×24` 的简化程度作为视觉先验；`60–85` 是未处理源图的权威自动检测范围，不对临时 padding 或紧裁后的导出网格重复应用
 
 动态尺寸通过 Lumina 已有的浮点 API/Core 参数传入，不修改 Lumina-Layers 源码。其 GUI 宽高滑块的整数步长不影响本项目的自动流水线。
 

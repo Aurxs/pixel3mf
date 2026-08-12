@@ -1,0 +1,22 @@
+{
+  "tokenhub": {
+    "model": "hy-image-v3.0",
+    "submit_url": "https://tokenhub.tencentmaas.com/v1/api/image/submit",
+    "query_url": "https://tokenhub.tencentmaas.com/v1/api/image/query",
+    "size": "1024:1024",
+    "timeout_seconds": 300,
+    "poll_interval_seconds": 2
+  },
+  "cos": {
+    "region": "ap-shanghai",
+    "bucket": "replace-with-private-bucket-appid",
+    "object_prefix": "workbuddy-reference",
+    "signed_url_ttl_seconds": 900
+  },
+  "lumina": {
+    "api_url": "http://127.0.0.1:8000"
+  },
+  "generation": {
+    "max_attempts": 3
+  }
+}

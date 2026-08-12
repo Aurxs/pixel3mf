@@ -1,0 +1,14 @@
+{
+  "Rule": [
+    {
+      "ID": "pixel3mf-workbuddy-reference-expiry",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": "workbuddy-reference/"
+      },
+      "Expiration": {
+        "Days": 1
+      }
+    }
+  ]
+}

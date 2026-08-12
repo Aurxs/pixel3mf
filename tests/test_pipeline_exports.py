@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 import shutil
@@ -94,6 +95,34 @@ class PipelineExportTests(unittest.TestCase):
                 official_character_research_status="not_applicable",
             )
 
+    def test_source_density_failure_is_recorded_structurally(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            source = tmp_path / "source.png"
+            Image.new("RGBA", (4, 3), (20, 40, 60, 255)).save(source)
+            with patch.object(
+                pipeline_module,
+                "detect_source_grid",
+                side_effect=ValueError("detected source grid 59x86 is outside 60-85"),
+            ):
+                with self.assertRaisesRegex(ValueError, "59x86"):
+                    pipeline_module.run_pipeline(
+                        source,
+                        character_name="density failure",
+                        output_root=tmp_path / "output",
+                        official_character_research_status="not_applicable",
+                    )
+
+            run_dirs = list((tmp_path / "output").iterdir())
+            self.assertEqual(len(run_dirs), 1)
+            manifest = json.loads(
+                (run_dirs[0] / "manifest.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(
+                manifest["source_acceptance"]["density_gate"], "failed"
+            )
+            self.assertIn("59x86", manifest["source_acceptance"]["reason"])
+
     def test_pipeline_exports_two_by_two_and_three_by_three_3mfs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
@@ -152,6 +181,183 @@ class PipelineExportTests(unittest.TestCase):
                 ],
                 {"width": 12, "height": 9},
             )
+
+    def test_pipeline_reuses_requested_run_dir_and_records_generation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            run_dir = tmp_path / "output" / "workbuddy-run"
+            run_dir.mkdir(parents=True)
+            (run_dir / "workbuddy_state.json").write_text(
+                json.dumps(
+                    {
+                        "version": 1,
+                        "run_id": run_dir.name,
+                        "max_attempts": 3,
+                        "route": "generate",
+                        "attempts": [],
+                        "pipeline_attempts": [],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            source = tmp_path / "source.png"
+            Image.new("RGBA", (4, 3), (20, 40, 60, 255)).save(source)
+            generation = {
+                "version": 1,
+                "provider": "tokenhub",
+                "model": "hy-image-v3.0",
+                "attempts": [{"number": 1, "task_id": "job-1"}],
+                "selected_attempt": 1,
+            }
+            provenance = {
+                "original_path": str(source),
+                "sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+            }
+
+            with (
+                patch.object(
+                    pipeline_module,
+                    "detect_source_grid",
+                    return_value={"width": 4, "height": 3},
+                ),
+                patch.object(
+                    pipeline_module,
+                    "remove_background",
+                    side_effect=_remove_background,
+                ),
+                patch.object(pipeline_module, "refine_pixel", side_effect=_refine_image),
+                patch.object(
+                    pipeline_module,
+                    "finalize_pixel_grid",
+                    side_effect=_finalize_image,
+                ),
+                patch.object(
+                    pipeline_module,
+                    "convert_with_lumina_batch",
+                    side_effect=_convert_variant,
+                ),
+            ):
+                actual_run_dir = pipeline_module.run_pipeline(
+                    source,
+                    character_name="test character",
+                    output_root=tmp_path / "ignored",
+                    official_character_research_status="not_applicable",
+                    run_dir=run_dir,
+                    generation_metadata=generation,
+                    source_provenance=provenance,
+                )
+
+            self.assertEqual(actual_run_dir, run_dir.resolve())
+            manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["generation"], generation)
+            self.assertEqual(manifest["source_provenance"], provenance)
+
+    def test_requested_run_dir_rejects_existing_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp) / "existing"
+            run_dir.mkdir()
+            (run_dir / "manifest.json").write_text("{}\n", encoding="utf-8")
+            with self.assertRaisesRegex(FileExistsError, "already contains"):
+                pipeline_module.run_pipeline(
+                    "/tmp/not-read.png",
+                    official_character_research_status="not_applicable",
+                    run_dir=run_dir,
+                )
+
+    def test_requested_run_dir_rejects_unowned_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp) / "existing"
+            run_dir.mkdir()
+            (run_dir / "important-user-file.txt").write_text("keep me\n", encoding="utf-8")
+            with self.assertRaisesRegex(FileExistsError, "not owned"):
+                pipeline_module.run_pipeline(
+                    "/tmp/not-read.png",
+                    official_character_research_status="not_applicable",
+                    run_dir=run_dir,
+                )
+            self.assertEqual(
+                (run_dir / "important-user-file.txt").read_text(encoding="utf-8"),
+                "keep me\n",
+            )
+
+    def test_nonempty_requested_run_dir_requires_matching_workbuddy_owner(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp) / "existing"
+            run_dir.mkdir()
+            (run_dir / "01_source.png").write_bytes(b"source")
+            with self.assertRaisesRegex(FileExistsError, "not owned"):
+                pipeline_module.run_pipeline(
+                    "/tmp/not-read.png",
+                    official_character_research_status="not_applicable",
+                    run_dir=run_dir,
+                )
+
+    def test_source_provenance_rejects_invalid_digest(self) -> None:
+        with self.assertRaisesRegex(ValueError, "lowercase SHA-256"):
+            pipeline_module.run_pipeline(
+                "/tmp/not-read.png",
+                official_character_research_status="not_applicable",
+                source_provenance={
+                    "original_path": "/tmp/original.png",
+                    "sha256": "not-a-digest",
+                },
+            )
+
+    def test_generation_metadata_rejects_sensitive_fields(self) -> None:
+        with self.assertRaisesRegex(ValueError, "sensitive field"):
+            pipeline_module.validate_generation_metadata(
+                {
+                    "version": 1,
+                    "attempts": [],
+                    "selected_attempt": None,
+                    "api_key": "must-not-be-written",
+                }
+            )
+
+    def test_generation_metadata_requires_supported_shape(self) -> None:
+        with self.assertRaisesRegex(ValueError, "attempts must be a list"):
+            pipeline_module.validate_generation_metadata(
+                {
+                    "version": 1,
+                    "attempts": {},
+                    "selected_attempt": None,
+                }
+            )
+
+    def test_generation_metadata_rejects_unknown_camel_case_secret_field(self) -> None:
+        with self.assertRaisesRegex(ValueError, "unsupported fields"):
+            pipeline_module.validate_generation_metadata(
+                {
+                    "version": 1,
+                    "attempts": [{"number": 1, "apiKey": "secret"}],
+                    "selected_attempt": None,
+                }
+            )
+
+    def test_generation_metadata_redacts_signed_url_queries_and_bearer_values(self) -> None:
+        value = pipeline_module.validate_generation_metadata(
+            {
+                "version": 1,
+                "attempts": [
+                    {
+                        "number": 1,
+                        "error": {
+                            "type": "HTTPError",
+                            "message": (
+                                "Bearer secret-value at "
+                                "https://bucket.cos.example/object?sign=secret"
+                            ),
+                        },
+                    }
+                ],
+                "selected_attempt": None,
+            }
+        )
+        message = value["attempts"][0]["error"]["message"]
+        self.assertNotIn("secret-value", message)
+        self.assertNotIn("sign=secret", message)
+        self.assertIn("[REDACTED]", message)
 
 
 if __name__ == "__main__":
