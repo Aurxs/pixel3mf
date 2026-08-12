@@ -9,7 +9,7 @@
   },
   "cos": {
     "region": "ap-shanghai",
-    "bucket": "replace-with-private-bucket-appid",
+    "bucket": "",
     "object_prefix": "workbuddy-reference",
     "signed_url_ttl_seconds": 900
   },
