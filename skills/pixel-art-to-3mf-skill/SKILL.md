@@ -62,7 +62,7 @@ Do not open conversion settings until the refined pixel artifact and its preview
 
 ## Stage 4 — Convert with Lumina and finalize
 
-Only after Gate 3, read [lumina-conversion.md](references/lumina-conversion.md). Derive an exact physical size from the final logical grid, then generate the Lumina preview, final 3MF, manifest, and retained archive using that stage's defaults.
+Only after Gate 3, read [lumina-conversion.md](references/lumina-conversion.md). Derive both exact physical sizes from the same final logical grid, then generate the required `2 × 2` and `3 × 3` Lumina previews, 3MFs, manifests, and retained archives using that stage's defaults. Do not make the user choose a size before export.
 
 ## Failure routing
 

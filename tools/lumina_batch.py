@@ -24,7 +24,7 @@ from PIL import Image
 
 LUT_FILENAME = "Bambulab&PLA&4色&RYBW&红-蓝-黄-白.npy"
 EXPECTED_LUMINA_CELL_MM = Decimal("0.42")
-LUMINA_CELLS_PER_LOGICAL_PIXEL = 3
+DEFAULT_LUMINA_CELLS_PER_LOGICAL_PIXEL = 3
 DEFAULT_PARAMS: dict[str, object] = {
     "spacer_thick": 1.2,
     "structure_mode": "Double-sided",
@@ -43,7 +43,7 @@ def build_pixel_size_plan(
     logical_height: int,
     *,
     cell_mm: Decimal = EXPECTED_LUMINA_CELL_MM,
-    cells_per_logical_pixel: int = LUMINA_CELLS_PER_LOGICAL_PIXEL,
+    cells_per_logical_pixel: int = DEFAULT_LUMINA_CELLS_PER_LOGICAL_PIXEL,
 ) -> dict[str, object]:
     """Build and verify an exact integer logical-pixel to Lumina-cell mapping."""
     if logical_width <= 0 or logical_height <= 0:
@@ -408,6 +408,7 @@ def convert_with_lumina_batch(
     start_if_needed: bool = True,
     preview_path: str | Path | None = None,
     size_plan: dict[str, object] | None = None,
+    cells_per_logical_pixel: int = DEFAULT_LUMINA_CELLS_PER_LOGICAL_PIXEL,
 ) -> dict[str, object]:
     input_path = Path(input_path).resolve()
     zip_path = Path(zip_path).resolve()
@@ -417,7 +418,10 @@ def convert_with_lumina_batch(
     with Image.open(input_path) as input_image:
         logical_width, logical_height = input_image.size
     authoritative_size_plan = build_pixel_size_plan(
-        logical_width, logical_height, cell_mm=cell_mm
+        logical_width,
+        logical_height,
+        cell_mm=cell_mm,
+        cells_per_logical_pixel=cells_per_logical_pixel,
     )
     if size_plan is None:
         size_plan = authoritative_size_plan
@@ -575,6 +579,11 @@ def main() -> None:
     parser.add_argument("--lumina-dir", default="Lumina-Layers")
     parser.add_argument("--api-url", default="http://127.0.0.1:8000")
     parser.add_argument("--no-start", action="store_true")
+    parser.add_argument(
+        "--cells-per-logical-pixel",
+        type=int,
+        default=DEFAULT_LUMINA_CELLS_PER_LOGICAL_PIXEL,
+    )
     args = parser.parse_args()
     result = convert_with_lumina_batch(
         args.input,
@@ -584,6 +593,7 @@ def main() -> None:
         args.api_url,
         not args.no_start,
         args.preview_output,
+        cells_per_logical_pixel=args.cells_per_logical_pixel,
     )
     print(json.dumps(result, ensure_ascii=False, indent=2))
 

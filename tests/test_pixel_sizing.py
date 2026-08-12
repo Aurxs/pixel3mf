@@ -25,6 +25,15 @@ from refine_pixel import refine_pixel  # noqa: E402
 
 
 class PixelSizePlanTests(unittest.TestCase):
+    def test_square_50_grid_maps_to_two_by_two_cells(self) -> None:
+        plan = build_pixel_size_plan(50, 50, cells_per_logical_pixel=2)
+
+        self.assertEqual(plan["expected_lumina_grid"], {"width": 100, "height": 100})
+        self.assertEqual(plan["nominal_target_width_mm"], "42.00")
+        self.assertEqual(plan["nominal_target_height_mm"], "42.00")
+        self.assertEqual(plan["logical_pixel_pitch_mm"], "0.84")
+        self.assertTrue(plan["exact_integer_mapping"])
+
     def test_square_50_grid_maps_to_three_by_three_cells(self) -> None:
         plan = build_pixel_size_plan(50, 50)
 
@@ -49,14 +58,19 @@ class PixelSizePlanTests(unittest.TestCase):
         self.assertEqual(plan["simulated_lumina_grid"], {"width": 186, "height": 219})
 
     def test_all_accepted_grid_pairs_map_exactly(self) -> None:
-        for width in range(60, 86):
-            for height in range(60, 86):
-                with self.subTest(width=width, height=height):
-                    plan = build_pixel_size_plan(width, height)
-                    self.assertEqual(
-                        plan["simulated_lumina_grid"],
-                        {"width": width * 3, "height": height * 3},
-                    )
+        for cells in (2, 3):
+            for width in range(60, 86):
+                for height in range(60, 86):
+                    with self.subTest(cells=cells, width=width, height=height):
+                        plan = build_pixel_size_plan(
+                            width,
+                            height,
+                            cells_per_logical_pixel=cells,
+                        )
+                        self.assertEqual(
+                            plan["simulated_lumina_grid"],
+                            {"width": width * cells, "height": height * cells},
+                        )
 
     def test_preview_form_uses_dynamic_width(self) -> None:
         params = {

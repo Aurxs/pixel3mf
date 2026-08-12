@@ -90,10 +90,10 @@ UV_CACHE_DIR=.uv-cache uv pip install -r requirements-pixel3mf.txt
 尺寸规则：
 
 - 最终 `04_pixel_perfect.png` 的矩形逻辑网格是唯一尺寸依据，不使用原始生图分辨率或固定 `75 mm`
-- Lumina 像素单元必须为 `0.42 mm`，每个逻辑像素固定映射到 `3×3` 个 Lumina 单元
-- 每个逻辑像素边长为 `1.26 mm`；最终 `W×H` 网格对应 `W×1.26 mm × H×1.26 mm`
-- 例如 `80×79` 对应 `100.80×99.54 mm` 和 Lumina 内部 `240×237` 网格；奇数边不补方、不割裂
-- 尺寸使用十进制定点数生成，并在调用前模拟 Lumina 的取整公式；无法证明精确 `3W×3H` 映射时直接失败
+- Lumina 像素单元必须为 `0.42 mm`；每次都从同一逻辑网格导出 `2×2` 与 `3×3` 两个版本
+- `2×2` 版本的逻辑像素边长为 `0.84 mm`，`3×3` 版本为 `1.26 mm`
+- 例如 `80×79` 会同时导出 `67.20×66.36 mm`（内部 `160×158` 网格）与 `100.80×99.54 mm`（内部 `240×237` 网格）；奇数边不补方、不割裂
+- 尺寸使用十进制定点数生成，并在调用前分别模拟 Lumina 的取整公式；任一版本无法证明精确整数映射时直接失败
 - 运行时核对本地 Lumina 的 `PrinterConfig.NOZZLE_WIDTH`；不是 `0.42 mm` 时停止转换
 - 生图提示词默认要求 `24×24` 逻辑像素风格；Perfect Pixel 只接受每轴 `60–85` 的实际网格并保留检测结果，不强制改成 24×24 或 75×75
 
@@ -122,14 +122,17 @@ output/<timestamp>_<slug>/
 ├── 03_canvas_prepared.png
 ├── 04_pixel_perfect.png
 ├── 05_pixel_preview_8x.png
-├── 06_lumina_2d_preview.png
-├── 07_lumina_batch_result.zip
-├── 08_<角色名>.3mf
+├── 06_lumina_2d_preview_2x2.png
+├── 06_lumina_2d_preview_3x3.png
+├── 07_lumina_batch_result_2x2.zip
+├── 07_lumina_batch_result_3x3.zip
+├── 08_<角色名>_2x2.3mf
+├── 08_<角色名>_3x3.3mf
 ├── lumina_api.log          # 仅在脚本自行启动 API 时出现
 └── manifest.json
 ```
 
-`manifest.json` 在流程开始时就创建；成功或异常退出时都会更新。最终 3MF 会按 `--character-name` 命名，例如 `08_初音未来.3mf`。manifest 记录输入、角色名、所有文件路径、背景策略、Perfect Pixel 检测与最终矩形网格、清理统计、`0.42 mm` 单元、`3×3` 映射、标称与传输尺寸、预期与模拟 Lumina 网格、Lumina 实际 LUT/参数、2D 预览路径和生成方式、最终 3MF、状态和错误堆栈。
+`manifest.json` 在流程开始时就创建；成功或异常退出时都会更新。两个最终 3MF 会按 `--character-name` 命名，例如 `08_初音未来_2x2.3mf` 与 `08_初音未来_3x3.3mf`。manifest 按 `2x2` / `3x3` 记录所有文件路径、精确尺寸计划、Lumina 参数、预览、归档和最终 3MF，另外保留输入、角色名、背景策略、Perfect Pixel 检测、清理统计、状态和错误堆栈。
 
 ## 独立工具
 
@@ -137,7 +140,7 @@ output/<timestamp>_<slug>/
 - `tools/prepare_square_canvas.py`：按透明区域裁剪、加比例 padding，默认保留矩形画布；仅显式传入 `--square` 时使用兼容的正方形模式。
 - `tools/refine_pixel.py`：Perfect Pixel 自动网格检测并保留真实矩形结果，输出最近邻 8 倍预览，不强制目标网格或正方形。仅显式传入 `--square-output` 时添加完整透明逻辑行列。检测失败时要求回到生图阶段重生。
 - `tools/cleanup_pixel.py`：删除孤立前景像素，并在逻辑网格上清理最多两个单元的外轮廓白噪点；内部、较大或有疑义的白色区域会被保留并记录，流水线继续生成，不会中途要求复查。
-- `tools/lumina_batch.py`：从最终矩形网格生成并校验精确 `3×3` 动态尺寸，启动或复用 Lumina API、查询 LUT、先生成并保存 2D 预览，再上传单图 batch、保存 ZIP 并取出唯一 3MF。API 不能启动，或当前 checkout 的 batch worker 因核心返回值版本差异失败时，会使用完全相同的动态尺寸调用 Lumina 核心、自行打包 ZIP，并在 manifest 记录 `batch_error`。
+- `tools/lumina_batch.py`：按指定的每逻辑像素单元数生成并校验精确动态尺寸；总流程会分别用 `2` 和 `3` 调用它，生成两套 2D 预览、ZIP 与 3MF。API 不能启动，或当前 checkout 的 batch worker 因核心返回值版本差异失败时，会使用对应版本的相同动态尺寸调用 Lumina 核心、自行打包 ZIP，并在 manifest 记录 `batch_error`。
 - `tools/run_pipeline.py`：总入口和 manifest 生命周期管理。
 
 每个工具都可用 `--help` 查看独立调用方法。例如只检查像素整理：
@@ -154,5 +157,5 @@ output/<timestamp>_<slug>/
 - 背景移除不理想：对纯色浅背景先试 `--background-method white`，复杂背景保留 `auto`。
 - Perfect Pixel 检测失败：重新生成更清晰的 24×24 大块像素源图；流水线不会用固定网格硬压或插值挽救。
 - Lumina 失败：查看运行目录内 `lumina_api.log` 和 manifest 的 `error`；确认 8000 端口没有被无关服务占用。
-- 最终矩形尺寸异常：检查 `03_canvas_prepared.png`、`04_pixel_perfect.png` 和 manifest 的 `pixel_size_plan`；默认流程不会补方，预期内部网格必须严格为最终宽高的 3 倍。
-- 在 Bambu Studio 中缩放：优先保持 `100%`；若要维持 `0.42 mm` 整数网格，X/Y 使用 `整数 ÷ 3` 的等比例缩放（如 `66.67%`、`133.33%`、`200%`），并保持 Z 不变。
+- 最终矩形尺寸异常：检查 `03_canvas_prepared.png`、`04_pixel_perfect.png` 和 manifest 的 `pixel_size_plans`；默认流程不会补方，两个预期内部网格必须分别严格为最终宽高的 2 倍和 3 倍。
+- 在 Bambu Studio 中优先保持 `100%`，直接比较 `_2x2.3mf` 与 `_3x3.3mf` 的实际尺寸后选择打印文件。

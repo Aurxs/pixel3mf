@@ -26,6 +26,7 @@ from remove_background import remove_background
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+EXPORT_CELL_VARIANTS = (2, 3)
 
 
 def _slug(value: str) -> str:
@@ -100,9 +101,24 @@ def run_pipeline(
         "canvas_prepared": run_dir / "03_canvas_prepared.png",
         "pixel_perfect": run_dir / "04_pixel_perfect.png",
         "pixel_preview_8x": run_dir / "05_pixel_preview_8x.png",
-        "lumina_2d_preview": run_dir / "06_lumina_2d_preview.png",
-        "lumina_batch_zip": run_dir / "07_lumina_batch_result.zip",
-        "final_3mf": run_dir / f"08_{_slug(character_name)}.3mf",
+        **{
+            f"lumina_2d_preview_{cells}x{cells}": (
+                run_dir / f"06_lumina_2d_preview_{cells}x{cells}.png"
+            )
+            for cells in EXPORT_CELL_VARIANTS
+        },
+        **{
+            f"lumina_batch_zip_{cells}x{cells}": (
+                run_dir / f"07_lumina_batch_result_{cells}x{cells}.zip"
+            )
+            for cells in EXPORT_CELL_VARIANTS
+        },
+        **{
+            f"final_3mf_{cells}x{cells}": (
+                run_dir / f"08_{_slug(character_name)}_{cells}x{cells}.3mf"
+            )
+            for cells in EXPORT_CELL_VARIANTS
+        },
         "manifest": run_dir / "manifest.json",
     }
     if research_output_path is not None:
@@ -121,8 +137,12 @@ def run_pipeline(
         "perfect_pixel": None,
         "background_removal": None,
         "cleanup": None,
-        "lumina": {"lut_filename": LUT_FILENAME, **DEFAULT_PARAMS},
-        "final_3mf": None,
+        "lumina": {
+            "lut_filename": LUT_FILENAME,
+            **DEFAULT_PARAMS,
+            "variants": {},
+        },
+        "final_3mfs": {},
         "status": "running",
         "error": None,
     }
@@ -156,24 +176,48 @@ def run_pipeline(
         manifest["cleanup"] = cleanup_metadata
         with Image.open(files["pixel_perfect"]) as final_pixel_image:
             final_width, final_height = final_pixel_image.size
-        size_plan = build_pixel_size_plan(final_width, final_height)
+        size_plans = {
+            f"{cells}x{cells}": build_pixel_size_plan(
+                final_width,
+                final_height,
+                cells_per_logical_pixel=cells,
+            )
+            for cells in EXPORT_CELL_VARIANTS
+        }
         pixel_metadata["final_output_grid"] = {
             "width": final_width,
             "height": final_height,
         }
-        pixel_metadata["pixel_size_plan"] = size_plan
+        pixel_metadata["pixel_size_plans"] = size_plans
         manifest["perfect_pixel"] = pixel_metadata
-        lumina_metadata = convert_with_lumina_batch(
-            files["pixel_perfect"],
-            files["lumina_batch_zip"],
-            files["final_3mf"],
-            PROJECT_ROOT / "Lumina-Layers",
-            api_url,
-            preview_path=files["lumina_2d_preview"],
-            size_plan=size_plan,
-        )
-        manifest["lumina"] = lumina_metadata
-        manifest["final_3mf"] = str(files["final_3mf"])
+        lumina_variants: dict[str, object] = {}
+        final_3mfs: dict[str, str] = {}
+        for cells in EXPORT_CELL_VARIANTS:
+            variant = f"{cells}x{cells}"
+            lumina_variants[variant] = convert_with_lumina_batch(
+                files["pixel_perfect"],
+                files[f"lumina_batch_zip_{variant}"],
+                files[f"final_3mf_{variant}"],
+                PROJECT_ROOT / "Lumina-Layers",
+                api_url,
+                preview_path=files[f"lumina_2d_preview_{variant}"],
+                size_plan=size_plans[variant],
+                cells_per_logical_pixel=cells,
+            )
+            final_3mfs[variant] = str(files[f"final_3mf_{variant}"])
+            manifest["lumina"] = {
+                "lut_filename": LUT_FILENAME,
+                **DEFAULT_PARAMS,
+                "variants": dict(lumina_variants),
+            }
+            manifest["final_3mfs"] = dict(final_3mfs)
+            _write_manifest(files["manifest"], manifest)
+        manifest["lumina"] = {
+            "lut_filename": LUT_FILENAME,
+            **DEFAULT_PARAMS,
+            "variants": lumina_variants,
+        }
+        manifest["final_3mfs"] = final_3mfs
         manifest["status"] = "success"
         manifest["finished_at"] = datetime.now().astimezone().isoformat()
         _write_manifest(files["manifest"], manifest)
