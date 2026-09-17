@@ -34,13 +34,9 @@ Replace placeholders with a one-sentence subject description, a short palette of
 
 Keep the pixel-art specification first in the rendered prompt. Limit the subject brief to its essential silhouette, colors, and a few distinguishing features; express these as pixel clusters. A photograph supplies subject information, not rendering style. Do not expand the prompt with requests for realistic lighting, natural material texture, fine anatomy, lifelike detail, or polished illustration. When a requested feature is too small for the coarse grid, simplify it rather than reducing the pixel size. Preserve explicit user priorities if they override a default.
 
-Choose one background instruction before calling the generator; insert only that choice in the payload so opaque and transparent requirements never conflict:
+WorkBuddy background instruction: "Opaque PNG on uniform pure white RGB (255, 255, 255), alpha 255 everywhere. No background texture, shadows or checkerboard."
 
-- **Preferred, transparency supported:** “Transparent PNG, background=\"transparent\": real alpha-zero empty background, solid opaque subject. Keep white subject features opaque. No painted checkerboard.”
-- **Fallback, transparency unsupported:** “Opaque PNG on uniform pure white RGB (255, 255, 255), alpha 255 everywhere. No background texture or shadow.”
-- **User-specified background or intentional scene:** describe that background and preserve the requested scene content. Do not replace it with a cutout by default.
-
-Use the selected tool's documented transparency support rather than inventing a tool parameter or changing models. For the built-in image tool, request real transparency in the prompt. A failed transparent result is a candidate needing correction, not proof that the tool lacks support.
+Always use this instruction in new-generation payloads. Do not request transparent generation or add transparency parameters. Background removal is a later local processing step.
 
 ```text
 PIXEL ART GAME SPRITE. A tiny 24×24 pixel sprite enlarged with nearest-neighbor into big visible squares.
@@ -51,7 +47,7 @@ Build the subject from only a few LARGE SQUARE PIXELS on ONE uniform grid. Each 
 
 References: <brief image-role mapping; subject photos supply shape and color patches only; the style image supplies block construction only, never its character>.
 
-<selected background instruction>.
+Opaque PNG on uniform pure white RGB (255, 255, 255), alpha 255 everywhere. No background texture or shadows.
 
 NO smooth shading, NO gradients, NO lighting effects, NO texture, NO glossy finish, NO tiny detailed pixels, NO antialiasing, NO painted checkerboard, NO unrequested text or decorations. This must look like a tiny retro videogame sprite enlarged into big squares.
 

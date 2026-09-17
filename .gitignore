@@ -14,3 +14,7 @@ Lumina-Layers/
 
 # The copied Codex skill bundle must not carry nested Git repositories.
 skills/**/.git/
+
+# Local rendering previews and slicer reports.
+/tmp/
+/result.json

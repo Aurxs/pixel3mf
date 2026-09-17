@@ -39,6 +39,16 @@ uv pip install -r requirements-pixel3mf.txt
 
 通用版示例：“使用 `$general-pixel-art-to-3mf`，参考这张我家猫的照片做粗像素画，保留花纹和眼睛颜色，再转成 3MF。”多图可分别指定主体、构图和风格；只要求成品像素 PNG 时，也先执行 Perfect Pixel，再验收整理后的逻辑图和放大预览；明确只要生图原件时才跳过整理。照片辅助生成会产生新的像素画；要求原照片直接转换且不重画时，应使用高保真流程。通用版先用 `tools/refine_pixel.py --png-only --binarize-alpha` 整理透明源图，再正式验收；需要抠图时显式使用 `isnet-general-use`。验收通过的网格直接交给 `tools/lumina_batch.py` 导出两个尺寸，不套用动漫版原图的 60–85 网格门槛，也不强制缩放到 24×24。动漫动作类任务的案例参考图位于 `examples/reference-action-interaction.png`。
 
+## WorkBuddy 通用版下载
+
+- [Skill 与 PDF 整合包](dist/general-pixel-art-to-3mf-workbuddy-bundle.zip)
+- [可导入的 Skill ZIP](dist/general-pixel-art-to-3mf-workbuddy.zip)
+- [中文 PDF 使用说明](dist/general-pixel-art-to-3mf-workbuddy-guide.pdf)
+
+WorkBuddy 版固定生成纯白、不透明背景；需要时在本地移除背景，先 Perfect Pixel，后正式验收，再导出两个尺寸的 3MF。默认像素风格参考为已整理的柯基。Skill 包需配合已经部署的 Pixel3MF / Lumina 项目使用，不包含 Python 环境或模型权重。
+
+宿主适配规则在 `workbuddy/general-host-adapter.md`，生成后的 Skill 位于 `workbuddy/skills/general-pixel-art-to-3mf/`。运行 `tools/build_general_workbuddy_skill.py` 重建 Skill ZIP；`tools/build_general_workbuddy_guide.py` 使用 ReportLab / pypdf 生成 PDF（当前字体路径适用于 macOS）。完整 WorkBuddy 运行适配保存在 `codex/workbuddy-migration` 分支。
+
 ## 环境准备
 
 整个项目只使用根目录下的 `.venv`，依赖由 `uv` 管理：
