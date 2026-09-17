@@ -8,6 +8,7 @@
 | Codex | 动漫角色像素画，沿用专门的人像与源图规则 | [动漫角色像素画](codex/pixel-art-to-3mf.md) |
 | Codex | 照片、插画直接转换，保留连续色调与细节 | [高保真图像转 3MF](codex/high-fidelity-image-to-3mf.md) |
 | WorkBuddy | 通用粗像素画，使用宿主生图和白底处理流程 | [WorkBuddy 通用像素画](workbuddy/general-pixel-art-to-3mf.md) |
+| WorkBuddy | 动漫人物头像，使用专用提示词与候选验收流程 | [WorkBuddy 动漫人物](workbuddy/pixel-art-to-3mf.md) |
 
 ## 先完成项目部署
 

@@ -15,6 +15,7 @@ def main() -> None:
     import rembg  # noqa: F401
     import uvicorn  # noqa: F401
     import run_pipeline  # noqa: F401
+    import workbuddy_pixel3mf
     from config import PrinterConfig
     from lumina_batch import LUT_FILENAME
 
@@ -25,6 +26,8 @@ def main() -> None:
         raise RuntimeError(f"Expected exactly one required LUT, found {len(matches)}")
     if not (ROOT / "profiles" / "bambu_a1mini_0.4_0.08_extra_fine_pixel3mf.json").is_file():
         raise FileNotFoundError("Missing bundled A1 mini profile")
+    if not workbuddy_pixel3mf.GENERATION_PROMPT_PATH.is_file():
+        raise FileNotFoundError("Missing WorkBuddy anime generation prompt")
     print("Environment check passed (imports, LUT, nozzle and A1 mini profile).")
     print("This check does not download segmentation weights or perform a conversion.")
 

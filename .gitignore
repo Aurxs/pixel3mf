@@ -22,3 +22,6 @@ skills/**/.git/
 
 # Legacy build output; new artifacts live under output/.
 dist/
+
+# Optional local WorkBuddy provider configuration.
+.workbuddy.local.json

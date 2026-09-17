@@ -47,7 +47,7 @@ Python 脚本不直接调用 Codex image generation。先在 Codex 中生成图�
 两套技能放在同一仓库，共用 `tools/`、`profiles/`、`Lumina-Layers/` 和 `.venv/`，不按分支区分：
 
 - `skills/codex/`：动漫像素、通用像素、高保真三个技能。
-- `skills/workbuddy/`：通用像素技能。
+- `skills/workbuddy/`：通用像素技能与动漫人物技能 `pixel-art-to-3mf`。
 
 让 AI 读取对应技能的 `SKILL.md` 即可按流程执行；如需导入，选择具体技能目录，不要把整个 `skills/` 当成一个技能。同名通用技能只选适合当前宿主的一份。技能包不包含账户、API Key 或生图服务。
 

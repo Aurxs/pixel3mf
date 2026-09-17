@@ -21,6 +21,7 @@ pixel3mf/
 │
 ├── tools/
 │   ├── run_pipeline.py              原像素转换总入口，串联步骤并记录 manifest
+│   ├── workbuddy_pixel3mf.py         WorkBuddy 动漫候选登记、验收、状态和转换适配器
 │   ├── semantic_segment.py          在受时间/内存限制的 CPU 子进程中运行分割模型
 │   ├── remove_background.py         按 Alpha 策略准备语义遮罩与背景处理结果
 │   ├── refine_pixel.py              Perfect Pixel 网格检测、采样和逻辑像素整理
@@ -43,7 +44,8 @@ pixel3mf/
 │   │   ├── pixel-art-to-3mf-skill/      动漫角色像素技能
 │   │   └── high-fidelity-image-to-3mf/  高保真图像技能
 │   └── workbuddy/
-│       └── general-pixel-art-to-3mf/    WorkBuddy 通用像素技能
+│       ├── general-pixel-art-to-3mf/    WorkBuddy 通用像素技能
+│       └── pixel-art-to-3mf/            WorkBuddy 动漫人物像素技能
 │
 ├── guides/
 │   ├── project-structure.md         本文件：目录和文件用途
@@ -54,7 +56,8 @@ pixel3mf/
 │       │   ├── pixel-art-to-3mf.md            动漫角色操作示例
 │       │   └── high-fidelity-image-to-3mf.md  高保真操作示例
 │       └── workbuddy/
-│           └── general-pixel-art-to-3mf.md    WorkBuddy 操作示例
+│           ├── general-pixel-art-to-3mf.md    WorkBuddy 通用像素操作示例
+│           └── pixel-art-to-3mf.md            WorkBuddy 动漫人物操作示例
 │
 ├── examples/
 │   └── reference-action-interaction.png  动漫动作/互动像素参考图
@@ -63,7 +66,8 @@ pixel3mf/
 │   ├── test_semantic_segment.py     分割子进程、资源限制和执行行为
 │   ├── test_background_cleanup.py   背景处理、Alpha 与孔洞清理
 │   ├── test_pixel_sizing.py         逻辑网格与物理尺寸计算
-│   ├── test_pipeline_exports.py     流水线导出和产物记录
+│   ├── test_pipeline_exports.py     流水线导出、共享任务目录和生图记录
+│   ├── test_workbuddy_pixel3mf.py    WorkBuddy 候选状态、验收与转换适配测试
 │   ├── test_3mf_xy_scale.py         3MF XY 补偿与幂等性
 │   └── test_3mf_a1mini_profile.py    A1 mini 配置规范化
 │
@@ -152,3 +156,22 @@ skills/workbuddy/general-pixel-art-to-3mf/
 ```
 
 `skills/` 中的规则给 AI 执行；`guides/skills/` 中的说明给使用者阅读。当前没有独立 ZIP/PDF 生成脚本，也没有 `dist/`；Action 直接归档 Git 跟踪的项目文件。
+
+## WorkBuddy 动漫人物技能目录
+
+```text
+skills/workbuddy/pixel-art-to-3mf/
+├── SKILL.md                         动漫人物专用执行入口及 WorkBuddy 宿主规则
+├── assets/
+│   ├── reference-24x24-block-style.png   可选大块像素风格参考
+│   ├── reference-action-interaction.png 动作/互动参考
+│   ├── reference-coarse-density-a.png   可选粗像素密度参考 A
+│   └── reference-coarse-density-b.png   可选粗像素密度参考 B
+└── references/
+    ├── generation-prompt.md         WorkBuddy 中文头像提示词与 64×64 画布要求
+    ├── source-acceptance.md         候选文件、近白规范化与源图验收规则
+    ├── pixel-refinement.md          背景和逻辑网格整理规则
+    └── lumina-conversion.md         预览、双尺寸 3MF 与成品记录要求
+```
+
+默认原生生图不附加内置风格图，明确要求参考图时才使用这些资源。这个技能通过 `tools/workbuddy_pixel3mf.py` 执行，与通用技能分开选择。`.workbuddy.local.json` 是可选的本机提供商配置，已忽略，不进入源码包。
