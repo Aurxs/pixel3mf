@@ -8,8 +8,8 @@ import zipfile
 
 def main() -> None:
     root = Path(__file__).resolve().parents[1]
-    source = root / "skills/general-pixel-art-to-3mf"
-    target = root / "workbuddy/skills/general-pixel-art-to-3mf"
+    source = root / "skills/codex/general-pixel-art-to-3mf"
+    target = root / "skills/workbuddy/general-pixel-art-to-3mf"
     files = {Path("SKILL.md"): (source / "SKILL.md").read_bytes()}
     for folder in ("references", "assets"):
         for path in (source / folder).rglob("*"):
@@ -53,7 +53,7 @@ def main() -> None:
                 text = text.replace("For generated transparent artwork", "For a prepared cutout")
             files[path] = text.encode()
     files[Path("SKILL.md")] += (
-        "\n\n" + (root / "workbuddy/general-host-adapter.md").read_text()
+        "\n\n" + (root / "skills/workbuddy/general-host-adapter.md").read_text()
     ).encode()
     if target.exists():
         shutil.rmtree(target)
@@ -61,8 +61,8 @@ def main() -> None:
         out = target / path
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_bytes(content)
-    package = root / "dist/general-pixel-art-to-3mf-workbuddy.zip"
-    package.parent.mkdir(exist_ok=True)
+    package = root / "output/packages/general-pixel-art-to-3mf-workbuddy.zip"
+    package.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(package, "w", zipfile.ZIP_DEFLATED) as archive:
         for path, content in sorted(files.items()):
             entry = zipfile.ZipInfo(f"{target.name}/{path.as_posix()}", (1980, 1, 1, 0, 0, 0))

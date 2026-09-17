@@ -1,0 +1,79 @@
+name: Build Windows delivery
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-install-check:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse Windows entry scripts
+        shell: powershell
+        run: |
+          Get-ChildItem windows/*.ps1 | ForEach-Object {
+            $parseErrors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$null, [ref]$parseErrors) | Out-Null
+            if ($parseErrors) { throw ($parseErrors | Out-String) }
+          }
+      - name: Run the end-user installer
+        shell: powershell
+        run: ./windows/install.ps1
+      - name: Keep install logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-install-log
+          path: output/setup/*.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+  package:
+    needs: windows-install-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Prepare PDF tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y fonts-wqy-microhei poppler-utils
+          python -m pip install reportlab pypdf
+      - name: Check WorkBuddy skill is synchronized
+        run: |
+          python tools/build_general_workbuddy_skill.py
+          git diff --exit-code -- skills/workbuddy
+          test -z "$(git ls-files --others --exclude-standard skills/workbuddy)"
+      - name: Build guide and delivery ZIP
+        env:
+          PIXEL3MF_WINDOWS_CHECK: passed
+          PIXEL3MF_PDF_FONT: /usr/share/fonts/truetype/wqy/wqy-microhei.ttc
+        run: python tools/build_windows_delivery.py
+      - name: Render guide for inspection
+        run: |
+          mkdir -p output/windows-delivery/guide-preview
+          pdftoppm -scale-to 1200 -png output/windows-delivery/pixel3mf-windows-guide.pdf output/windows-delivery/guide-preview/page
+      - name: Upload delivery
+        uses: actions/upload-artifact@v4
+        with:
+          name: pixel3mf-windows-delivery
+          path: |
+            output/windows-delivery/pixel3mf-windows.zip
+            output/windows-delivery/pixel3mf-windows-guide.pdf
+            output/windows-delivery/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+      - name: Upload PDF previews
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-guide-preview
+          path: output/windows-delivery/guide-preview/*.png
+          retention-days: 14

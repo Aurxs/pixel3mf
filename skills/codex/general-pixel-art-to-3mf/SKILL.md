@@ -7,6 +7,10 @@ description: Create coarse pixel art of general subjects from text, reference im
 
 Turn a user-described subject or photographed subject into readable coarse pixel art. Support text-only generation, reference-guided generation, explicit image edits, and direct conversion of existing pixel art. This skill has its own generation and acceptance rules. Bundled examples demonstrate pixel style only; never import their character identity or anime portrait anatomy.
 
+## Runtime portability
+
+Use the current Pixel3MF project root. Command examples use POSIX syntax; on Windows use `.venv/Scripts/python.exe`, PowerShell-compatible quoting and one-line commands instead of backslash continuations. Never copy another computer's virtual environment.
+
 ## Select the route
 
 - **Text to pixel art:** infer the composition from the requested subject and intended use.

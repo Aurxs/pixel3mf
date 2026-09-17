@@ -7,6 +7,10 @@ description: Turn a text-described subject or an uploaded high-fidelity raster i
 
 Run an end-to-end **text or uploaded image → high-fidelity target image → Lumina preview → layered 3MF** workflow. Preserve continuous-tone detail, antialiased contours, gradients, illustration or photographic rendering, and natural high-resolution geometry. Never introduce a logical pixel grid or run Perfect Pixel.
 
+## Runtime portability
+
+Use the current Pixel3MF project root. Command examples use POSIX syntax; on Windows use `.venv/Scripts/python.exe`, PowerShell-compatible quoting and one-line commands instead of backslash continuations. Never copy another computer's virtual environment.
+
 ## Required input
 
 Accept at least one of:

@@ -7,6 +7,10 @@ description: Create or prepare a coarse pixel-art character source and convert i
 
 Follow the stages below in order. Treat every stage gate as a context-loading boundary, not merely as a checklist item.
 
+## Runtime portability
+
+Use the current Pixel3MF project root. Command examples use POSIX syntax; on Windows use `.venv/Scripts/python.exe`, PowerShell-compatible quoting and one-line commands instead of backslash continuations. Never copy another computer's virtual environment.
+
 ## Non-negotiable context isolation
 
 - Read this `SKILL.md` completely, but do not preload any file in `references/`.

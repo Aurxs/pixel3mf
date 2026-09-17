@@ -4,6 +4,19 @@
 
 Python 脚本不直接调用 Codex image generation。先在 Codex 中生成图片，或准备自己的参考图，再把本地图片路径交给总入口。
 
+## Windows 交付与手动打包
+
+Windows 用户先完整解压交付包，双击 `01_install_windows.cmd`，安装成功后双击 `02_convert_image.cmd` 选择已有像素图。安装器面向 Windows 10/11 x64，自动准备 uv、Python 3.12 和固定版本 Lumina；首次安装及首次下载分割模型需要联网。当前转换入口沿用总流水线的源图网格检查，普通照片与通用 Skill 的整理流程请按对应技能执行。
+
+详细步骤见 [Windows 部署指南](docs/windows-deployment.md)。GitHub Actions 中手动运行 **Build Windows delivery**，会检查 Windows 安装并生成 ZIP、PDF 和 SHA256 校验文件，不自动发布 Release。
+
+两套技能放在同一仓库中，不按分支区分：
+
+- `skills/codex/`：动漫像素、通用像素、高保真三个技能。
+- `skills/workbuddy/`：现有通用像素技能，以及生成该变体的宿主说明。
+
+修改 Codex 通用技能或 WorkBuddy 宿主说明后，运行 `python tools/build_general_workbuddy_skill.py` 同步 WorkBuddy 技能及独立导入 ZIP。
+
 ## 初次部署
 
 外层仓库不包含 `Lumina-Layers/` 软件本体；该目录已加入 `.gitignore`，每次部署时在项目根目录重新 clone。这样可以避免把叠色软件源码和它自己的输出、缓存一起提交到本项目。
@@ -33,21 +46,26 @@ uv pip install -r requirements-pixel3mf.txt
 
 | Skill | 适用任务 |
 | --- | --- |
-| [pixel-art-to-3mf](skills/pixel-art-to-3mf-skill/SKILL.md) | 原有动漫角色像素画，保留角色上半身、眼睛和姿态专用规则 |
-| [general-pixel-art-to-3mf](skills/general-pixel-art-to-3mf/SKILL.md) | 通用粗像素画：人物、宠物、植物、物品、车辆、建筑和简洁场景；支持文字、参考图或实拍照片辅助生成，也可导出 3MF |
-| [high-fidelity-image-to-3mf](skills/high-fidelity-image-to-3mf/SKILL.md) | 保留照片、插画的连续色调和高精细节，使用非像素转换流程 |
+| [pixel-art-to-3mf](skills/codex/pixel-art-to-3mf-skill/SKILL.md) | 原有动漫角色像素画，保留角色上半身、眼睛和姿态专用规则 |
+| [general-pixel-art-to-3mf](skills/codex/general-pixel-art-to-3mf/SKILL.md) | 通用粗像素画：人物、宠物、植物、物品、车辆、建筑和简洁场景；支持文字、参考图或实拍照片辅助生成，也可导出 3MF |
+| [high-fidelity-image-to-3mf](skills/codex/high-fidelity-image-to-3mf/SKILL.md) | 保留照片、插画的连续色调和高精细节，使用非像素转换流程 |
 
 通用版示例：“使用 `$general-pixel-art-to-3mf`，参考这张我家猫的照片做粗像素画，保留花纹和眼睛颜色，再转成 3MF。”多图可分别指定主体、构图和风格；只要求成品像素 PNG 时，也先执行 Perfect Pixel，再验收整理后的逻辑图和放大预览；明确只要生图原件时才跳过整理。照片辅助生成会产生新的像素画；要求原照片直接转换且不重画时，应使用高保真流程。通用版先用 `tools/refine_pixel.py --png-only --binarize-alpha` 整理透明源图，再正式验收；需要抠图时显式使用 `isnet-general-use`。验收通过的网格直接交给 `tools/lumina_batch.py` 导出两个尺寸，不套用动漫版原图的 60–85 网格门槛，也不强制缩放到 24×24。动漫动作类任务的案例参考图位于 `examples/reference-action-interaction.png`。
 
-## WorkBuddy 通用版下载
+## 各技能使用指南与 WorkBuddy 打包
 
-- [Skill 与 PDF 整合包](dist/general-pixel-art-to-3mf-workbuddy-bundle.zip)
-- [可导入的 Skill ZIP](dist/general-pixel-art-to-3mf-workbuddy.zip)
-- [中文 PDF 使用说明](dist/general-pixel-art-to-3mf-workbuddy-guide.pdf)
+面向使用者的 Markdown 说明集中在 [guides/skills/](guides/skills/README.md)，每个技能都有独立指南。
+
+构建产物统一保存在已忽略的 `output/` 中，不提交 ZIP 或 PDF 到仓库。Windows 整包从 GitHub Actions 的 Artifact 下载；本地打包结果在 `output/windows-delivery/`。WorkBuddy 独立技能 ZIP 和使用说明可分别用以下脚本生成到 `output/packages/`：
+
+```bash
+python tools/build_general_workbuddy_skill.py
+python tools/build_general_workbuddy_guide.py
+```
 
 WorkBuddy 版固定生成纯白、不透明背景；需要时在本地移除背景，先 Perfect Pixel，后正式验收，再导出两个尺寸的 3MF。默认像素风格参考为已整理的柯基。Skill 包需配合已经部署的 Pixel3MF / Lumina 项目使用，不包含 Python 环境或模型权重。
 
-宿主适配规则在 `workbuddy/general-host-adapter.md`，生成后的 Skill 位于 `workbuddy/skills/general-pixel-art-to-3mf/`。运行 `tools/build_general_workbuddy_skill.py` 重建 Skill ZIP；`tools/build_general_workbuddy_guide.py` 使用 ReportLab / pypdf 生成 PDF（当前字体路径适用于 macOS）。完整 WorkBuddy 运行适配保存在 `codex/workbuddy-migration` 分支。
+宿主适配规则在 `skills/workbuddy/general-host-adapter.md`，生成后的 Skill 位于 `skills/workbuddy/general-pixel-art-to-3mf/`。运行 `tools/build_general_workbuddy_skill.py` 重建 Skill ZIP；`tools/build_general_workbuddy_guide.py` 生成单独的 WorkBuddy 使用说明。两套技能都在当前仓库维护，不需要独立 WorkBuddy 分支。
 
 ## 环境准备
 

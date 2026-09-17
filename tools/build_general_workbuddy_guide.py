@@ -12,7 +12,7 @@ import shutil
 ROOT=Path(__file__).resolve().parents[1]
 OUT=ROOT/'output/pdf/general-pixel-art-to-3mf-workbuddy-guide.pdf'
 OUT.parent.mkdir(parents=True, exist_ok=True)
-(ROOT/'dist').mkdir(exist_ok=True)
+(ROOT/'output/packages').mkdir(parents=True, exist_ok=True)
 pdfmetrics.registerFont(TTFont('CJK','/System/Library/Fonts/Supplemental/Arial Unicode.ttf'))
 NAVY=colors.HexColor('#163442'); TEAL=colors.HexColor('#167D83'); PALE=colors.HexColor('#EDF5F4'); GRAY=colors.HexColor('#576B73'); LINE=colors.HexColor('#D3E0E2')
 W,H=A4; CW=W-88
@@ -49,14 +49,14 @@ def foot(c,doc):
 
 start(1,'通用像素画转 3MF','WorkBuddy 使用说明 · 先 Perfect Pixel，后正式验收')
 add('适用于人物、宠物、植物、物品、车辆、建筑和简洁场景。输入可以是文字、参考图或实拍照片。')
-ref=ROOT/'skills/general-pixel-art-to-3mf/assets/reference-corgi-pixel-style.png'
+ref=ROOT/'skills/codex/general-pixel-art-to-3mf/assets/reference-corgi-pixel-style.png'
 img=Image(str(ref),width=145,height=145*28/26,mask='auto')
 t=Table([[img,p('默认风格参考：已处理的柯基<br/><br/>逻辑网格 26 × 28，透明度为 0/255。参考其规整色块、阶梯轮廓和简化程度；生成其他主体时，不复制柯基的外形、毛色或坐姿。','body')]],colWidths=[178,CW-178])
 t.setStyle(TableStyle([('VALIGN',(0,0),(-1,-1),'MIDDLE'),('BACKGROUND',(0,0),(0,0),colors.HexColor('#DDE5E7')),('LEFTPADDING',(0,0),(-1,-1),10),('TOPPADDING',(0,0),(-1,-1),12),('BOTTOMPADDING',(0,0),(-1,-1),12)]))
 story.extend([Spacer(1,4),t,Spacer(1,14)])
 add('先确认安装与工作空间','sub')
-add('本机已安装项目级和个人级 Skill。打开 WorkBuddy，并选择下方已有项目。若换电脑或重新导入，在技能管理中导入配套 ZIP，并启用 general-pixel-art-to-3mf；具体入口名称以当前界面为准。')
-box('/Users/aurxs/Program/pixel3mf_workbuddy')
+add('打开 WorkBuddy，并选择已部署的 Pixel3MF 项目。若换电脑或重新导入，在技能管理中导入配套 ZIP，并启用 general-pixel-art-to-3mf；具体入口名称以当前界面为准。')
+box('当前解压并部署的 Pixel3MF 项目目录')
 add('配套文件：general-pixel-art-to-3mf-workbuddy.zip','small')
 add('项目级入口：.codebuddy/skills/general-pixel-art-to-3mf/SKILL.md。使用同一份最新版，避免误选原来的动漫专用 pixel-art-to-3mf。','small')
 add('运行前提','sub')
@@ -92,9 +92,9 @@ add('背板 1.2 mm、双面结构、不加挂孔，使用 BambuLab PLA 红/蓝/�
 start(5,'常见问题与维护','先定位发生在哪个阶段，再做最小修正，避免无效重复生图。')
 table([['遇到的问题','应如何处理'],['仍套用动漫上半身规则，或在 60–85 格处拒绝','明确选择 general-pixel-art-to-3mf；加载项目级新版本，不调用旧动漫候选验收/转换入口。'],['找不到 --png-only 或 --binarize-alpha','使用 Skill 自带 scripts/refine_pixel.py，而不是旧项目同名脚本；配合项目 .venv/bin/python。'],['No module named PIL / perfect_pixel','确认正在使用已有项目 .venv。不要因为系统 Python 缺包就重复安装整套环境。'],['图片有渐变或半透明边缘','先经过 Perfect Pixel，再检查逻辑图。不要只因原图有这些现象反复重画。'],['棋盘格被保留、白毛丢失、孔洞填实','先复核白毛与背景。封闭描边、无歧义孔洞的简单白底图，可用仅移除外连通白色的方案；其他情况复核语义遮罩。'],['自动网格检测失败','保留源图与诊断，尝试更清晰的新源图；不要强制网格或缩图制造通过。'],['生成任务状态未知或暂时失败','先查已提交调用状态，避免重复付费；不自动切换图像服务。'],['有 PNG，没有 3MF','确认最初要求了完整导出，再查正式验收、Lumina 预览和转换错误；不能仅凭脚本返回成功代替图像验收。']],[166,CW-166])
 add('维护者：更新与打包','sub')
-add('在 Codex 上游项目维护通用 Skill、WorkBuddy 宿主适配说明和整理脚本后，运行：')
+add('在同一项目的 skills/codex/ 与 skills/workbuddy/ 中维护通用 Skill 和宿主适配说明后，运行：')
 box('.venv/bin/python tools/build_general_workbuddy_skill.py')
-add('构建结果位于 workbuddy/skills/general-pixel-art-to-3mf/ 与 dist/general-pixel-art-to-3mf-workbuddy.zip。再将新包导入或同步到 WorkBuddy 的项目级与个人级目录；构建脚本本身不会自动安装。','small')
+add('构建结果位于 skills/workbuddy/general-pixel-art-to-3mf/ 与 output/packages/general-pixel-art-to-3mf-workbuddy.zip。再将新包导入或同步到 WorkBuddy 的项目级与个人级目录；构建脚本本身不会自动安装。','small')
 add('Skill 内部结构','sub')
 add('SKILL.md 控制阶段；references/ 保存生图、预检、整理和导出规则；assets/ 包含处理后的柯基逻辑图与预览；scripts/ 包含新版整理入口。两种 3MF 转换继续复用 WorkBuddy 项目内现有工具。','small')
 add('依据：本说明对应 2026-09-17 打包的 general-pixel-art-to-3mf WorkBuddy 版、general-host-adapter.md 及随包四份流程参考文件。','small')
@@ -104,6 +104,6 @@ doc.build(story,onFirstPage=foot,onLaterPages=foot)
 reader=PdfReader(OUT)
 assert len(reader.pages)==5, f'Unexpected page count: {len(reader.pages)}'
 assert all(len(page.extract_text().strip())>100 for page in reader.pages)
-shutil.copyfile(OUT,ROOT/'dist/general-pixel-art-to-3mf-workbuddy-guide.pdf')
+shutil.copyfile(OUT,ROOT/'output/packages/general-pixel-art-to-3mf-workbuddy-guide.pdf')
 print(OUT)
 print('Pages:',len(reader.pages))

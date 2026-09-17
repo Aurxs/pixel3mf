@@ -1,6 +1,7 @@
 .venv/
 .uv-cache/
 .cache/
+.windows-tools/
 .idea/
 __pycache__/
 *.pyc
@@ -18,3 +19,6 @@ skills/**/.git/
 # Local rendering previews and slicer reports.
 /tmp/
 /result.json
+
+# Legacy build output; new artifacts live under output/.
+dist/

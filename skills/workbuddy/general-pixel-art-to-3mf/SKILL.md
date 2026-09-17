@@ -7,6 +7,10 @@ description: Create coarse pixel art of general subjects from text, reference im
 
 Turn a user-described subject or photographed subject into readable coarse pixel art. Support text-only generation, reference-guided generation, explicit image edits, and direct conversion of existing pixel art. This skill has its own generation and acceptance rules. Bundled examples demonstrate pixel style only; never import their character identity or anime portrait anatomy.
 
+## Runtime portability
+
+Use the current Pixel3MF project root. Command examples use POSIX syntax; on Windows use `.venv/Scripts/python.exe`, PowerShell-compatible quoting and one-line commands instead of backslash continuations. Never copy another computer's virtual environment.
+
 ## Select the route
 
 - **Text to pixel art:** infer the composition from the requested subject and intended use.
@@ -72,7 +76,7 @@ For finished PNG requests, show the refined preview and link the logical PNG plu
 
 ## WorkBuddy host instructions
 
-This is the independent **general-pixel-art-to-3mf** workflow. Use the WorkBuddy production workspace containing `tools/cleanup_pixel.py`, `tools/lumina_batch.py`, `profiles/`, `.venv/`, and `Lumina-Layers/`. On the current machine that workspace is `/Users/aurxs/Program/pixel3mf_workbuddy`. Do not execute WorkBuddy tasks in the separate Codex upstream workspace.
+This is the independent **general-pixel-art-to-3mf** workflow. Use the current Pixel3MF project workspace containing `tools/cleanup_pixel.py`, `tools/lumina_batch.py`, `profiles/`, `.venv/`, and `Lumina-Layers/`. Codex and WorkBuddy share this repository and runtime; their skill variants live in `skills/codex/` and `skills/workbuddy/`. Do not require a separate branch or machine-specific workspace.
 
 ### Generation
 
@@ -84,7 +88,7 @@ This is the independent **general-pixel-art-to-3mf** workflow. Use the WorkBuddy
 
 ### Refinement and export
 
-- This package includes `scripts/refine_pixel.py` with `--png-only --binarize-alpha`, so it also works with an older WorkBuddy project that lacks these CLI flags. Set `SKILL_DIR` to the absolute path of this installed skill. Run the script with the project's existing `.venv/bin/python`; do not install a second runtime or copy generated files into the skill itself.
+- This package includes `scripts/refine_pixel.py` with `--png-only --binarize-alpha`, so it also works with an older WorkBuddy project that lacks these CLI flags. Set `SKILL_DIR` to the absolute path of this installed skill. Run the script with the project's existing Python (`.venv/Scripts/python.exe` on Windows, `.venv/bin/python` on macOS/Linux); do not install a second runtime or copy generated files into the skill itself.
 - For an inspected plain-white source with a closed dark outline and clearly foreground enclosed whites, the workspace exterior-only `white` background method can preserve white fur better than automatic semantics. Inspect any real internal gaps separately; do not use this route to ignore ambiguous holes. Use `isnet-general-use` or a reviewed mask when the background cannot be separated safely.
 - After raw-content preflight, run the packaged refinement helper, then the workspace's `finalize_pixel_grid` function and final visual review. Source gradients, partial alpha or a grid outside 60–85 must not cause early regeneration.
 - Use the workspace's independent `tools/lumina_batch.py` for both accepted-grid exports, preserving the project's exact geometry and slicer handling. Merge command metadata into the run manifest and keep previews, raw ZIPs and final 3MFs distinct.
