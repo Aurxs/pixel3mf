@@ -102,7 +102,7 @@
     "50"
   ],
   "different_settings_to_system": [
-    "",
+    "bottom_shell_layers;brim_type;detect_narrow_internal_solid_infill;infill_direction;initial_layer_line_width;initial_layer_print_height;inner_wall_line_width;only_one_wall_first_layer;prime_tower_brim_width;prime_tower_rib_wall;prime_tower_width;skeleton_infill_line_width;skin_infill_line_width;sparse_infill_density;sparse_infill_line_width;sparse_infill_pattern;top_shell_layers;wall_generator;wall_loops;wipe_tower_x;wipe_tower_y",
     "",
     ""
   ],
@@ -533,11 +533,6 @@
   "infill_rotate_step": "0",
   "infill_shift_step": "0.4",
   "infill_wall_overlap": "15%",
-  "inherits_group": [
-    "",
-    "",
-    ""
-  ],
   "initial_layer_acceleration": [
     "500"
   ],
@@ -803,7 +798,7 @@
   "print_flow_ratio": "1",
   "print_in_clockwise": "0",
   "print_sequence": "by layer",
-  "print_settings_id": "0.08mm Extra Fine @BBL A1M - pixel3mf Lumina",
+  "print_settings_id": "0.08mm Extra Fine @BBL A1M",
   "printable_area": [
     "0x0",
     "180x0",

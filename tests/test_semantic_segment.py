@@ -96,6 +96,7 @@ class WorkerFailureTests(unittest.TestCase):
                     )
 
             self.assertEqual(popen.call_count, 1)
+            self.assertEqual(popen.call_args.kwargs["env"]["NUMBA_DISABLE_JIT"], "1")
 
 
 if __name__ == "__main__":

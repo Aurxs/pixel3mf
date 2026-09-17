@@ -115,6 +115,10 @@ def run_segmentation_model(
     env = os.environ.copy()
     env["OMP_NUM_THREADS"] = str(DEFAULT_THREADS)
     env["U2NET_HOME"] = str(model_dir)
+    # rembg imports unused PyMatting kernels whose Numba cache probes create/delete
+    # dozens of temporary files. This worker uses only ONNX session.predict,
+    # so disable that unrelated JIT without changing ONNX or host safety settings.
+    env["NUMBA_DISABLE_JIT"] = "1"
     command = [
         sys.executable,
         str(Path(__file__).resolve()),

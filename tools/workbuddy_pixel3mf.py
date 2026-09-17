@@ -46,6 +46,7 @@ except ImportError:  # doctor reports the missing runtime dependency.
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 CORE_SKILL_DIR = PROJECT_ROOT / "skills" / "pixel-art-to-3mf-skill"
 WORKBUDDY_SKILL_DIR = PROJECT_ROOT / ".codebuddy" / "skills" / "pixel-art-to-3mf"
+GENERATION_PROMPT_PATH = PROJECT_ROOT / "workbuddy" / "generation-prompt.md"
 DEFAULT_CONFIG_PATH = PROJECT_ROOT / ".workbuddy.local.json"
 STATE_FILENAME = "workbuddy_state.json"
 STATE_VERSION = 1
@@ -319,7 +320,7 @@ def init_run(
     user_references: list[str] | None = None,
     source_image: str | Path | None = None,
     edit_defect: str | None = None,
-    use_bundled_style: bool = True,
+    use_bundled_style: bool = False,
     include_action_reference: bool = False,
 ) -> Path:
     if route not in {"generate", "edit", "direct"}:
@@ -379,6 +380,7 @@ def init_run(
         "route": route,
         "character_name": character_name,
         "character_request": character_request,
+        "generation_prompt_template": _prompt_block(route) if route != "direct" else None,
         "original_request": original_request,
         "edit_defect": edit_defect,
         "research": {
@@ -403,7 +405,7 @@ def init_run(
 
 
 def _prompt_block(route: str) -> str:
-    source = (CORE_SKILL_DIR / "references" / "generation-prompt.md").read_text(
+    source = GENERATION_PROMPT_PATH.read_text(
         encoding="utf-8"
     )
     heading = (
@@ -432,6 +434,13 @@ def _research_prompt_value(state: dict[str, Any]) -> str:
     research_value = research_path.read_text(encoding="utf-8").strip()
     if not research_value:
         raise ValueError("official-character research file is empty")
+    # Keep citations and audit notes out of the image payload when a concise,
+    # explicitly approved identity block is provided. Preserve legacy briefs.
+    identity = re.search(r"```identity\n(.*?)\n```", research_value, flags=re.DOTALL)
+    if identity:
+        research_value = identity.group(1).strip()
+        if not research_value:
+            raise ValueError("image identity brief is empty")
     if len(research_value) > 6000:
         raise ValueError(
             "official-character research brief exceeds the 6000-character limit"
@@ -443,7 +452,7 @@ def render_prompt(state: dict[str, Any]) -> str:
     route = state["route"]
     if route == "direct":
         raise ValueError("direct conversion does not have a generation prompt")
-    prompt = _prompt_block(route)
+    prompt = state.get("generation_prompt_template") or _prompt_block(route)
     if route == "generate":
         prompt = prompt.replace("<character>", state["character_request"])
     else:
@@ -455,6 +464,26 @@ def render_prompt(state: dict[str, Any]) -> str:
     if remaining:
         raise RuntimeError(f"unresolved prompt placeholders: {remaining}")
     return prompt
+
+
+def native_reference_files(state: dict[str, Any]) -> list[Path]:
+    """Return the actual original inputs for native generation, without compositing."""
+    paths: list[Path] = []
+    if state.get("use_bundled_style"):
+        paths.extend(CORE_SKILL_DIR / "assets" / name for name in (
+            "reference-24x24-block-style.png",
+            "reference-coarse-density-a.png",
+            "reference-coarse-density-b.png",
+        ))
+    if state.get("include_action_reference"):
+        paths.append(CORE_SKILL_DIR / "assets" / "reference-action-interaction.png")
+    if state.get("route") == "edit" and state.get("source_image"):
+        paths.insert(0, Path(state["source_image"]))
+    paths.extend(Path(value) for value in state.get("user_references", []))
+    for path in paths:
+        if not path.is_file():
+            raise FileNotFoundError(f"registered native reference is unavailable: {path}")
+    return paths
 
 
 def _compose_reference_sheet(paths: list[Path], output_path: Path) -> Path:
@@ -968,6 +997,42 @@ def generate_source(
     return attempt
 
 
+def normalize_generated_background(path: Path) -> dict[str, Any]:
+    """Whiten only opaque, near-white pixels connected to a near-white border."""
+    import numpy as np
+    from scipy.ndimage import binary_propagation
+
+    with Image.open(path) as image:
+        pixels = np.array(image.convert("RGBA"))
+    rgb = pixels[:, :, :3]
+    metadata: dict[str, Any] = {
+        "method": "border_connected_near_white",
+        "minimum_channel": 240,
+        "maximum_channel_spread": 8,
+        "connectivity": 4,
+        "changed_pixels": 0,
+        "status": "unchanged",
+    }
+    if not np.all(pixels[:, :, 3] == 255):
+        metadata["status"] = "skipped_nonopaque"
+        return metadata
+    near_white = np.all(rgb >= 240, axis=2) & (np.ptp(rgb, axis=2) <= 8)
+    border = np.zeros(near_white.shape, dtype=bool)
+    border[0, :] = border[-1, :] = True
+    border[:, 0] = border[:, -1] = True
+    if not np.all(near_white[border]):
+        metadata["status"] = "skipped_nonwhite_border"
+        return metadata
+    background = binary_propagation(border, mask=near_white)
+    changed = background & np.any(rgb != 255, axis=2)
+    metadata["changed_pixels"] = int(changed.sum())
+    if metadata["changed_pixels"]:
+        rgb[changed] = 255
+        Image.fromarray(pixels).save(path)
+        metadata["status"] = "normalized"
+    return metadata
+
+
 def import_workbuddy_candidate(
     run_dir: str | Path,
     *,
@@ -997,8 +1062,16 @@ def import_workbuddy_candidate(
     candidate = resolved / f"01_source_attempt_{number:02d}.png"
     if candidate.exists():
         raise FileExistsError(f"generation candidate already exists: {candidate}")
-    with Image.open(source) as image:
+    original = resolved / f"01_source_attempt_{number:02d}_original{source.suffix.lower() or '.bin'}"
+    if original.exists():
+        raise FileExistsError(f"original generation candidate already exists: {original}")
+    shutil.copy2(source, original)
+    with Image.open(original) as image:
         image.convert("RGBA").save(candidate)
+    normalization = normalize_generated_background(candidate)
+    normalization["original_file"] = str(original)
+    normalization["original_sha256"] = hashlib.sha256(original.read_bytes()).hexdigest()
+    normalization["normalized_sha256"] = hashlib.sha256(candidate.read_bytes()).hexdigest()
 
     validation = _objective_preflight(candidate)
     attempt: dict[str, Any] = {
@@ -1012,11 +1085,12 @@ def import_workbuddy_candidate(
         "prompt_sha256": hashlib.sha256(
             render_prompt(state).encode("utf-8")
         ).hexdigest(),
-        "reference_files": [str(path) for path in prepare_references(resolved, state)],
+        "reference_files": [str(path) for path in native_reference_files(state)],
         "reference_transport": "workbuddy-native",
         "task_id": None,
         "request_id": None,
         "submission_mode": "host-native",
+        "background_normalization": normalization,
         "objective_validation": validation,
         "visual_decision": None if validation["passed"] else "not_required",
         "visual_reason": None if validation["passed"] else "; ".join(validation["reasons"]),
@@ -1575,7 +1649,10 @@ def _build_parser() -> argparse.ArgumentParser:
     init_parser.add_argument("--user-reference", action="append", default=[])
     init_parser.add_argument("--source-image")
     init_parser.add_argument("--edit-defect")
-    init_parser.add_argument("--no-bundled-style", action="store_true")
+    styles = init_parser.add_mutually_exclusive_group()
+    styles.add_argument("--with-bundled-style", dest="use_bundled_style", action="store_true")
+    styles.add_argument("--no-bundled-style", dest="use_bundled_style", action="store_false")
+    init_parser.set_defaults(use_bundled_style=False)
     init_parser.add_argument("--include-action-reference", action="store_true")
 
     generate_parser = subparsers.add_parser("generate")
@@ -1583,6 +1660,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     prompt_parser = subparsers.add_parser("render-prompt")
     prompt_parser.add_argument("--run-dir", required=True)
+    prompt_parser.add_argument("--json", action="store_true", help="Native prompt and exact registered reference paths")
 
     import_parser = subparsers.add_parser("import-candidate")
     import_parser.add_argument("--run-dir", required=True)
@@ -1649,7 +1727,7 @@ def main() -> None:
             user_references=args.user_reference,
             source_image=args.source_image,
             edit_defect=args.edit_defect,
-            use_bundled_style=not args.no_bundled_style,
+            use_bundled_style=args.use_bundled_style,
             include_action_reference=args.include_action_reference,
         )
         print(run_dir)
@@ -1662,7 +1740,12 @@ def main() -> None:
         _, state = load_state(args.run_dir)
         if state["route"] == "direct":
             raise ValueError("direct conversion does not have an image-generation prompt")
-        print(render_prompt(state))
+        if args.json:
+            incoming = Path(args.run_dir).expanduser().resolve() / "00_incoming"
+            incoming.mkdir(exist_ok=True)
+            print(json.dumps({"prompt": render_prompt(state), "reference_files": [str(path) for path in native_reference_files(state)], "output_dir": str(incoming)}, ensure_ascii=False, indent=2))
+        else:
+            print(render_prompt(state))
         return
     if args.command == "import-candidate":
         attempt = import_workbuddy_candidate(

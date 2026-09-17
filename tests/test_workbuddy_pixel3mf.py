@@ -48,6 +48,21 @@ class _FakeSession:
 
 
 class WorkBuddyStateTests(unittest.TestCase):
+    def test_new_run_pins_prompt_and_defaults_to_no_native_references(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = workbuddy.init_run(character_name="original", character_request="robot",
+                                        original_request="robot", route="generate", output_root=tmp)
+            _, state = workbuddy.load_state(run_dir)
+            prompt = workbuddy.render_prompt(state)
+            self.assertEqual(workbuddy.native_reference_files(state), [])
+            with patch.object(workbuddy, "_prompt_block", return_value="changed template"):
+                self.assertEqual(workbuddy.render_prompt(state), prompt)
+            state["use_bundled_style"] = True
+            references = workbuddy.native_reference_files(state)
+            self.assertEqual(len(references), 3)
+            self.assertTrue(all(path.is_file() for path in references))
+            self.assertFalse(any(path.name == "style-sheet.png" for path in references))
+
     def test_local_config_rejects_embedded_credentials(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             config = Path(tmp) / "config.json"
@@ -115,6 +130,8 @@ class WorkBuddyStateTests(unittest.TestCase):
             prompt = workbuddy.render_prompt(state)
 
             self.assertIn("an original fox waving", prompt)
+            self.assertIn("64 × 64", prompt)
+            self.assertNotIn("24 × 24 pixel-art design as the visual prior", prompt)
             self.assertNotIn("75 mm", prompt)
             self.assertNotIn("60–85", prompt)
             self.assertNotIn("Perfect Pixel", prompt)
@@ -142,6 +159,13 @@ class WorkBuddyStateTests(unittest.TestCase):
 
             self.assertIn("Canonical jacket: blue", prompt)
             self.assertNotIn(str(run_dir), prompt)
+
+    def test_prompt_uses_only_explicit_identity_block_when_present(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            research = Path(tmp) / "research.md"
+            research.write_text("Official source: https://official.example/identity\n\n```identity\nGolden hair, amber eyes.\n```\nAudit notes outside the image prompt.\n")
+            value = workbuddy._research_prompt_value({"research": {"status": "completed", "path": str(research)}})
+            self.assertEqual(value, "Golden hair, amber eyes.")
 
     def test_edit_prompt_embeds_research_without_postprocessing_details(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -282,6 +306,59 @@ class WorkBuddyStateTests(unittest.TestCase):
 
 
 class WorkBuddyGenerationTests(unittest.TestCase):
+    def test_native_import_preserves_original_and_enclosed_highlights(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "near-white.png"
+            image = Image.new("RGBA", (16, 16), (253, 255, 254, 255))
+            # Closed red outline isolates a near-white highlight from the background.
+            from PIL import ImageDraw
+            ImageDraw.Draw(image).rectangle((4, 4, 11, 11), outline=(220, 20, 40, 255))
+            image.putpixel((0, 0), (245, 244, 241, 255))
+            image.save(source)
+            original = source.read_bytes()
+            run_dir = workbuddy.init_run(
+                character_name="normalization", character_request="original robot",
+                original_request="test", route="generate", output_root=Path(tmp) / "runs",
+                use_bundled_style=False,
+            )
+            with patch.object(workbuddy, "detect_source_grid", return_value={"width": 64, "height": 64}):
+                result = workbuddy.import_workbuddy_candidate(run_dir, source_image=source)
+            self.assertTrue(result["objective_validation"]["passed"])
+            metadata = result["background_normalization"]
+            self.assertEqual(Path(metadata["original_file"]).read_bytes(), original)
+            self.assertEqual(source.read_bytes(), original)
+            from run_pipeline import validate_generation_metadata
+            _, state = workbuddy.load_state(run_dir)
+            state["selected_attempt"] = 1
+            validated = validate_generation_metadata(workbuddy._generation_manifest(state))
+            self.assertEqual(validated["attempts"][0]["background_normalization"], metadata)
+            from datetime import datetime
+            from run_pipeline import _prepare_run_dir
+            incoming = run_dir / "00_incoming"
+            incoming.mkdir()
+            (incoming / "native-tool-arbitrary-name.png").write_bytes(original)
+            self.assertEqual(_prepare_run_dir(run_dir.parent, "test", datetime.now(), run_dir), run_dir)
+            self.assertEqual(metadata["changed_pixels"], 192)
+            with Image.open(result["file"]) as normalized:
+                self.assertEqual(normalized.size, image.size)
+                self.assertEqual(normalized.getpixel((0, 0)), (255, 255, 255, 255))
+                self.assertEqual(normalized.getpixel((5, 5)), (253, 255, 254, 255))
+                self.assertEqual(normalized.getpixel((4, 4)), (220, 20, 40, 255))
+
+    def test_background_normalization_does_not_hide_alpha_or_border_defects(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            for color, status in [((253, 255, 254, 200), "skipped_nonopaque"),
+                                  ((246, 255, 254, 255), "skipped_nonwhite_border"),
+                                  ((0, 0, 0, 255), "skipped_nonwhite_border"),
+                                  ((239, 239, 239, 255), "skipped_nonwhite_border")]:
+                with self.subTest(status=status):
+                    path = Path(tmp) / "source.png"
+                    Image.new("RGBA", (8, 8), color).save(path)
+                    original = path.read_bytes()
+                    result = workbuddy.normalize_generated_background(path)
+                    self.assertEqual(result["status"], status)
+                    self.assertEqual(path.read_bytes(), original)
+
     def _run_dir(self, root: str | Path) -> Path:
         return workbuddy.init_run(
             character_name="original",
@@ -520,6 +597,7 @@ class WorkBuddyGenerationTests(unittest.TestCase):
                 second = workbuddy.import_workbuddy_candidate(
                     run_dir, source_image=sources[1]
                 )
+                self.assertEqual(second["number"], 2)
                 workbuddy.decide_source(
                     run_dir,
                     attempt_number=2,

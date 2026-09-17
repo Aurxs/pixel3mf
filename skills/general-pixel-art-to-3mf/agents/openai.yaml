@@ -1,0 +1,4 @@
+interface:
+  display_name: "通用像素画转 3MF"
+  short_description: "从文字、参考图或实拍照片生成通用像素画，并导出分层 3MF"
+  default_prompt: "使用 $general-pixel-art-to-3mf 生成粗像素画：以统一网格上的大方块、纯色平涂和阶梯轮廓为首要要求，将我的描述、参考图或实拍照片概括成简洁像素造型；支持透明背景时优先生成透明 PNG，否则使用纯白背景。保留关键特征，并导出 3MF。"

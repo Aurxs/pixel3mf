@@ -16,6 +16,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SOURCE_DIR = PROJECT_ROOT / "skills" / "pixel-art-to-3mf-skill"
 TARGET_DIR = PROJECT_ROOT / ".codebuddy" / "skills" / "pixel-art-to-3mf"
 OVERLAY_PATH = PROJECT_ROOT / "workbuddy" / "host-adapter.md"
+GENERATION_PROMPT_PATH = PROJECT_ROOT / "workbuddy" / "generation-prompt.md"
 PACKAGE_PATH = PROJECT_ROOT / "dist" / "pixel-art-to-3mf-workbuddy.zip"
 CREATOR_SCRIPTS_DIR = (
     Path.home()
@@ -32,6 +33,12 @@ COPIED_DIRECTORIES = ("references", "assets")
 
 def _expected_skill_markdown() -> str:
     core = (SOURCE_DIR / "SKILL.md").read_text(encoding="utf-8").rstrip()
+    core = core.replace(
+        "Save the returned image as `01_source.png`.",
+        "Save the returned image and register it with `import-candidate`; the candidate is `01_source_attempt_NN.png`. `decide --decision accepted` creates `01_source.png` only after acceptance.",
+    )
+    core = core.replace("`01_source.png` exists", "a registered `01_source_attempt_NN.png` (generated) or registered `00_user_source_original.*` (direct) exists")
+    core = core.replace("Record the untouched-source grid", "Record the original-size source grid after the permitted native background normalization")
     overlay = OVERLAY_PATH.read_text(encoding="utf-8").strip()
     return f"{core}\n\n{overlay}\n"
 
@@ -43,6 +50,8 @@ def _source_files() -> dict[Path, bytes]:
         for path in sorted(directory.rglob("*")):
             if path.is_file():
                 files[path.relative_to(SOURCE_DIR)] = path.read_bytes()
+    for name in ("generation-prompt.md", "source-acceptance.md", "pixel-refinement.md"):
+        files[Path("references") / name] = (PROJECT_ROOT / "workbuddy" / name).read_bytes()
     return files
 
 

@@ -32,17 +32,17 @@ This is the only stage allowed to call image generation or image editing.
 2. Complete its official-character research gate when applicable and save `00_official_character_research.md` before the call.
 3. Load only the source/style images authorized by that file.
 4. Send only the selected fenced prompt block after replacing its placeholders.
-5. Save the returned image as `01_source.png`.
+5. Save the returned image and register it with `import-candidate`; the candidate is `01_source_attempt_NN.png`. `decide --decision accepted` creates `01_source.png` only after acceptance.
 
 For a defective generated result, start a brand-new generation. Do not pass the rejected image as an edit target, attached reference, or recent-image context. Edit a user-provided source only when the user explicitly asks for a local correction.
 
 ### Gate 1
 
-Do not continue until `01_source.png` exists. Until then, do not inspect later-stage documentation or implementation files, even to prepare future steps.
+Do not continue until a registered `01_source_attempt_NN.png` (generated) or registered `00_user_source_original.*` (direct) exists. Until then, do not inspect later-stage documentation or implementation files, even to prepare future steps.
 
 ## Stage 2 — Validate the completed source
 
-After `01_source.png` exists, read [source-acceptance.md](references/source-acceptance.md). Apply its visual and diagnostic checks.
+After a registered `01_source_attempt_NN.png` (generated) or registered `00_user_source_original.*` (direct) exists, read [source-acceptance.md](references/source-acceptance.md). Apply its visual and diagnostic checks.
 
 - Treat minor blur, antialiasing, whole-cell tonal transitions, and near-identical colors as recoverable warnings. Let Pixel Fine decide whether they resolve into a stable logical grid.
 - If the source is rejected for an unrecoverable grid, composition, or identity defect and regeneration is allowed, return to Stage 1 and preserve the prompt boundary.
@@ -51,7 +51,7 @@ After `01_source.png` exists, read [source-acceptance.md](references/source-acce
 
 ### Gate 2
 
-Record the untouched-source grid and preliminary acceptance before opening the refinement instructions. Apply the `60–85` density gate only here, never after semantic masking or temporary padding.
+Record the original-size source grid after the permitted native background normalization and preliminary acceptance before opening the refinement instructions. Apply the `60–85` density gate only here, never after semantic masking or temporary padding.
 
 ## Stage 3 — Prepare and refine pixels
 
@@ -76,13 +76,21 @@ Never solve a later-stage failure by adding its measurements or settings to the 
 
 ## WorkBuddy host adapter
 
-Use this adapter only in WorkBuddy. Keep the core stages and reference-loading gates above authoritative.
+Use this adapter only in WorkBuddy. Keep the core stage order. This adapter and the packaged host reference files define the explicit WorkBuddy differences: candidate filenames, optional references, the Stage 1 canvas grid, and audited near-white normalization.
 
+- The packaged `references/generation-prompt.md` is the WorkBuddy-specific Stage 1 template, maintained in `workbuddy/generation-prompt.md`. Its concise Chinese framing instructions and explicit 64 × 64 canvas grid replace the Codex 24 × 24 visual prior; keep the original source-acceptance rules. New runs snapshot the fenced template; retries use that snapshot. After an explicitly approved prompt change, start a new run instead of rewriting an existing run.
+- A research file may include one fenced `identity` block containing only the approved visual identity brief; the renderer uses that block and keeps URLs/audit notes in the saved research artifact.
+- Native new-generation tasks default to text-only in the CLI as well as this Skill; `init-run --no-bundled-style` makes it explicit and text-only ImageGen. Use `--with-bundled-style` only when those references are explicitly requested; respect the Stage 1 template.
+- `import-candidate` preserves the exact original and normalizes only opaque near-white (all RGB channels >= 240 and channel spread <= 8) background connected to a fully near-white canvas border. This user-approved normalization does not alter enclosed highlights, alpha, dimensions or the grid. Inspect `background_normalization` metadata; all original opacity, source-grid and visual gates still apply afterward.
+- Record the actual image tool model in `import-candidate --model` (for the verified native service, text-only uses `hunyuan-image-alpha` and reference-image generation uses `hunyuan-image-alpha-edit`); DeepSeek is the orchestrator, not the image generator.
 - Require the active workspace to contain `tools/workbuddy_pixel3mf.py`, `tools/run_pipeline.py`, and `profiles/`. If not, ask the user to switch to the Pixel3MF project workspace.
+- Use CLI `--help` for invocation details. Do not inspect implementation scripts or previous runs to calibrate a generation; if rejected, retry within the budget or report the reason.
 - Run `.venv/bin/python tools/workbuddy_pixel3mf.py doctor` before the first task in a new installation. Do not make a paid generation request during diagnosis. If credentials are missing, use the interactive `configure-keychain` subcommand; never place a secret in a shell argument or project file.
-- For generation or an authorized creative edit, complete the research gate first. Create an official research brief only for a named or recognizable subject; record an original subject as `not_applicable`. Call `init-run`. Prefer `generate` for TokenHub. When TokenHub is not configured, call `render-prompt`, invoke WorkBuddy's default image generator exactly once with that rendered prompt and only the registered Stage 1 references, save the returned image in the project, then call `import-candidate`. Inspect every objectively passing candidate against Stage 2 and record the result with `decide`. Never exceed three combined attempts and never attach a rejected candidate to a retry.
+- For generation or an authorized creative edit, complete the research gate first. Create an official research brief only for a named or recognizable subject; record an original subject as `not_applicable`. Call `init-run`. Prefer `generate` for TokenHub. When TokenHub is not configured, call `render-prompt --json` for the exact prompt, original reference paths, and `output_dir`, invoke WorkBuddy's default image generator exactly once with that rendered prompt and only the registered Stage 1 references, use the returned `output_dir` (`00_incoming/`) for the native tool so its arbitrary filenames cannot block conversion directory ownership checks, then call `import-candidate`. Inspect every objectively passing candidate against Stage 2 and record the result with `decide`. Never exceed three combined attempts and never attach a rejected candidate to a retry.
 - If generation reports an uncertain submitted task, call `resume-generation` for the same run; do not call `generate` again. If private COS deletion fails, call `cleanup-references` before generating or converting further.
 - For direct conversion, call `init-run --route direct` with `--character-name`, `--character-request` (or its file form), `--request` (or its file form), and `--source-image`, then call `convert`. Preserve the source and follow the Alpha and ambiguity rules in Stage 3.
+- Choose the cutout method from the accepted source. For a fully opaque, uniform white-background pixel source with a closed dark outline and clearly identifiable enclosed whites (eyes/highlights, no uncertain background holes), use `convert --background-method white` to preserve the silhouette. Use semantic `auto` for sources requiring hole adjudication. Never use this choice to accept a source that failed Stage 2.
+- After conversion, compare `05_pixel_preview_8x.png` against the accepted source for missing colored parts, shoulders, exterior outline and bottom baseline. `status=success` and zero ambiguous white components do not prove silhouette fidelity. If a semantic result deletes real parts from an otherwise suitable simple white-background source, keep that run intact and re-export the exact accepted source in a new direct run using `--background-method white`; retain the original run as generation provenance. Never route a rejected candidate through direct conversion.
 - Call `convert` only after one generated candidate is accepted or a direct source is registered. Never pass `--allow-ambiguous-mask`; the WorkBuddy wrapper intentionally does not expose it. If conversion blocks, correct the source or supply an approved binary `--mask-override`, then call `convert` again in the same run; the wrapper archives every failed pipeline attempt.
 - Treat `convert` as the deterministic implementation boundary for Stages 3 and 4. WorkBuddy must not preload Lumina reference details into the model context; the wrapper enforces the semantic/ambiguity gate before it invokes Lumina. Inspect and present Stage 3 artifacts only after the command returns, or immediately when it blocks before Lumina.
 - Treat WorkBuddy native generation as an explicit temporary provider when TokenHub is unconfigured, not as a silent retry after a submitted or failed TokenHub task. Record it through `import-candidate`, keep the same objective and visual gates, and identify the provider as `workbuddy` in delivery metadata.

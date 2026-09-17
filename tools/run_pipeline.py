@@ -62,6 +62,7 @@ _ATTEMPT_KEYS = {
     "request_id",
     "submission_mode",
     "objective_validation",
+    "background_normalization",
     "visual_decision",
     "visual_reason",
     "cos_objects",
@@ -155,6 +156,15 @@ def _validate_generation_schema(value: dict[str, object]) -> None:
         if not isinstance(attempt, dict):
             raise ValueError(f"{path} must be an object")
         _require_allowed_keys(attempt, _ATTEMPT_KEYS, path)
+        normalization = attempt.get("background_normalization")
+        if normalization is not None:
+            if not isinstance(normalization, dict):
+                raise ValueError(f"{path}.background_normalization must be an object")
+            _require_allowed_keys(normalization, {
+                "method", "minimum_channel", "maximum_channel_spread", "connectivity",
+                "changed_pixels", "status", "original_file", "original_sha256",
+                "normalized_sha256",
+            }, f"{path}.background_normalization")
         objective = attempt.get("objective_validation")
         if objective is not None:
             if not isinstance(objective, dict):

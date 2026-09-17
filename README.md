@@ -39,6 +39,8 @@ uv pip install -r requirements-pixel3mf.txt
 .venv/bin/python tools/build_workbuddy_skill.py --package
 ```
 
+WorkBuddy 生图模板单独保存在 `workbuddy/generation-prompt.md`，与 `workbuddy/source-acceptance.md` 一起覆盖宿主副本的对应 references，CLI 的 `render-prompt` 也读取它。混元原生生图采用明确的 `64×64` 全画布网格和简化造型描述；Codex 核心模板保持不变，源图验收规则也不变。编排模型可选择 `Deepseek-V4.1-Flash`，原生绘图由独立 ImageGen 服务执行，`--model` 应记录真实绘图模型。
+
 项目级 WorkBuddy 说明保存在 `workbuddy/project-instructions.md`，非敏感配置模板保存在 `workbuddy/config.example.json`。把模板复制为仓库根目录的 `.workbuddy.local.json` 后填写私有 COS bucket；该本地配置和 `dist/` 均被 Git 忽略。
 
 WorkBuddy 总入口提供环境检查、任务初始化、隔离提示词渲染、单次生图/候选导入、视觉决定和转换：
@@ -60,9 +62,15 @@ WorkBuddy 总入口提供环境检查、任务初始化、隔离提示词渲染�
 
 TokenHub 与 COS 密钥优先从 macOS Keychain 的 `pixel3mf.tokenhub` / `pixel3mf.cos` service 读取；CI 可使用 `PIXEL3MF_TOKENHUB_API_KEY`、`PIXEL3MF_COS_SECRET_ID`、`PIXEL3MF_COS_SECRET_KEY`、`PIXEL3MF_COS_BUCKET` 和 `PIXEL3MF_COS_REGION`。不要把密钥写进 `.workbuddy.local.json`。
 
+WorkBuddy CLI 默认不附带内置风格图，`init-run --no-bundled-style` 可显式声明；仅在需要参考图时使用 `--with-bundled-style`，避免旧粗格参考图把输出拉回低密度或复制参考角色；需要参考图时再显式启用。原生候选导入会保留原始文件和 SHA-256，仅把与整圈近白边框连通、RGB 三通道均不低于 240 且通道差不超过 8 的不透明背景归一到纯白。内部封闭高光、Alpha、图像尺寸和网格均不修改；`background_normalization` 审计信息会进入最终 manifest。网格和构图验收仍然有效。`render-prompt --json` 同时返回隔离提示词和真实原始参考图路径；每个新 run 固定保存当时的模板，后续全局模板更新不会悄悄改变在途任务。
+
 TokenHub 未配置时，可在 WorkBuddy 中用 `render-prompt` 输出的隔离提示词调用默认生图能力，并用 `import-candidate` 登记每张候选。该入口与 TokenHub 共用最多 3 次的硬限制、客观预检和 `decide` 视觉验收；它不是已提交 TokenHub 任务的自动回退。
 
 COS 只作为 TokenHub 拒绝 data URI 时的后备。桶必须保持私有读，预签名 URL 固定 15 分钟，任务结束后由编排器删除对象；`workbuddy/cos-cam-policy.example.json` 给出仅限 `workbuddy-reference/` 前缀上传、读取和删除的子账号策略，`workbuddy/cos-lifecycle.example.json` 给出 1 天生命周期兜底。把示例中的 APPID 与桶名占位符替换后再通过腾讯云控制台应用，不要授予公共读。
+
+原生生图验收后，若为闭合轮廓、纯白背景且内部白色明确是眼白/高光的简单像素图，可用 `convert --background-method white` 保留主体完整外形；需要判断内部背景孔洞时继续使用语义分割。最终必须对照原图检查肩部、外轮廓和底线，不能仅凭 `manifest.status=success` 交付。若语义分割误删主体，保留旧 run，从已验收源图初始化新 direct run，用保守白底模式重导，保留来源链。
+
+分割子进程仅调用 ONNX `session.predict`，设置 `NUMBA_DISABLE_JIT=1` 跳过 rembg 导入时不使用的 PyMatting JIT 缓存探测，避免 WorkBuddy 首次运行触发大量临时文件清理；CPU 推理、RSS 限额及宿主安全检查保持有效。
 
 ## 环境准备
 
@@ -233,3 +241,13 @@ XY 补偿和 A1 mini 配置规范化都只使用 Python 标准库处理 3MF，�
 - Lumina 失败：查看运行目录内 `lumina_api.log` 和 manifest 的 `error`；确认 8000 端口没有被无关服务占用。
 - 最终矩形尺寸异常：检查 `03_working_grid.png`、`04_pixel_perfect.png` 和 manifest 的 `source_grid` / `working_grid` / `export_grid`；临时边距不得出现在尺寸计划中。
 - 最终 3MF 已内置 A1 mini、Arachne、`0.42 mm` 线宽和其余固定参数；在 Bambu Studio 中保持模型 `100%` 缩放，不要再次把新的 `_3x3.3mf` 放大到 `102.38%`。
+
+## 通用像素画 WorkBuddy 版
+
+- [Skill 与 PDF 整合包](dist/general-pixel-art-to-3mf-workbuddy-bundle.zip)
+- [Skill ZIP](dist/general-pixel-art-to-3mf-workbuddy.zip)
+- [PDF 使用说明](dist/general-pixel-art-to-3mf-workbuddy-guide.pdf)
+
+使用项目级 `.codebuddy/skills/general-pixel-art-to-3mf/`，与原动漫版分开。生图固定纯白不透明背景，使用处理后的柯基作为像素风格参考；先背景准备和 Perfect Pixel，后正式验收，再直接用 Lumina 导出两份 3MF，不经过原动漫版的 60–85 源图门槛。
+
+`tools/build_general_workbuddy_skill.py` 从 `skills/general-pixel-art-to-3mf` 和 `workbuddy/general-host-adapter.md` 构建发布包；生成后同步项目级 Skill。PDF 构建源是 `tools/build_general_workbuddy_guide.py`。
