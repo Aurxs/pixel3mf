@@ -35,45 +35,19 @@ jobs:
   package:
     needs: windows-install-check
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Prepare PDF tools
+      - name: Archive the complete project source
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y fonts-wqy-microhei poppler-utils
-          python -m pip install reportlab pypdf
-      - name: Check WorkBuddy skill is synchronized
-        run: |
-          python tools/build_general_workbuddy_skill.py
-          git diff --exit-code -- skills/workbuddy
-          test -z "$(git ls-files --others --exclude-standard skills/workbuddy)"
-      - name: Build guide and delivery ZIP
-        env:
-          PIXEL3MF_WINDOWS_CHECK: passed
-          PIXEL3MF_PDF_FONT: /usr/share/fonts/truetype/wqy/wqy-microhei.ttc
-        run: python tools/build_windows_delivery.py
-      - name: Render guide for inspection
-        run: |
-          mkdir -p output/windows-delivery/guide-preview
-          pdftoppm -scale-to 1200 -png output/windows-delivery/pixel3mf-windows-guide.pdf output/windows-delivery/guide-preview/page
-      - name: Upload delivery
+          mkdir -p output/windows-delivery
+          git archive --format=zip --prefix=pixel3mf/ --output=output/windows-delivery/pixel3mf-windows.zip HEAD
+          unzip -t output/windows-delivery/pixel3mf-windows.zip
+      - name: Upload project ZIP
         uses: actions/upload-artifact@v4
         with:
           name: pixel3mf-windows-delivery
-          path: |
-            output/windows-delivery/pixel3mf-windows.zip
-            output/windows-delivery/pixel3mf-windows-guide.pdf
-            output/windows-delivery/SHA256SUMS.txt
+          path: output/windows-delivery/pixel3mf-windows.zip
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
-      - name: Upload PDF previews
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-guide-preview
-          path: output/windows-delivery/guide-preview/*.png
-          retention-days: 14

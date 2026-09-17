@@ -4,20 +4,83 @@
 
 Python 脚本不直接调用 Codex image generation。先在 Codex 中生成图片，或准备自己的参考图，再把本地图片路径交给总入口。
 
-## Windows 交付与手动打包
+## Windows 部署与使用
 
-Windows 用户先完整解压交付包，双击 `01_install_windows.cmd`，安装成功后双击 `02_convert_image.cmd` 选择已有像素图。安装器面向 Windows 10/11 x64，自动准备 uv、Python 3.12 和固定版本 Lumina；首次安装及首次下载分割模型需要联网。当前转换入口沿用总流水线的源图网格检查，普通照片与通用 Skill 的整理流程请按对应技能执行。
+### 三步开始
 
-详细步骤见 [Windows 部署指南](docs/windows-deployment.md)。GitHub Actions 中手动运行 **Build Windows delivery**，会检查 Windows 安装并生成 ZIP、PDF 和 SHA256 校验文件，不自动发布 Release。
+1. 从仓库下载项目源码，或下载下方 Action 生成的 `pixel3mf-windows.zip`，完整解压到本地目录，例如 `D:\pixel3mf`。不要在压缩包预览窗口内运行。
+2. 双击 `01_install_windows.cmd`。看到 `Installation complete` 后，按任意键退出。
+3. 双击 `02_convert_image.cmd`，选择已有像素图，按提示选择主体模型，等待转换完成。
 
-两套技能放在同一仓库中，不按分支区分：
+成功后会打开 `output/`。进入最新的“时间戳_图片名”文件夹，取出 `08_` 开头的两份 3MF。
+
+### 环境要求与安装行为
+
+- 面向 Windows 10/11、Intel/AMD x64；安装器不支持 Windows ARM 或 32 位系统。
+- 建议 16 GB 内存和约 10 GB 可用空间，这是部署建议而非实测最低配置。语义分割使用 CPU，不要求独立显卡。
+- 首次安装需要访问 GitHub、Python 下载源和 Python 包索引；首次语义分割还需下载模型权重。
+- 不需要预装 Git、Python 或 uv。安装器自动准备项目专用 uv、Python 3.12、`.venv/` 和固定版本的 `Lumina-Layers/`。
+- 使用有写入权限的短路径，避免 Program Files、网络共享盘或同步盘。通常不需要管理员权限。
+
+安装分五步：下载 uv、准备 Python、准备 Lumina、安装依赖、检查环境。成功检查覆盖关键模块导入、指定 LUT、Lumina 栅格参数和 A1 mini 配置，不执行完整转换。
+
+安装日志保存在 `output/setup/`。失败后先解决最后一条错误，再重跑安装器。遇到已有但不受安装器管理的 `Lumina-Layers/`，或来自 macOS 的 `.venv/`，安装器会停止而不覆盖；确认后将旧目录改名再安装。
+
+安装后请保持项目路径不变。移动项目或换电脑时重新部署，不要复制其他电脑的虚拟环境。已有 `output/` 成品可单独保留。依赖尚未完全锁定，如未来安装兼容性变化，请提供安装日志。
+
+### 图片转换与结果
+
+双击转换入口沿用 `tools/run_pipeline.py`，适用于符合原流水线要求的已有像素画。优先用轮廓清晰的 PNG，也支持 JPG、JPEG、WebP。它不会调用 AI 生图，也不会自动将普通照片画成像素画。
+
+选图后输入 `1` 或直接回车使用动漫主体模型，输入 `2` 使用通用主体模型。这里仅切换背景分割模型，**不会切换成通用 Skill 流程，也不会取消原总入口每轴 60–85 格的源图检查**。其他网格的通用像素图、文字生图、照片重绘与高保真任务，按下方对应 Skill 执行。
+
+- `08_*_2x2.3mf`：每逻辑像素 0.84 mm。
+- `08_*_3x3.3mf`：已完成 XY 补偿，每逻辑像素 1.29 mm；导入切片器保持 100% 缩放，不再重复补偿。
+- `05_pixel_preview_8x.png`：整理后的像素预览。
+- `06_lumina_2d_preview_*.png`：叠色预览，检查颜色、轮廓及背景。
+- `manifest.json`：参数、处理记录、输出路径与失败原因；`07_` 开头 ZIP 是 Lumina 原始归档。
+
+像素成品默认写入 Bambu Lab A1 mini、0.4 mm 喷嘴和 0.08 mm 工艺，并使用红蓝黄白四色 LUT。其他打印机或耗材需要操作者核对调整；打印前检查耗材映射与切片预览。
+
+### AI 与技能
+
+两套技能放在同一仓库，共用 `tools/`、`profiles/`、`Lumina-Layers/` 和 `.venv/`，不按分支区分：
 
 - `skills/codex/`：动漫像素、通用像素、高保真三个技能。
-- `skills/workbuddy/`：现有通用像素技能，以及生成该变体的宿主说明。
+- `skills/workbuddy/`：通用像素技能。
 
-修改 Codex 通用技能或 WorkBuddy 宿主说明后，运行 `python tools/build_general_workbuddy_skill.py` 同步 WorkBuddy 技能及独立导入 ZIP。
+让 AI 读取对应技能的 `SKILL.md` 即可按流程执行；如需导入，选择具体技能目录，不要把整个 `skills/` 当成一个技能。同名通用技能只选适合当前宿主的一份。技能包不包含账户、API Key 或生图服务。
 
-## 初次部署
+Windows 使用 `.venv/Scripts/python.exe`；POSIX 命令示例需改成 PowerShell 可执行形式。各技能的中文操作示例见 [使用指南索引](guides/skills/README.md)，完整目录及文件用途见 [项目目录说明](guides/project-structure.md)。
+
+### Windows 常见问题
+
+- 下载超时：检查 GitHub 与下载源连接；安装失败重跑安装器，模型下载失败重试转换并保留日志。
+- DLL 或运行库缺失：按实际错误定位；明确提示 VC++ 运行库时，安装微软官方 Visual C++ x64 运行库后重试。
+- 系统或组织阻止脚本：按组织策略处理已确认来源的脚本，不关闭系统防护或擅自改全局执行策略。
+- 网格检测失败：确认输入是清晰像素图，或按对应 Skill 整理，不靠随意缩放绕过检测。
+- 白色主体缺失或背景孔洞有歧义：检查遮罩与 `manifest.json`，针对图片修正，不忽略歧义。
+- Lumina 启动失败：查看任务目录的 `lumina_api.log`，确认 8000 端口没有被无关服务占用。
+
+求助时提供 `output/setup/` 或 `output/launcher/` 最新日志、失败任务的 `manifest.json` 和相关预览。
+
+## 手动运行 GitHub Action
+
+工作流文件：`.github/workflows/windows-delivery.yml`，名称 **Build Windows delivery**。
+
+1. 在仓库 **Actions** 中选择该工作流，点击 **Run workflow**，选择分支并启动。
+2. Action 先在 Windows 中检查 PowerShell 语法，再实际运行安装器及环境检查。
+3. 检查通过后，直接用 `git archive` 打包该提交中 Git 跟踪的完整项目源码。
+4. 在运行页面 **Artifacts** 下载 `pixel3mf-windows-delivery`，解压 GitHub 的外层归档，取出 `pixel3mf-windows.zip` 转发给使用者。
+
+工作流只支持手动触发，不因 push 自动执行。不生成 PDF，不需要独立的 ZIP/PDF 生成脚本，不创建 Release。产物保留 14 天；失败时查看运行日志或 `windows-install-log`。
+
+“完整项目”指版本库中的源码、配置、技能、Markdown 指南、测试和入口文件；不包含 `.git/`、本机虚拟环境、缓存、历史输出和未跟踪的 Lumina 软件本体。Lumina 会在用户安装时下载。仓库不保留 `dist/`；CI 临时产物写入 `output/windows-delivery/`。
+
+CI 不执行生图、下载分割权重、完整 3MF 转换或实物打印。各技能直接在宿主目录中维护，共同规则修改时同步更新两份；无需生成脚本。
+
+## macOS / Linux 命令行部署
+
 
 外层仓库不包含 `Lumina-Layers/` 软件本体；该目录已加入 `.gitignore`，每次部署时在项目根目录重新 clone。这样可以避免把叠色软件源码和它自己的输出、缓存一起提交到本项目。
 
@@ -52,20 +115,11 @@ uv pip install -r requirements-pixel3mf.txt
 
 通用版示例：“使用 `$general-pixel-art-to-3mf`，参考这张我家猫的照片做粗像素画，保留花纹和眼睛颜色，再转成 3MF。”多图可分别指定主体、构图和风格；只要求成品像素 PNG 时，也先执行 Perfect Pixel，再验收整理后的逻辑图和放大预览；明确只要生图原件时才跳过整理。照片辅助生成会产生新的像素画；要求原照片直接转换且不重画时，应使用高保真流程。通用版先用 `tools/refine_pixel.py --png-only --binarize-alpha` 整理透明源图，再正式验收；需要抠图时显式使用 `isnet-general-use`。验收通过的网格直接交给 `tools/lumina_batch.py` 导出两个尺寸，不套用动漫版原图的 60–85 网格门槛，也不强制缩放到 24×24。动漫动作类任务的案例参考图位于 `examples/reference-action-interaction.png`。
 
-## 各技能使用指南与 WorkBuddy 打包
+## 各技能使用指南
 
 面向使用者的 Markdown 说明集中在 [guides/skills/](guides/skills/README.md)，每个技能都有独立指南。
 
-构建产物统一保存在已忽略的 `output/` 中，不提交 ZIP 或 PDF 到仓库。Windows 整包从 GitHub Actions 的 Artifact 下载；本地打包结果在 `output/windows-delivery/`。WorkBuddy 独立技能 ZIP 和使用说明可分别用以下脚本生成到 `output/packages/`：
-
-```bash
-python tools/build_general_workbuddy_skill.py
-python tools/build_general_workbuddy_guide.py
-```
-
-WorkBuddy 版固定生成纯白、不透明背景；需要时在本地移除背景，先 Perfect Pixel，后正式验收，再导出两个尺寸的 3MF。默认像素风格参考为已整理的柯基。Skill 包需配合已经部署的 Pixel3MF / Lumina 项目使用，不包含 Python 环境或模型权重。
-
-宿主适配规则在 `skills/workbuddy/general-host-adapter.md`，生成后的 Skill 位于 `skills/workbuddy/general-pixel-art-to-3mf/`。运行 `tools/build_general_workbuddy_skill.py` 重建 Skill ZIP；`tools/build_general_workbuddy_guide.py` 生成单独的 WorkBuddy 使用说明。两套技能都在当前仓库维护，不需要独立 WorkBuddy 分支。
+WorkBuddy 技能位于 `skills/workbuddy/general-pixel-art-to-3mf/`，使用纯白、不透明背景，先 Perfect Pixel 整理，后正式验收，再导出两个尺寸的 3MF。它与 Codex 技能共用当前项目，不需要独立分支。技能目录需要配合已部署的 Pixel3MF / Lumina 使用，不包含 Python 环境或模型权重。
 
 ## 环境准备
 

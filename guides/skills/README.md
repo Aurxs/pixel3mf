@@ -11,7 +11,7 @@
 
 ## 先完成项目部署
 
-Windows 用户按 [Windows 部署指南](../../docs/windows-deployment.md) 操作。两套技能共用当前项目的 `tools/`、`profiles/`、`Lumina-Layers/` 与 `.venv/`，无需独立分支或第二套环境。
+Windows 用户按 [Windows 部署指南](../../README.md) 操作。两套技能共用当前项目的 `tools/`、`profiles/`、`Lumina-Layers/` 与 `.venv/`，无需独立分支或第二套环境。
 
 Windows 使用 `.venv/Scripts/python.exe`；macOS/Linux 使用 `.venv/bin/python`。文档中的 POSIX 多行命令需要按实际终端改写。
 

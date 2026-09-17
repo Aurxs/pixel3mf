@@ -10,7 +10,7 @@
 
 ## 开始前
 
-先按 [Windows 部署指南](../../../docs/windows-deployment.md) 安装项目。在 WorkBuddy 中使用当前项目，让它读取上述技能；若导入技能，导入 `skills/workbuddy/general-pixel-art-to-3mf/` 整个文件夹。该文件夹包含 references、assets 和 scripts，不能只复制 SKILL.md。
+先按 [Windows 部署指南](../../../README.md) 安装项目。在 WorkBuddy 中使用当前项目，让它读取上述技能；若导入技能，导入 `skills/workbuddy/general-pixel-art-to-3mf/` 整个文件夹。该文件夹包含 references、assets 和 scripts，不能只复制 SKILL.md。
 
 需要新图时，WorkBuddy 必须提供可用的生图能力。技能和项目本身不附带账户或生图接口凭据。
 
