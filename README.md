@@ -29,7 +29,15 @@ uv pip install -r Lumina-Layers/requirements.txt
 uv pip install -r requirements-pixel3mf.txt
 ```
 
-`skills/` 是随本项目一起复制进来的 Codex skill 文件夹，不是压缩包；本项目只保留 `pixel-art-to-3mf-skill`，通用 Codex skills 不随项目分发。生成或转换任务需要使用它时，可直接查看 `skills/pixel-art-to-3mf-skill/SKILL.md`。动作类任务的案例参考图位于 `examples/reference-action-interaction.png`。
+`skills/` 是随本项目分发的 Codex skill 文件夹，不是压缩包。按任务选择：
+
+| Skill | 适用任务 |
+| --- | --- |
+| [pixel-art-to-3mf](skills/pixel-art-to-3mf-skill/SKILL.md) | 原有动漫角色像素画，保留角色上半身、眼睛和姿态专用规则 |
+| [general-pixel-art-to-3mf](skills/general-pixel-art-to-3mf/SKILL.md) | 通用粗像素画：人物、宠物、植物、物品、车辆、建筑和简洁场景；支持文字、参考图或实拍照片辅助生成，也可导出 3MF |
+| [high-fidelity-image-to-3mf](skills/high-fidelity-image-to-3mf/SKILL.md) | 保留照片、插画的连续色调和高精细节，使用非像素转换流程 |
+
+通用版示例：“使用 `$general-pixel-art-to-3mf`，参考这张我家猫的照片做粗像素画，保留花纹和眼睛颜色，再转成 3MF。”多图可分别指定主体、构图和风格；只要求成品像素 PNG 时，也先执行 Perfect Pixel，再验收整理后的逻辑图和放大预览；明确只要生图原件时才跳过整理。照片辅助生成会产生新的像素画；要求原照片直接转换且不重画时，应使用高保真流程。通用版先用 `tools/refine_pixel.py --png-only --binarize-alpha` 整理透明源图，再正式验收；需要抠图时显式使用 `isnet-general-use`。验收通过的网格直接交给 `tools/lumina_batch.py` 导出两个尺寸，不套用动漫版原图的 60–85 网格门槛，也不强制缩放到 24×24。动漫动作类任务的案例参考图位于 `examples/reference-action-interaction.png`。
 
 ## 环境准备
 
@@ -121,10 +129,12 @@ UV_CACHE_DIR=.uv-cache uv pip install -r requirements-pixel3mf.txt
 - Lumina 内置孤立像素清理开启
 - 优先调用 `/api/convert/batch`，即使只有一张图
 - `07_lumina_batch_result_*.zip` 原样保留 Lumina 返回的 3MF 及项目配置；只对已解压并命名的 `08_*.3mf` 成品做幂等配置规范化
-- 最终 3MF 使用固定的 Bambu Lab A1 mini 0.4 mm 机型与官方 `0.08mm Extra Fine @BBL A1M` 基线；机器 G-code、热床/喷嘴温度、速度、加速度和 PLA 流量来自该基线快照
+- 最终 3MF 直接引用官方 `Bambu Lab A1 mini 0.4 nozzle`、`0.08mm Extra Fine @BBL A1M` 和 `Bambu PLA Basic @BBL A1M` ID；参数结构来自同版本官方项目，机器 G-code、热床/喷嘴温度、速度、加速度和 PLA 流量保持官方值
+- Arachne、线宽、单层高度、填充和料塔等改动写成官方 0.08 mm 工艺上的项目级覆盖，不创建新的机器、工艺或耗材 preset；Bambu Studio 可逐项显示并撤回这些改动
+- `different_settings_to_system` 按 Bambu Studio 官方项目结构写成 `工艺 + N 个耗材 + 机器` 共 `N+2` 项；只在首项声明工艺改动键，其余项保持空白，确保加载时应用工艺覆盖且不修改官方机型/耗材
 - 对基线固定覆盖：`0.08 mm` 首层，相关线宽全部 `0.42 mm`，Arachne，1 圈墙，首层仅单层墙，顶/底壳 0 层，100% `zig-zag` 填充且方向 `0°`，关闭狭窄内部实心填充识别，关闭支撑，自动边缘宽 `5 mm`
 - 开启单喷头多材料和擦料塔；塔宽 `170 mm`，擦料塔 brim 宽 `1 mm`，位置 `X=5 mm, Y=160 mm`（A1 mini 打印板上方），关闭擦料塔斜肋外墙；模型自身仍使用自动边缘宽 `5 mm`
-- 只替换 `Metadata/project_settings.config`；Lumina 动态颜色、颜色/挤出机映射和模型几何保持不变。将 H2D 双喷嘴存储的两套冲刷表规范化为 A1 mini 所需的单套 `N×N` 表，并保留原始第一套表的全部数值
+- 只替换 `Metadata/project_settings.config`；仅从 Lumina 保留动态颜色、颜色/挤出机映射及冲刷数据，模型几何保持不变。将 H2D 双喷嘴存储的两套冲刷表规范化为 A1 mini 所需的单套 `N×N` 表，并保留原始第一套表的全部数值
 - `3×3` 的补偿会先以共同中心烘焙到所有颜色零件的 X/Y 顶点，再整体平移以保持原始左下角位置，避免放大后产生负坐标；三角拓扑、颜色/挤出机映射、Z 坐标和装配关系保持不变，并在 3MF 内写入幂等标记，防止重复放大
 - `07_lumina_batch_result_3x3.zip` 保留 Lumina 返回的未补偿原件；`08_<角色名>_3x3.3mf` 是可直接以 `100%` 导入切片器的补偿后成品
 

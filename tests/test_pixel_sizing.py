@@ -145,6 +145,32 @@ class RectangularPreparationTests(unittest.TestCase):
             metadata["square_padding"], {"columns_added": 0, "rows_added": 0}
         )
 
+    def test_general_refinement_binarizes_sampled_alpha_without_forcing_grid(self) -> None:
+        sampled = np.zeros((3, 4, 4), dtype=np.uint8)
+        sampled[:, :, :3] = (20, 40, 60)
+        sampled[:, :, 3] = [0, 127, 128, 255]
+        with tempfile.TemporaryDirectory() as tmp:
+            source, output, preview = (Path(tmp) / name for name in
+                                       ("source.png", "output.png", "preview.png"))
+            Image.new("RGBA", (80, 60), (20, 40, 60, 200)).save(source)
+            original = source.read_bytes()
+            with patch("refine_pixel.get_perfect_pixel", return_value=(4, 3, sampled)):
+                with self.assertRaises(ValueError):
+                    refine_pixel(source, output, preview)
+                metadata = refine_pixel(
+                    source, output, preview,
+                    validate_source_density=False, binarize_alpha=True,
+                )
+            with Image.open(output) as image:
+                pixels = np.asarray(image)
+            self.assertEqual(source.read_bytes(), original)
+            self.assertEqual(pixels.shape, (3, 4, 4))
+            np.testing.assert_array_equal(pixels[:, :, :3], sampled[:, :, :3])
+            np.testing.assert_array_equal(pixels[0, :, 3], [0, 0, 255, 255])
+            self.assertFalse(metadata["density_gate_applied"])
+            self.assertIsNone(metadata["accepted_grid_range"])
+            self.assertEqual(metadata["partial_alpha_cells_before_binarization"], 6)
+
     def test_source_density_boundaries_are_inclusive(self) -> None:
         validate_detected_grid(60, 85)
         validate_detected_grid(85, 60)

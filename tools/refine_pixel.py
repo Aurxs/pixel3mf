@@ -177,6 +177,7 @@ def refine_pixel(
     expected_source_grid: dict[str, int] | None = None,
     validate_source_density: bool = True,
     working_padding_cells: int = 0,
+    binarize_alpha: bool = False,
 ) -> dict[str, object]:
     rgba = np.asarray(Image.open(input_path).convert("RGBA"))
     grid_w, grid_h, refined = get_perfect_pixel(
@@ -222,6 +223,11 @@ def refine_pixel(
     before_square_height = int(final_array.shape[0])
     if square_output:
         final_array = _pad_square(final_array)
+    partial_alpha_cells = int(
+        np.count_nonzero((final_array[:, :, 3] > 0) & (final_array[:, :, 3] < 255))
+    )
+    if binarize_alpha:
+        final_array[:, :, 3] = np.where(final_array[:, :, 3] >= 128, 255, 0)
     final = Image.fromarray(final_array, "RGBA")
 
     output_path = Path(output_path)
@@ -253,7 +259,10 @@ def refine_pixel(
             "minimum_per_axis": MIN_ACCEPTED_GRID,
             "maximum_per_axis": MAX_ACCEPTED_GRID,
             "inclusive": True,
-        },
+        } if validate_source_density else None,
+        "density_gate_applied": validate_source_density,
+        "alpha_binarized": binarize_alpha,
+        "partial_alpha_cells_before_binarization": partial_alpha_cells,
         "auto_detected": auto_detected,
         "auto_accepted": True,
         "forced_grid": None,
@@ -266,13 +275,28 @@ def main() -> None:
     parser.add_argument("output")
     parser.add_argument("preview")
     parser.add_argument(
+        "--png-only",
+        action="store_true",
+        help="Refine a PNG without applying the 3MF-specific source density gate",
+    )
+    parser.add_argument(
+        "--binarize-alpha",
+        action="store_true",
+        help="Threshold sampled logical-cell alpha at 128 after Perfect Pixel",
+    )
+    parser.add_argument(
         "--square-output",
         action="store_true",
         help="Pad the refined grid to a square with complete transparent cells",
     )
     args = parser.parse_args()
     metadata = refine_pixel(
-        args.input, args.output, args.preview, square_output=args.square_output
+        args.input,
+        args.output,
+        args.preview,
+        square_output=args.square_output,
+        validate_source_density=not args.png_only,
+        binarize_alpha=args.binarize_alpha,
     )
     print(json.dumps(metadata, ensure_ascii=False))
 

@@ -14,7 +14,11 @@ TOOLS_DIR = PROJECT_ROOT / "tools"
 sys.path.insert(0, str(TOOLS_DIR))
 
 from three_mf_a1mini_profile import (  # noqa: E402
+    OFFICIAL_FILAMENT_SETTINGS_ID,
+    OFFICIAL_PRINTER_SETTINGS_ID,
+    OFFICIAL_PRINT_SETTINGS_ID,
     PROJECT_SETTINGS_MEMBER,
+    _PROCESS_OVERRIDE_KEYS,
     normalize_a1mini_3mf,
 )
 
@@ -23,6 +27,16 @@ GEOMETRY = b"<model><mesh>lumina geometry stays byte-identical</mesh></model>"
 SOURCE_SETTINGS = {
     "printer_model": "Bambu Lab H2D",
     "printer_settings_id": "Bambu Lab H2D 0.4 nozzle",
+    "print_settings_id": "版画",
+    "inherits_group": ["0.08mm Extra Fine @BBL H2D", "", "", "", "", ""],
+    "different_settings_to_system": [
+        "initial_layer_print_height;machine_start_gcode",
+        "filament_flow_ratio",
+        "",
+        "",
+        "",
+        "machine_start_gcode",
+    ],
     "machine_start_gcode": ";===== machine: H2D =====",
     "filament_colour": ["#FFFFFF", "#CF4745", "#F6F450", "#192180"],
     "filament_multi_colour": ["#FFFFFF", "#CF4745", "#F6F450", "#192180"],
@@ -70,10 +84,18 @@ class ThreeMfA1MiniProfileTests(unittest.TestCase):
         self.assertTrue(result["applied"])
         self.assertEqual(geometry, GEOMETRY)
         self.assertEqual(model_settings, b"<config>extruders</config>")
+        self.assertEqual(settings["name"], "project_settings")
+        self.assertEqual(settings["from"], "project")
         self.assertEqual(settings["printer_model"], "Bambu Lab A1 mini")
         self.assertEqual(
             settings["printer_settings_id"],
-            "Bambu Lab A1 mini 0.4 nozzle",
+            OFFICIAL_PRINTER_SETTINGS_ID,
+        )
+        self.assertEqual(settings["print_settings_id"], OFFICIAL_PRINT_SETTINGS_ID)
+        self.assertNotIn("inherits_group", settings)
+        self.assertEqual(
+            settings["different_settings_to_system"],
+            [";".join(_PROCESS_OVERRIDE_KEYS), "", "", "", "", ""],
         )
         self.assertEqual(settings["printable_area"], ["0x0", "180x0", "180x180", "0x180"])
         self.assertEqual(settings["layer_height"], "0.08")
@@ -109,7 +131,7 @@ class ThreeMfA1MiniProfileTests(unittest.TestCase):
         self.assertEqual(settings["filament_max_volumetric_speed"], ["21"] * 4)
         self.assertEqual(
             settings["filament_settings_id"],
-            ["Bambu PLA Basic @BBL A1M"] * 4,
+            [OFFICIAL_FILAMENT_SETTINGS_ID] * 4,
         )
         self.assertEqual(settings["filament_colour"], SOURCE_SETTINGS["filament_colour"])
         self.assertEqual(

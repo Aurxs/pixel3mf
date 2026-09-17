@@ -40,7 +40,7 @@ For example, a final `80 × 79` grid must export a `67.20 mm × 66.36 mm` `2 × 
 
 ## Conversion sequence
 
-Use the local `Lumina-Layers/` checkout.
+Use the local `Lumina-Layers/` checkout. For this general workflow, pass the already accepted `04_pixel_perfect.png` directly to `tools/lumina_batch.py`, once with `--cells-per-logical-pixel 2` and once with `3`, specifying separate preview/ZIP/final paths. This converter derives exact dimensions from the actual logical grid; it does not impose the legacy anime source-density gate. Capture each call's JSON metadata in the run manifest. Do not rerun `tools/run_pipeline.py` on the accepted logical PNG.
 
 1. Build and validate the exact `2 × 2` and `3 × 3` sizing plans from the final refined grid.
 2. Start or reuse the Lumina API server.
@@ -48,7 +48,7 @@ Use the local `Lumina-Layers/` checkout.
 4. Save the returned PNGs as `06_lumina_2d_preview_2x2.png` and `06_lumina_2d_preview_3x3.png`.
 5. Run batch conversion for each variant with the width used by its preview.
 6. Preserve the returned archives as `07_lumina_batch_result_2x2.zip` and `07_lumina_batch_result_3x3.zip` when applicable.
-7. Extract and name the models `08_<character-slug>_2x2.3mf` and `08_<character-slug>_3x3.3mf`.
+7. Extract and name the models `08_<subject-slug>_2x2.3mf` and `08_<subject-slug>_3x3.3mf`. The tools' legacy `character_name` field may contain any subject label.
 8. Leave the `2 × 2` geometry unchanged. Apply the verified centered XY vertex compensation to the final `3 × 3` model only. Keep the batch ZIP as the raw, unscaled and unnormalized Lumina archive.
 9. Apply `tools/three_mf_a1mini_profile.py` to each extracted final 3MF. Keep the exact official A1 mini machine, 0.08 mm process, and Bambu PLA Basic preset IDs. Store the deliberate process changes as project-level overrides and list their keys only in element 0 of Bambu Studio's `different_settings_to_system` vector; size that vector as `process + N filaments + printer`, leaving every filament and printer element empty. Preserve only Lumina's dynamic colors, geometry, color/extruder mapping, and the completed XY compensation. Convert Lumina's H2D dual-nozzle flush data to the A1 mini single-nozzle representation by retaining exactly the first `N × N` matrix and one flush multiplier.
 
@@ -83,4 +83,4 @@ Create `manifest.json` with:
 - both Lumina preview, archive, and final 3MF paths
 - status, gate results, and failure notes
 
-Keep `00_official_character_research.md`, `01_source.png`, all numbered intermediates, the manifest, and optional diagnostics in the run folder.
+Keep `00_subject_brief.md`, any applicable `00_official_character_research.md`, the original reference files or their source paths, `01_source.png`, all numbered intermediates, the manifest, and optional diagnostics in the run folder. Add route, reference roles, retained visible attributes, deliberate simplifications, and background decisions to the manifest without replacing pipeline metadata. Ordinary photo subjects use research status `not_applicable`.

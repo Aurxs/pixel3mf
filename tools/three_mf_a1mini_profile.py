@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Normalize a Lumina 3MF to the pinned pixel3mf A1 mini print profile."""
+"""Normalize a Lumina 3MF onto official Bambu A1 mini project presets."""
 
 from __future__ import annotations
 
@@ -22,6 +22,38 @@ DEFAULT_PROFILE_PATH = (
     / "bambu_a1mini_0.4_0.08_extra_fine_pixel3mf.json"
 )
 PROFILE_SOURCE = "Bambu Studio 02.07.01.62 official A1 mini profiles"
+OFFICIAL_PRINTER_SETTINGS_ID = "Bambu Lab A1 mini 0.4 nozzle"
+OFFICIAL_PRINT_SETTINGS_ID = "0.08mm Extra Fine @BBL A1M"
+OFFICIAL_FILAMENT_SETTINGS_ID = "Bambu PLA Basic @BBL A1M"
+
+# Bambu Studio does not infer project overrides from the flattened values in
+# project_settings.config. It reloads the selected official preset and only
+# preserves keys listed in different_settings_to_system. Element 0 is the
+# process; the following elements are filaments; the final element is the
+# printer. Keep machine and filament elements empty for MakerWorld safety.
+_PROCESS_OVERRIDE_KEYS = (
+    "bottom_shell_layers",
+    "brim_type",
+    "detect_narrow_internal_solid_infill",
+    "infill_direction",
+    "initial_layer_line_width",
+    "initial_layer_print_height",
+    "inner_wall_line_width",
+    "only_one_wall_first_layer",
+    "prime_tower_brim_width",
+    "prime_tower_rib_wall",
+    "prime_tower_width",
+    "skeleton_infill_line_width",
+    "skin_infill_line_width",
+    "sparse_infill_density",
+    "sparse_infill_line_width",
+    "sparse_infill_pattern",
+    "top_shell_layers",
+    "wall_generator",
+    "wall_loops",
+    "wipe_tower_x",
+    "wipe_tower_y",
+)
 
 _FILAMENT_ARRAY_KEYS = {
     "activate_air_filtration",
@@ -57,10 +89,15 @@ _DYNAMIC_PROJECT_KEYS = {
 }
 
 _REQUIRED_TARGET_VALUES: dict[str, object] = {
+    "name": "project_settings",
+    "from": "project",
     "printer_model": "Bambu Lab A1 mini",
-    "printer_settings_id": "Bambu Lab A1 mini 0.4 nozzle",
+    "printer_settings_id": OFFICIAL_PRINTER_SETTINGS_ID,
     "printer_variant": "0.4",
-    "print_settings_id": "0.08mm Extra Fine @BBL A1M - pixel3mf Lumina",
+    # Keep the official process selected. The values below are project-level
+    # overrides, so Bambu Studio can show and reset each changed process field
+    # instead of treating the 3MF as a new custom preset.
+    "print_settings_id": OFFICIAL_PRINT_SETTINGS_ID,
     "printable_area": ["0x0", "180x0", "180x180", "0x180"],
     "printable_height": "180",
     "nozzle_diameter": ["0.4"],
@@ -189,6 +226,10 @@ def _build_target_settings(
 
     color_count = len(source_colours)
     target = copy.deepcopy(profile)
+    # An official project preset has no custom-preset inheritance chain. A
+    # stale inherits_group can make a multi-colour project look as if it embeds
+    # custom process, printer, or filament presets to external validators.
+    target.pop("inherits_group", None)
     _resize_filament_arrays(target, color_count)
 
     for key in _DYNAMIC_PROJECT_KEYS:
@@ -200,12 +241,16 @@ def _build_target_settings(
     target["filament_multi_colour"] = copy.deepcopy(
         source.get("filament_multi_colour", source_colours)
     )
-    target["filament_settings_id"] = ["Bambu PLA Basic @BBL A1M"] * color_count
+    target["filament_settings_id"] = [OFFICIAL_FILAMENT_SETTINGS_ID] * color_count
     target["filament_type"] = ["PLA"] * color_count
     target["filament_vendor"] = ["Bambu Lab"] * color_count
     target["filament_ids"] = ["GFA00"] * color_count
     target["filament_map"] = ["1"] * color_count
     target["filament_extruder_variant"] = ["Direct Drive Standard"] * color_count
+    target["different_settings_to_system"] = [
+        ";".join(_PROCESS_OVERRIDE_KEYS),
+        *("" for _ in range(color_count + 1)),
+    ]
     _normalize_flush_settings(source, target, color_count)
 
     for key, expected in _REQUIRED_TARGET_VALUES.items():
@@ -254,9 +299,22 @@ def _validate_target(settings: dict[str, object], color_count: int) -> None:
             raise RuntimeError(f"A1 mini profile still contains H2D data in {key}")
 
     if settings.get("filament_settings_id") != [
-        "Bambu PLA Basic @BBL A1M"
+        OFFICIAL_FILAMENT_SETTINGS_ID
     ] * color_count:
         raise RuntimeError("A1 mini filament profile IDs were not applied")
+
+    if "inherits_group" in settings:
+        raise RuntimeError("official project presets must not contain inherits_group")
+
+    different_settings = settings.get("different_settings_to_system")
+    if not isinstance(different_settings, list) or len(different_settings) != color_count + 2:
+        raise RuntimeError(
+            "different_settings_to_system must contain process, filament, and printer entries"
+        )
+    if set(different_settings[0].split(";")) != set(_PROCESS_OVERRIDE_KEYS):
+        raise RuntimeError("process override keys are incomplete")
+    if any(different_settings[1:]):
+        raise RuntimeError("official filament and printer presets must have no overrides")
 
     matrix = settings.get("flush_volumes_matrix")
     if not isinstance(matrix, list) or len(matrix) != color_count * color_count:
