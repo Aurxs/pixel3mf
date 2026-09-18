@@ -1,11 +1,11 @@
 # Prepare an existing source
 
-Commands use `PYTHON` for a compatible interpreter and `SKILL_DIR` for this skill's absolute path. Use a new output directory. The tool retains the original and a lossless PNG derivative.
+Resolve `PYTHON` and the project’s `TOOLS_DIR` using [runtime.md](runtime.md). Use a new output directory. The tool retains the original and a lossless PNG derivative.
 
 For raw or enlarged pixel artwork:
 
 ```bash
-"$PYTHON" "$SKILL_DIR/scripts/prepare_source.py" /absolute/source.png /absolute/run/prepared
+"$PYTHON" "$TOOLS_DIR/prepare_source.py" /absolute/source.png /absolute/run/prepared
 ```
 
 This calls Perfect Pixel with automatic grid detection, center sampling and no forced square. It thresholds sampled alpha at 128 only after refinement, tight-crops fully transparent outer rows/columns and saves `04_pixel_perfect.png` plus `05_pixel_preview_8x.png`. A detected grid different from the prompt is not an automatic failure; judge the refined result.
@@ -27,4 +27,4 @@ After semantic removal, inspect the complete contour, pale subject areas and hol
 
 Review the final enlarged preview against the original subject brief. Check recognition, complete silhouette, coarse readable cells, background intent and alpha. The tool labels output `needs_visual_review`, never automatically accepted. Keep prep metadata and failed candidates. No 60–85 density gate, Lumina sizing or 3MF cleanup rules apply.
 
-Shrinking an accepted grid changes the design. If the user requires a smaller target, prepare a separate derivative, preserve aspect ratio, inspect the lost detail and record the change. The chart tool only offers non-destructive padding through `--canvas`; it intentionally rejects implicit shrinking or stretching.
+Shrinking an accepted grid changes the design. If the user requires a smaller target, use [compression.md](compression.md) to prepare a separate derivative, preserve aspect ratio and the exterior outline, inspect the lost detail and record the change. The chart renderer itself only offers non-destructive padding through `--canvas`; shrinking belongs in that explicit compression stage.

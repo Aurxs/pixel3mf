@@ -20,6 +20,7 @@ pixel3mf/
 │   └── check_environment.py          检查依赖导入、LUT、栅格参数与 A1 mini 配置
 │
 ├── tools/
+│   ├── beads/                      拼豆工作流、压缩、背景处理和图纸渲染，详见下文
 │   ├── run_pipeline.py              原像素转换总入口，串联步骤并记录 manifest
 │   ├── workbuddy_pixel3mf.py         WorkBuddy 动漫候选登记、验收、状态和转换适配器
 │   ├── semantic_segment.py          在受时间/内存限制的 CPU 子进程中运行分割模型
@@ -42,7 +43,8 @@ pixel3mf/
 │   ├── codex/
 │   │   ├── general-pixel-art-to-3mf/    通用像素技能，详细结构见下文
 │   │   ├── pixel-art-to-3mf-skill/      动漫角色像素技能
-│   │   └── high-fidelity-image-to-3mf/  高保真图像技能
+│   │   ├── high-fidelity-image-to-3mf/  高保真图像技能
+│   │   └── pixel-art-to-beads/         独立拼豆技能，四图交付与 52 格压缩
 │   └── workbuddy/
 │       ├── general-pixel-art-to-3mf/    WorkBuddy 通用像素技能
 │       └── pixel-art-to-3mf/            WorkBuddy 动漫人物像素技能
@@ -54,7 +56,8 @@ pixel3mf/
 │       ├── codex/
 │       │   ├── general-pixel-art-to-3mf.md    通用像素操作示例
 │       │   ├── pixel-art-to-3mf.md            动漫角色操作示例
-│       │   └── high-fidelity-image-to-3mf.md  高保真操作示例
+│       │   ├── high-fidelity-image-to-3mf.md  高保真操作示例
+│       │   └── pixel-art-to-beads.md         拼豆四图交付操作示例
 │       └── workbuddy/
 │           ├── general-pixel-art-to-3mf.md    WorkBuddy 通用像素操作示例
 │           └── pixel-art-to-3mf.md            WorkBuddy 动漫人物操作示例
@@ -68,6 +71,9 @@ pixel3mf/
 │   ├── test_pixel_sizing.py         逻辑网格与物理尺寸计算
 │   ├── test_pipeline_exports.py     流水线导出、共享任务目录和生图记录
 │   ├── test_workbuddy_pixel3mf.py    WorkBuddy 候选状态、验收与转换适配测试
+│   ├── test_beads.py                拼豆色卡、计数与背景处理测试
+│   ├── test_bead_compression.py     压缩尺寸、轮廓与配色独立性测试
+│   ├── test_bead_workflow.py        四张主图的交付与旧结果保护测试
 │   ├── test_3mf_xy_scale.py         3MF XY 补偿与幂等性
 │   └── test_3mf_a1mini_profile.py    A1 mini 配置规范化
 │
@@ -139,6 +145,37 @@ skills/codex/high-fidelity-image-to-3mf/
     └── troubleshooting.md           高保真转换问题排查
 ```
 
+### Codex 独立拼豆技能
+
+```text
+skills/codex/pixel-art-to-beads/
+├── SKILL.md                         输入路由、四图交付、默认 52 格压缩
+├── agents/openai.yaml              Codex 展示信息与默认调用
+├── assets/                         像素风格参考、MARD 色卡及来源许可
+└── references/
+    ├── generation-prompt.md         新像素画生成与参考图规则
+    ├── pixel-refinement.md          背景处理、Perfect Pixel 与验收
+    ├── compression.md              精确尺寸、轮廓保护与 AI 整理
+    ├── bead-export.md              四图入口、输出目录与排版
+    ├── palette-format.md           色卡和可编辑数据格式
+    └── runtime.md                  项目运行路径与来源信息
+```
+
+```text
+tools/beads/
+├── run_workflow.py              四图工作流 prepare / finish 入口
+├── compress_pixels.py           尺寸压缩、通用提示词及 AI 输出检查
+├── bead_pattern.py              单尺寸原向/镜像图纸渲染
+├── bead_palette.py              色卡校验与颜色匹配
+├── prepare_source.py            原图到逻辑像素网格
+├── remove_background.py         独立背景处理实现
+├── semantic_segment.py          可选分割子进程
+├── cleanup_pixel.py             语义网格清理
+└── requirements*.txt            基础、精修和可选抠图依赖
+```
+
+拼豆规则与资产在技能目录，程序在项目 `tools/beads/`，不依赖其他技能或 Lumina；开发测试与其他项目测试一起放在 `tests/`。交付图位于任务的 `delivery/`，中间产物和辅助文件位于 `work/`。
+
 ### WorkBuddy 通用像素技能
 
 ```text
@@ -155,7 +192,7 @@ skills/workbuddy/general-pixel-art-to-3mf/
     └── lumina-conversion.md         双尺寸叠色 3MF 导出规则
 ```
 
-`skills/` 中的规则给 AI 执行；`guides/skills/` 中的说明给使用者阅读。当前没有独立 ZIP/PDF 生成脚本，也没有 `dist/`；Action 直接归档 Git 跟踪的项目文件。
+`skills/` 中的规则给 AI 执行；`guides/skills/` 中的说明给使用者阅读。拼豆图纸的 PDF/CSV 为任务内辅助产物；项目交付 Action 直接归档 Git 跟踪的项目文件。
 
 ## WorkBuddy 动漫人物技能目录
 

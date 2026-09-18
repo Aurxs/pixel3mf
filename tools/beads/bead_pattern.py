@@ -20,7 +20,7 @@ from reportlab.pdfgen.canvas import Canvas
 
 from bead_palette import load_palette, map_colors, validate_palette
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2] / "skills/codex/pixel-art-to-beads"
 DEFAULT_PALETTE = ROOT / "assets/palettes/mard-221.json"
 
 
@@ -83,7 +83,7 @@ def find_font(explicit=None):
             try:
                 pdfmetrics.registerFont(TTFont("BeadFont", candidate))
                 ImageFont.truetype(candidate, 16)
-                needed = set("正常版镜像拼豆图纸色颗空格不放左右翻转用量清单行列页近似值原始方向校准线阅读图非实物比例")
+                needed = set("镜像版拼豆图纸色颗用量清单行列页校准线钉距实际大小打印")
                 if any(ord(c) not in pdfmetrics.getFont("BeadFont").face.charToGlyph for c in needed):
                     continue
                 return candidate
@@ -182,7 +182,7 @@ def chart_size(rows, counts):
     cell = 28
     width = max(960, (len(rows[0])+2)*cell+48)
     columns = max(1, (width-48)//164)
-    height = 140+(len(rows)+2)*cell + math.ceil(len(counts)/columns)*38 + 68
+    height = 108+(len(rows)+2)*cell + math.ceil(len(counts)/columns)*38 + 68
     return width, height, cell, columns
 
 
@@ -190,11 +190,10 @@ def overview(surface, project, mirrored, major):
     rows = mirror(project["cells"]) if mirrored else project["cells"]
     counts = statistics(rows)
     width, height, cell, columns = chart_size(rows, counts)
-    variant = "镜像版" if mirrored else "正常版"
-    surface.text(24, 36, f"{project['title']} · {variant}", 30, max_width=width-48)
+    title = f"{project['title']} · 镜像版" if mirrored else project['title']
+    surface.text(24, 36, title, 30, max_width=width-48)
     surface.text(24, 76, f"{len(rows[0])} × {len(rows)} / {len(counts)} 色 / 共 {sum(counts.values())} 颗", 23)
-    surface.text(24, 109, "左右翻转 · 色号文字保持正常" if mirrored else "原始方向 · 一格一颗豆", 15, "#616770")
-    x, y = (width-len(rows[0])*cell)/2, 140+cell
+    x, y = (width-len(rows[0])*cell)/2, 108+cell
     grid(surface, rows, project["palette"], x, y, cell, major)
     colors = {c["code"]: c["rgb"] for c in project["palette"]["colors"]}
     legend_y = y+(len(rows)+1)*cell+24
@@ -203,7 +202,7 @@ def overview(surface, project, mirrored, major):
         surface.rect(xx, yy-12, 52, 26, rgb_hex(colors[code]))
         surface.text(xx+26, yy+1, code, 14, ink(colors[code]), center=True, max_width=48)
         surface.text(xx+63, yy+1, f"{quantity} 颗", 16)
-    surface.text(24, height-27, f"{project['palette'].get('name', '自定义色卡')} · 色值为屏幕近似值 · 空格不放豆", 14,
+    surface.text(24, height-27, project['palette'].get('name', '自定义色卡'), 14,
                  "#616770", max_width=width-48)
 
 
@@ -216,7 +215,7 @@ def preview(rows, palette, path):
 
 def render_pdf(project, path, font, major, pitch=None):
     pdf = Canvas(str(path), pagesize=A4)
-    pdf.setTitle(f"{project['title']} - 正常版与镜像版")
+    pdf.setTitle(project['title'])
     page_w, page_h = A4
     width, height, cell, _ = chart_size(project["cells"], statistics(project["cells"]))
     scale = min((page_w-40)/width, (page_h-68)/height)
@@ -226,7 +225,6 @@ def render_pdf(project, path, font, major, pitch=None):
         pdf.scale(scale, scale)
         overview(Surface(width, height, font, pdf), project, mirrored, major)
         pdf.restoreState()
-        Surface(page_w, page_h, font, pdf).text(20, page_h-18, "总览 / 阅读图，非实物比例", 9)
         pdf.showPage()
         if cell*scale >= 12 and pitch is None:
             continue
@@ -241,22 +239,19 @@ def render_pdf(project, path, font, major, pitch=None):
                 page += 1
                 tile = [row[x:x+cols] for row in rows[y:y+lines]]
                 surface = Surface(page_w, page_h, font, pdf)
-                variant = "镜像版" if mirrored else "正常版"
-                surface.text(24, 27, f"{project['title']} · {variant}", 16, max_width=page_w-48)
+                title = f"{project['title']} · 镜像版" if mirrored else project['title']
+                surface.text(24, 27, title, 16, max_width=page_w-48)
                 surface.text(24, 54, f"第 {page}/{pages} 页 · 列 {x+1}-{x+len(tile[0])} / 行 {y+1}-{y+len(tile)}", 11)
                 grid(surface, tile, project["palette"], 24+size, 85+size, size, major, (x, y))
                 if pitch is not None:
                     surface.line(24, page_h-48, 24+50*72/25.4, page_h-48, "#111111", 1)
                     surface.text(24, page_h-27, f"50 mm 校准线 · 钉距 {pitch:g} mm · 按 100% 实际大小打印", 10)
-                else:
-                    surface.text(24, page_h-27, "全局坐标 · 空格不放豆 · 阅读图，非实物比例", 10)
                 pdf.showPage()
     colors = {c["code"]: c["rgb"] for c in project["palette"]["colors"]}
     counts = list(statistics(project["cells"]).items())
     for offset in range(0, len(counts), 60):
         surface = Surface(page_w, page_h, font, pdf)
         surface.text(24, 30, f"用量清单 · {project['title']}", 18, max_width=page_w-48)
-        surface.text(24, 58, "正常版与镜像版用量相同；以下为制作一份作品的用量。", 11)
         for i, (code, quantity) in enumerate(counts[offset:offset+60]):
             x, y = 24+(i//30)*280, 95+(i % 30)*22
             surface.rect(x, y-8, 55, 18, rgb_hex(colors[code]))

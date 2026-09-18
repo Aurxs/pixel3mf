@@ -1,9 +1,12 @@
-"""Small behavioral checks; run with python -m unittest discover -s scripts -p test_beads.py."""
+"""Focused checks for the project bead tools."""
 import copy
 import tempfile
 import unittest
 from unittest.mock import patch
 from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools/beads"))
 
 import numpy as np
 from PIL import Image

@@ -46,7 +46,7 @@ Python 脚本不直接调用 Codex image generation。先在 Codex 中生成图�
 
 两套技能放在同一仓库，共用 `tools/`、`profiles/`、`Lumina-Layers/` 和 `.venv/`，不按分支区分：
 
-- `skills/codex/`：动漫像素、通用像素、高保真三个技能。
+- `skills/codex/`：动漫像素、通用像素、高保真、独立拼豆四个技能。
 - `skills/workbuddy/`：通用像素技能与动漫人物技能 `pixel-art-to-3mf`。
 
 让 AI 读取对应技能的 `SKILL.md` 即可按流程执行；如需导入，选择具体技能目录，不要把整个 `skills/` 当成一个技能。同名通用技能只选适合当前宿主的一份。技能包不包含账户、API Key 或生图服务。
@@ -112,6 +112,7 @@ uv pip install -r requirements-pixel3mf.txt
 | [pixel-art-to-3mf](skills/codex/pixel-art-to-3mf-skill/SKILL.md) | 原有动漫角色像素画，保留角色上半身、眼睛和姿态专用规则 |
 | [general-pixel-art-to-3mf](skills/codex/general-pixel-art-to-3mf/SKILL.md) | 通用粗像素画：人物、宠物、植物、物品、车辆、建筑和简洁场景；支持文字、参考图或实拍照片辅助生成，也可导出 3MF |
 | [high-fidelity-image-to-3mf](skills/codex/high-fidelity-image-to-3mf/SKILL.md) | 保留照片、插画的连续色调和高精细节，使用非像素转换流程 |
+| [pixel-art-to-beads](skills/codex/pixel-art-to-beads/SKILL.md) | 独立生成或读取像素画，交付未压缩/压缩 × 原向/镜像四张拼豆图纸；默认适配 52×52 板子 |
 
 通用版示例：“使用 `$general-pixel-art-to-3mf`，参考这张我家猫的照片做粗像素画，保留花纹和眼睛颜色，再转成 3MF。”多图可分别指定主体、构图和风格；只要求成品像素 PNG 时，也先执行 Perfect Pixel，再验收整理后的逻辑图和放大预览；明确只要生图原件时才跳过整理。照片辅助生成会产生新的像素画；要求原照片直接转换且不重画时，应使用高保真流程。通用版先用 `tools/refine_pixel.py --png-only --binarize-alpha` 整理透明源图，再正式验收；需要抠图时显式使用 `isnet-general-use`。验收通过的网格直接交给 `tools/lumina_batch.py` 导出两个尺寸，不套用动漫版原图的 60–85 网格门槛，也不强制缩放到 24×24。动漫动作类任务的案例参考图位于 `examples/reference-action-interaction.png`。
 

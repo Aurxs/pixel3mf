@@ -2,3 +2,4 @@ perfect-pixel[opencv]
 rembg[cpu]
 psutil>=5.9
 requests
+-r tools/beads/requirements.txt
