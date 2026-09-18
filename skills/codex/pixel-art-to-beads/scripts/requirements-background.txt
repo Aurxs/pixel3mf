@@ -1,0 +1,3 @@
+-r requirements-refinement.txt
+rembg[cpu]
+psutil>=5.9
