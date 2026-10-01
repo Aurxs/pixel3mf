@@ -28,3 +28,22 @@ After semantic removal, inspect the complete contour, pale subject areas and hol
 Review the final enlarged preview against the original subject brief. Check recognition, complete silhouette, coarse readable cells, background intent and alpha. The tool labels output `needs_visual_review`, never automatically accepted. Keep prep metadata and failed candidates. No 60–85 density gate, Lumina sizing or 3MF cleanup rules apply.
 
 Shrinking an accepted grid changes the design. If the user requires a smaller target, use [compression.md](compression.md) to prepare a separate derivative, preserve aspect ratio and the exterior outline, inspect the lost detail and record the change. The chart renderer itself only offers non-destructive padding through `--canvas`; shrinking belongs in that explicit compression stage.
+
+## Source-supported narrow connections (optional)
+
+Check four-neighbor connectivity separately from eight-neighbor contact: diagonally touching beads may not form an ironable bridge. A disconnected result does not authorize joining all decorations. Compare it with the actual source mask before changing occupancy. Do not lower the whole alpha threshold to recover a bridge; low-alpha background RGB may be black noise.
+
+For a sampling-induced diagonal break with verifiable source evidence, `tools/beads/bridge_pixels.py` can propose minimal one-cell repairs to a saved bead project:
+
+```bash
+"$PYTHON" "$TOOLS_DIR/bridge_pixels.py" /absolute/reviewed-project.json \
+  /absolute/sampling-evidence.json /absolute/new-bridged-project.json --max-additions 4
+```
+
+Evidence uses `pixel-sampling-evidence/v1`: actual source canvas/reference grid paths and their SHA256 hashes, exact nonuniform `x_edges`/`y_edges`, `alpha_threshold: 128`, and recorded `reference_differences`. Replay must reproduce the reference; only documented near-white edge removals matching `manifest_cleanup.removed_edge_white_pixels` are allowed. The project occupancy must match the reference, or its recorded non-resampled `uncompressed_crop`. Keep the original sampling bounds; do not infer them from image dimensions. The tool handles a final Perfect Pixel boundary extrapolated beyond the canvas by clipping its source footprint.
+
+The opt-in rule only considers original diagonal contacts between different four-connected components. A candidate source patch must contain a four-connected foreground path crossing both neighboring sides and reaching both source endpoints locally. At least 15% of the patch must support that path; equally plausible corners (less than two percentage points apart) are left for review. It inserts at most the requested budget, uses an existing adjacent color code, freezes every old cell and never chains across wider gaps. No character coordinates or new color codes are prescribed.
+
+For a resized board, first reproduce its complete mapping from the retained original and record the composition of resize/crop offsets with the actual sampling boundaries. The CLI rejects unproven resizing; the core `repair_bridges` function can accept boundaries from a separately verified transform. Missing evidence means stop that automatic repair and report the gap, not guess a connection.
+
+Inspect the source path, proposed bridge and face before accepting. Confirm old occupied cells and color codes are identical, the palette union does not grow, and only the recorded bridge count changes bead totals. Keep the current reviewed palette (including any justified count above 15). Re-render the new project with `bead_pattern.py` to recompute materials, connected components and both mirror charts. A proposed repair remains `needs_visual_review`; it is never an automatic global connectivity pass.
