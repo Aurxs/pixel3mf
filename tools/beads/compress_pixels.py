@@ -94,7 +94,7 @@ One flat color per cell; no gradients, antialiasing, texture, finer pixels or ne
 
 
 def prepare(source, output, target=52, palette_path=DEFAULT_PALETTE, max_colors=None,
-            outline="auto", outline_code="H7"):
+            outline="auto", outline_code="H7", *, allowed=None, locked=None):
     if not 8 <= target <= 256:
         raise ValueError("Target must be 8-256 cells")
     source, output = Path(source).resolve(), Path(output).resolve()
@@ -113,8 +113,10 @@ def prepare(source, output, target=52, palette_path=DEFAULT_PALETTE, max_colors=
         matches = [c for c in palette["colors"] if c["code"] == outline_code]
         if not matches or max(matches[0]["rgb"]) > 60:
             raise ValueError("Outline protection requires an existing near-black palette code")
+    if protected and allowed is not None and outline_code not in allowed:
+        raise ValueError("Protected outline code must be included in allowed colors")
     # Outline policy must not change global palette selection or internal facial colors.
-    cells, mapping = map_colors(rgba, palette, max_colors=max_colors)
+    cells, mapping = map_colors(rgba, palette, max_colors=max_colors, allowed=allowed, locked=locked)
     rows, dimensions = resize_cells(cells, target)
     shell = exterior_shell(rows != None)  # noqa: E711
     locked_cells = int((shell & (rows != outline_code)).sum()) if protected else 0
@@ -229,6 +231,8 @@ def main():
     prep.add_argument("--target", type=int, default=52)
     prep.add_argument("--palette", default=str(DEFAULT_PALETTE))
     prep.add_argument("--max-colors", type=int)
+    prep.add_argument("--allowed", help="Comma-separated reviewed shared color codes")
+    prep.add_argument("--locked", help="Comma-separated anchors retained during reduction")
     prep.add_argument("--outline", choices=["auto", "black", "none"], default="auto")
     prep.add_argument("--outline-code", default="H7")
     done = sub.add_parser("finish")
@@ -239,7 +243,9 @@ def main():
     try:
         if args.command == "prepare":
             result = prepare(args.source, args.output, args.target, args.palette, args.max_colors,
-                             args.outline, args.outline_code)
+                             args.outline, args.outline_code,
+                             allowed=args.allowed.split(",") if args.allowed else None,
+                             locked=args.locked.split(",") if args.locked else None)
         else:
             result = finish(args.run, args.candidate, args.attempt)
         print(json.dumps(result, ensure_ascii=False))
