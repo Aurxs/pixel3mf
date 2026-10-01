@@ -21,9 +21,13 @@ A known final logical grid skips this tool and goes to `bead_pattern.py`. If it 
 - Never globally erase white. White fur, eyes, clothing and intentional scenery remain opaque.
 - A painted checkerboard is not transparency. Remove it with an appropriate reviewed mask/segmentation or regenerate a fresh source within the retry limit.
 
+If an opaque background matches the subject outline (especially black on black), color-connected background removal cannot distinguish that outline from the backdrop. Inspect the original, high-resolution mask and sampled grid separately; a thin surviving edge can disappear during center sampling. Prefer an earlier source with usable alpha or a clearly separated background, or an explicitly reviewed mask. Do not globally dilate the silhouette or restore all dark/low-alpha background pixels.
+
 After semantic removal, inspect the complete contour, pale subject areas and holes. If alpha was already usable, omit removal rather than running a second mask. Raw partial alpha is supported by the normal refinement route; the optional semantic-removal route requires opaque/binary input or a reviewed mask.
 
 ## Acceptance
+
+When reusing a later local-repair version, compare the full silhouette and outline with the earlier accepted artwork as well as checking the requested repair. A newer timestamp or corrected mouth is not evidence that background removal preserved the rest of the drawing. Reject unintended outline loss; prefer the intact source plus the authorized local correction over an unreviewed global thickening.
 
 Review the final enlarged preview against the original subject brief. Check recognition, complete silhouette, coarse readable cells, background intent and alpha. The tool labels output `needs_visual_review`, never automatically accepted. Keep prep metadata and failed candidates. No 60–85 density gate, Lumina sizing or 3MF cleanup rules apply.
 
