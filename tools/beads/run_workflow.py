@@ -67,13 +67,14 @@ def publish_four(uncompressed, compressed, destination):
 
 
 def prepare(source, run, title, *, target=52, palette=DEFAULT_PALETTE, max_colors=None,
-            outline="auto", font=None):
+            outline="auto", font=None, allowed=None, locked=None):
     source, run = Path(source).resolve(), Path(run).resolve()
     if run.exists() and any(run.iterdir()):
         raise ValueError("Use a new empty run directory")
     # Validate the source and palette before creating partial workflow outputs.
     original = trim_empty_border(
-        create_project(source, load_palette(palette), title, max_colors=max_colors))
+        create_project(source, load_palette(palette), title, max_colors=max_colors,
+                       allowed=allowed, locked=locked))
     run.mkdir(parents=True, exist_ok=True)
     work = run/"work"
     work.mkdir()
@@ -84,13 +85,15 @@ def prepare(source, run, title, *, target=52, palette=DEFAULT_PALETTE, max_color
     original_charts = work/"01_uncompressed"
     export_project(original, original_charts, font=font)
     compression = work/"02_compression"
-    prepare_compression(source_png, compression, target, palette, max_colors, outline)
+    prepare_compression(source_png, compression, target, palette, max_colors, outline,
+                        allowed=allowed, locked=locked)
     seed = json.loads((compression/"run.json").read_text(encoding="utf-8"))
     seed["title"] = title
     save_json(compression/"run.json", seed)
     state = {"schema": "bead-four-chart-workflow/v1", "status": "awaiting_ai",
              "title": title, "source": {"path": str(source),
                  "sha256": hashlib.sha256(source.read_bytes()).hexdigest()},
+             "color_mapping": original["mapping"],
              "target": target, "font": str(Path(font).resolve()) if font else None,
              "paths": {"uncompressed": str(original_charts), "compression": str(compression),
                        "ai_input": str(compression/"02_ai_input.png"),
@@ -149,6 +152,8 @@ def main():
     prep.add_argument("--target", type=int, default=52)
     prep.add_argument("--palette", default=str(DEFAULT_PALETTE))
     prep.add_argument("--max-colors", type=int)
+    prep.add_argument("--allowed", help="Comma-separated reviewed shared color codes")
+    prep.add_argument("--locked", help="Comma-separated anchors retained during reduction")
     prep.add_argument("--outline", choices=["auto", "black", "none"], default="auto")
     prep.add_argument("--font")
     done = sub.add_parser("finish")
@@ -162,7 +167,9 @@ def main():
         if args.command == "prepare":
             state = prepare(args.source, args.run, args.title, target=args.target,
                             palette=args.palette, max_colors=args.max_colors,
-                            outline=args.outline, font=args.font)
+                            outline=args.outline, font=args.font,
+                            allowed=args.allowed.split(",") if args.allowed else None,
+                            locked=args.locked.split(",") if args.locked else None)
         else:
             state = complete(args.run, args.candidate, algorithm_only=args.algorithm_only, attempt=args.attempt)
         print(json.dumps({"status": state["status"], "paths": state["paths"],

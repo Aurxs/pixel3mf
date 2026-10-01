@@ -20,6 +20,8 @@ Optional `--max-colors N` and `--palette` control palette mapping. No hardcoded 
 
 The deterministic stage trims only transparent outer space, scales proportionally by area-weighted color-code voting, and centers the result on the target canvas. Occupancy coverage and color votes are computed separately. It does not enlarge already-small artwork. For protected outlines, it locks one occupied-cell-wide exterior shell to the black code, without enlarging the silhouette or painting over internal eye/face regions. Enclosed cutout holes remain empty.
 
+Before sizing, use the reviewed shared codebook and detail anchors from [bead-export.md](bead-export.md#effect-first-color-merging). `prepare` accepts `--allowed` and `--locked`; use the same values as the uncompressed branch. A 15-color candidate still needs visual acceptance, especially for rare mouth and eye colors.
+
 Palette selection is independent of outline protection. Enabling black-outline preservation must not reselect all colors or change interior eye/mouth cells in the algorithmic draft. Select the palette once, then apply black only to the exterior shell. If the outline would exceed an explicit color cap, report that conflict instead of silently selecting a different palette. Tied area votes favor the original center cell.
 
 Outputs: original copy, `01_seed.png`, enlarged solid-color-background `02_ai_input.png`, fully rendered generic `03_prompt.txt`, and `run.json`. Background color is selected to be distinct from used subject colors; it is never assumed to be white. Do not substitute a new character-specific prompt or coordinate patch.
