@@ -45,4 +45,6 @@ Create `03_working_grid.png`, `04_pixel_perfect.png`, and `05_pixel_preview_8x.p
 
 Minor source blur, antialiasing, gradients, and near-identical colors pass when the final grid is stable, readable, binary-alpha, and free of ambiguous background components.
 
+The main-conversation assistant must inspect `04_pixel_perfect.png` and `05_pixel_preview_8x.png` before final acceptance. Judge the whole face for natural eye structure and coherent gaze. Allow differences caused by perspective, slight tilt, and natural partial occlusion; do not impose shared pixel rows, equal iris/pupil row counts, or numerical near/far-eye limits. If a generated result still has obvious misalignment, broken eye shapes, or unexplained distortions, reject it and return to a fresh Stage 1 generation. Preserve a user-provided source unless a creative edit is authorized.
+
 Do not read Lumina settings until the export artifact and preview pass this final gate.

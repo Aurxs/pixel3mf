@@ -34,9 +34,10 @@ Use the existing `tools/cleanup_pixel.py` Python function `finalize_pixel_grid` 
 
 ## 4. Formal quality acceptance — here, not on the raw generation
 
-Inspect `04_pixel_perfect.png` and its enlarged preview against the source and subject brief:
+The main-conversation assistant must visually inspect `04_pixel_perfect.png` and its enlarged preview against the source and subject brief before final acceptance:
 
 - The requested subject, essential markings, intended framing and complete silhouette survive.
+- For subjects with visible eyes, judge natural appearance, coherent gaze, and readable eye structures in the whole face. Accept differences from perspective, slight tilt, and natural partial occlusion without fixed pixel-row, iris/pupil-row-count, or near/far-eye limits. If the refined generated result has obvious misalignment, broken eye shapes, or unexplained distortions, reject it and return to fresh generation within the retry limit. Preserve a user-provided source unless a creative edit is authorized.
 - The result is a readable coarse logical grid. Each cell has one color; no finer detail is inserted inside cells.
 - Alpha is binary for a printable cutout; intentional subject whites and internal holes are preserved. An all-transparent or almost-erased subject does not pass.
 - The actual background matches intent, and no unwanted checkerboard, detached background or unresolved mask component remains.

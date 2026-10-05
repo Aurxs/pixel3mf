@@ -63,7 +63,7 @@ Only after Gate 2, read [pixel-refinement.md](references/pixel-refinement.md). P
 
 ### Gate 3
 
-Do not open conversion settings until the refined export artifact and its preview exist, its alpha is binary, and no unapproved ambiguous background component remains.
+Do not open conversion settings until the refined export artifact and its preview exist, its alpha is binary, and no unapproved ambiguous background component remains. The main-conversation assistant must visually review the refined image and enlarged preview, including natural eye structure and gaze, before final acceptance. Reject an unnatural generated result and return to a fresh Stage 1 generation.
 
 ## Stage 4 — Convert with Lumina and finalize
 

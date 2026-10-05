@@ -145,6 +145,11 @@ class WorkBuddyStateTests(unittest.TestCase):
 
             self.assertIn("an original fox waving", prompt)
             self.assertIn("64 × 64", prompt)
+            self.assertIn("双眼自然、视线协调、眼部结构清楚", prompt)
+            self.assertIn("轻微倾斜", prompt)
+            self.assertIn("自然遮挡", prompt)
+            for obsolete in ("同一条水平线", "相同的3行", "顶行和底行完全水平对齐", "远侧眼最多只窄1格", "不歪头"):
+                self.assertNotIn(obsolete, prompt)
             self.assertNotIn("28 × 28 pixel-art design as the visual prior", prompt)
             self.assertNotIn("75 mm", prompt)
             self.assertNotIn("45–80", prompt)
