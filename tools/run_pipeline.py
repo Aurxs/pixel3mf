@@ -317,9 +317,21 @@ def run_pipeline(
     run_dir: str | Path | None = None,
     generation_metadata: dict[str, object] | None = None,
     source_provenance: dict[str, str] | None = None,
+    white_fallback_review: str | Path | None = None,
 ) -> Path:
     started = datetime.now().astimezone()
     source_image = Path(source_image).expanduser().resolve()
+    reviewed_white = None
+    if background_method == "white":
+        from white_fallback import validate_review
+
+        if not white_fallback_review:
+            raise ValueError("white fallback requires --white-fallback-review before export")
+        if mask_override or alpha_policy != "auto" or working_padding_cells != 2 or square_output or allow_ambiguous_mask:
+            raise ValueError("reviewed white fallback requires unchanged candidate settings")
+        reviewed_white = validate_review(Path(white_fallback_review), source_image)
+    elif white_fallback_review:
+        raise ValueError("white fallback review requires explicit background-method white")
     if character_name is None:
         character_name = source_image.stem
     output_root = Path(output_root)
@@ -486,6 +498,11 @@ def run_pipeline(
             ],
         }
         manifest["source_grid"] = dict(manifest["source_acceptance"]["source_grid"])
+        if reviewed_white is not None and any(
+            source_grid[axis] != reviewed_white["source_grid"][axis]
+            for axis in ("width", "height")
+        ):
+            raise ValueError("source grid differs from the visually approved white candidate")
         manifest["background_removal"] = remove_background(
             files["source"],
             files["background_removed"],
@@ -555,6 +572,13 @@ def run_pipeline(
             allow_ambiguous=allow_ambiguous_mask,
             square_output=square_output,
         )
+        if reviewed_white is not None:
+            # The preparation/review directory must remain unchanged during export.
+            validate_review(Path(white_fallback_review), source_image)
+            with Image.open(reviewed_white["candidate_path"]) as approved, Image.open(files["pixel_perfect"]) as actual:
+                if approved.size != actual.size or approved.convert("RGBA").tobytes() != actual.convert("RGBA").tobytes():
+                    raise ValueError("refined output differs from the visually approved white candidate")
+            manifest["white_fallback_review"] = reviewed_white
         manifest["cleanup"] = cleanup_metadata
         with Image.open(files["pixel_perfect"]) as final_pixel_image:
             final_width, final_height = final_pixel_image.size
@@ -665,6 +689,7 @@ def main() -> None:
     parser.add_argument("--segmentation-memory-limit-gb", type=float, default=8.0)
     parser.add_argument("--working-padding-cells", type=int, default=2)
     parser.add_argument("--mask-override")
+    parser.add_argument("--white-fallback-review", help="Source-bound main visual review JSON for explicit white fallback")
     parser.add_argument("--alpha-policy", choices=ALPHA_POLICIES, default="auto")
     parser.add_argument("--allow-ambiguous-mask", action="store_true")
     parser.add_argument("--run-dir")
@@ -705,6 +730,7 @@ def main() -> None:
         alpha_policy=args.alpha_policy,
         run_dir=args.run_dir,
         generation_metadata=generation_metadata,
+        white_fallback_review=args.white_fallback_review,
     )
     print(run_dir)
 

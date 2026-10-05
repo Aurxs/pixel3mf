@@ -22,6 +22,33 @@ Create `02_semantic_mask.png` and `02_bg_removed.png` while preserving the sourc
 
 Keep the model probability in alpha through Pixel Fine. Do not alpha-matte or soften source RGB.
 
+## Explicit white-background fallback after model failure
+
+Semantic `auto` remains the default. Only after an accepted opaque, near-white source has an unusable IS-Net mask, explicitly prepare a **review-only** white candidate. Do not retry export with bare `--background-method white`; the export entry points now require a source-bound main-conversation review. A runtime error without a retained mask is not sufficient evidence. Do not use this route to bypass source acceptance, change the source grid, loosen alpha/color thresholds, or remove white regions by fixed area.
+
+1. Preserve the failed run and its original source/model masks. In a separate folder, write `failure.json` with this schema (mask paths are relative to that JSON):
+
+```json
+{
+  "schema": "white-fallback-failure/v1",
+  "source_sha256": "<SHA-256 of the exact accepted original source>",
+  "failure_kind": "semantic_mask_unusable",
+  "reason": "<observed missing subject or incorrect mask regions>",
+  "source_accepted": true,
+  "white_background_suitable": true,
+  "model_masks": [
+    {"model": "isnet-anime", "path": "failed-mask.png", "sha256": "<mask SHA-256>"}
+  ]
+}
+```
+
+Set the acceptance/suitability fields only after reviewing the source: plain near-white background, readable closed subject outline, no unresolved source defect. Include both allowed model masks if both were run. The tool additionally checks opaque alpha, near-white border at the unchanged threshold 245, evidence hashes, and the original 45–80 source grid.
+
+2. Using the project's Python environment, run `tools/white_fallback.py prepare --source /absolute/accepted-source.png --failure-evidence /absolute/failure.json --output /absolute/new-candidate-directory`. This command copies the source byte-for-byte, preserves the detected grid, produces a candidate plus enlarged preview, and saves **every** surviving background-colored region in `white_regions.json` / `white_regions_review.png` and the contour in `outline_review.png`. It does not invoke Lumina or produce the accepted Stage 3 filenames.
+3. The **main-conversation assistant** must inspect the source, `candidate.png`, `candidate_8x.png`, both review images, and every numbered white region. Check outline, white clothing, eye whites, natural eye structure/gaze, and enclosed background holes. Candidate alpha=255 is a color/topology result, not semantic confidence; zero ambiguous semantic components is not approval. A suspected hole, uncertain white region, or broken outline blocks this candidate. Do not auto-fill or auto-delete holes. Preserve the rejected candidate; obtain a separately reviewed corrected binary mask or a new source through the existing authorized routes.
+4. Only after that visual review passes, copy `review.template.json` to `review.json` in the same candidate directory. Keep the manifest hash, set `decision` to `approved`, set each named check to `true`, record meaningful review notes, and set **each** numbered component to `{"decision":"foreground","reason":"<what this region depicts>"}`. Missing, unresolved, or background-hole decisions block promotion. Do not invent a main-conversation review or reuse it for a changed source/candidate.
+5. Run `tools/white_fallback.py promote --review /absolute/candidate-directory/review.json`. It verifies hashes and the complete review before writing `04_pixel_perfect.png`, `05_pixel_preview_8x.png`, and `approval.json`. Preserve the whole candidate directory. Only now proceed through the usual Stage 4 rules. When using the deterministic pipeline or WorkBuddy `convert`, pass **both** `--background-method white --white-fallback-review /absolute/candidate-directory/review.json`; use the exact reviewed source and a separate export run. Those entry points verify the review before work and compare the resulting refined pixels to the reviewed candidate before Lumina. Do not change padding, square output, alpha policy or mask override in that export.
+
 ## Run Pixel Fine on the source grid
 
 Create `03_working_grid.png`, `04_pixel_perfect.png`, and `05_pixel_preview_8x.png`.
