@@ -48,6 +48,7 @@ Do not continue until a registered `01_source_attempt_NN.png` (generated) or reg
 
 After a registered `01_source_attempt_NN.png` (generated) or registered `00_user_source_original.*` (direct) exists, read [source-acceptance.md](references/source-acceptance.md). Apply its visual and diagnostic checks.
 
+- Accept visually clean, reliably removable near-white background micro-noise as a recoverable warning; reject obvious background shadows, gradients, or outline contamination. Review the refined cutout before final acceptance.
 - Treat minor blur, antialiasing, whole-cell tonal transitions, and near-identical colors as recoverable warnings. Let Pixel Fine decide whether they resolve into a stable logical grid.
 - If the source is rejected for an unrecoverable grid, composition, or identity defect and regeneration is allowed, return to Stage 1 and preserve the prompt boundary.
 - If a user-provided source is unsuitable and creative changes were not authorized, preserve it and report the limitation.

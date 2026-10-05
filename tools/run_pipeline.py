@@ -75,6 +75,7 @@ _OBJECTIVE_KEYS = {
     "passed",
     "fully_opaque",
     "pure_white_border",
+    "warnings",
     "detected_grid",
     "reasons",
 }

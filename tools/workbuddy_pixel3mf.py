@@ -795,8 +795,16 @@ def _objective_preflight(path: Path) -> dict[str, Any]:
             rgb.crop((0, 0, 1, height)),
             rgb.crop((width - 1, 0, width, height)),
         )
-        if any(crop.getextrema() != ((255, 255),) * 3 for crop in border_crops):
-            reasons.append("generated source border is not uniformly pure white")
+        pure_white_border = all(
+            crop.getextrema() == ((255, 255),) * 3 for crop in border_crops
+        )
+        # Permit tiny encoding/rendering noise; visual review still judges the
+        # full background, outline and whether removal is reliable.
+        near_white_border = all(
+            low >= 253 for crop in border_crops for low, _ in crop.getextrema()
+        )
+        if not near_white_border:
+            reasons.append("generated source border is not clean white or near-white")
     grid: dict[str, Any] | None = None
     try:
         detected = detect_source_grid(path)
@@ -807,8 +815,10 @@ def _objective_preflight(path: Path) -> dict[str, Any]:
     return {
         "passed": not reasons,
         "fully_opaque": alpha_extrema == (255, 255),
-        "pure_white_border": not any(
-            reason.startswith("generated source border") for reason in reasons
+        "pure_white_border": pure_white_border,
+        "warnings": (
+            ["near-white border micro-noise requires visual background review"]
+            if near_white_border and not pure_white_border else []
         ),
         "detected_grid": grid,
         "reasons": reasons,
