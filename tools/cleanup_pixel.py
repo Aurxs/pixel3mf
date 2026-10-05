@@ -131,6 +131,11 @@ def finalize_pixel_grid(
         background_payload = [int(value) for value in background]
         difference = np.abs(rgba[:, :, :3].astype(np.int16) - background)
         background_like = np.max(difference, axis=2) <= background_color_tolerance
+        # Zero-alpha cells are already background. Their hidden RGB must not
+        # join visible white regions, dilute their confidence, or be filled by
+        # a neighboring foreground component. Keep all nonzero confidence in
+        # the existing semantic adjudication, including ambiguous samples.
+        background_like &= probability > 0
         component_count, labels, stats, _ = cv2.connectedComponentsWithStats(
             background_like.astype(np.uint8), connectivity=8
         )
