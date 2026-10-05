@@ -131,6 +131,12 @@ def validate_review(review_path: Path, source: Path | None = None) -> dict:
     artifacts = manifest.get("artifacts", {})
     required = {"01_source.png", "candidate.png", "candidate_8x.png", "03_working_grid.png",
                 "white_regions.json", "white_regions_review.png", "outline_review.png", "failure_evidence.json"}
+    if manifest.get("correction") is not None:
+        if manifest["correction"] != "correction.json":
+            raise ValueError("unknown candidate correction record")
+        required.update({"correction.json", "correction_decisions.json", "candidate_mask.png",
+                         "correction_diff_8x.png", "parent_candidate.json", "parent_candidate.png",
+                         "parent_03_working_grid.png", "parent_white_regions.json"})
     if not required.issubset(artifacts):
         raise ValueError("candidate review artifacts are incomplete")
     for name, digest in artifacts.items():
@@ -174,9 +180,18 @@ def main() -> None:
     create.add_argument("--output", required=True, type=Path)
     approve = sub.add_parser("promote")
     approve.add_argument("--review", required=True, type=Path)
+    correct = sub.add_parser("correct")
+    correct.add_argument("--candidate", required=True, type=Path)
+    correct.add_argument("--decisions", required=True, type=Path)
+    correct.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
-    print(prepare(args.source, args.failure_evidence, args.output) if args.command == "prepare"
-          else promote(args.review))
+    if args.command == "correct":
+        from white_region_correction import correct_regions
+
+        print(correct_regions(args.candidate, args.decisions, args.output))
+    else:
+        print(prepare(args.source, args.failure_evidence, args.output) if args.command == "prepare"
+              else promote(args.review))
 
 
 if __name__ == "__main__":
