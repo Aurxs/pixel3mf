@@ -39,7 +39,7 @@ WorkBuddy background instruction: "Opaque PNG on uniform pure white RGB (255, 25
 Always use this instruction in new-generation payloads. Do not request transparent generation or add transparency parameters. Background removal is a later local processing step.
 
 ```text
-PIXEL ART GAME SPRITE. A tiny 24×24 pixel sprite enlarged with nearest-neighbor into big visible squares.
+PIXEL ART GAME SPRITE. A tiny 28×28 pixel sprite enlarged with nearest-neighbor into big visible squares.
 
 Subject: <one sentence describing the subject, requested framing/action and essential features>.
 

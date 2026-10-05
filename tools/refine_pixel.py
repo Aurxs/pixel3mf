@@ -12,8 +12,8 @@ from PIL import Image
 from perfect_pixel import get_perfect_pixel
 
 
-MIN_ACCEPTED_GRID = 60
-MAX_ACCEPTED_GRID = 85
+MIN_ACCEPTED_GRID = 45
+MAX_ACCEPTED_GRID = 80
 
 
 def validate_detected_grid(grid_w: int, grid_h: int) -> None:

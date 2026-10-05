@@ -55,7 +55,7 @@ Use the individual project tools so final acceptance happens after Perfect Pixel
 
 `--png-only` disables the legacy source-density gate; it does not stop a later, separately requested 3MF export. `--binarize-alpha` thresholds sampled alpha after refinement. Inspect the result for subject loss. Then use `finalize_pixel_grid(..., alpha_policy="preserve", background_rgb=None)` to tight-crop transparent outer rows/columns and produce `04_pixel_perfect.png` and `05_pixel_preview_8x.png`. For other backgrounds, follow the preparation branches in the refinement reference.
 
-The legacy `tools/run_pipeline.py` still enforces the anime workflow's 60–85 source-grid gate and rejects partial source alpha. Do not use it as this general workflow's entrypoint. A detected grid outside that range is not automatically a bad general-subject image. Export the accepted logical grid through `tools/lumina_batch.py`, which sizes from the actual grid. Preserve exact sizing, binary-alpha, ambiguity and geometry checks; never resize to force a density pass.
+The legacy `tools/run_pipeline.py` still enforces the anime workflow's 45–80 source-grid gate and rejects partial source alpha. Do not use it as this general workflow's entrypoint. A detected grid outside that range is not automatically a bad general-subject image. Export the accepted logical grid through `tools/lumina_batch.py`, which sizes from the actual grid. Preserve exact sizing, binary-alpha, ambiguity and geometry checks; never resize to force a density pass.
 
 Keep all stages in one run folder and merge tool metadata into `manifest.json`. Attach generation references through the image tool; the legacy pipeline's `--reference-image` argument only records provenance.
 

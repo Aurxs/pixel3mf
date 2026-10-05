@@ -145,9 +145,9 @@ class WorkBuddyStateTests(unittest.TestCase):
 
             self.assertIn("an original fox waving", prompt)
             self.assertIn("64 × 64", prompt)
-            self.assertNotIn("24 × 24 pixel-art design as the visual prior", prompt)
+            self.assertNotIn("28 × 28 pixel-art design as the visual prior", prompt)
             self.assertNotIn("75 mm", prompt)
-            self.assertNotIn("60–85", prompt)
+            self.assertNotIn("45–80", prompt)
             self.assertNotIn("Perfect Pixel", prompt)
 
     def test_generation_prompt_embeds_the_registered_research_brief(self) -> None:
@@ -800,7 +800,7 @@ class WorkBuddyGenerationTests(unittest.TestCase):
             with patch.object(
                 workbuddy,
                 "detect_source_grid",
-                return_value={"width": 60, "height": 85},
+                return_value={"width": 45, "height": 80},
             ):
                 passing = workbuddy._objective_preflight(source)
             self.assertTrue(passing["passed"])
@@ -809,11 +809,30 @@ class WorkBuddyGenerationTests(unittest.TestCase):
             with patch.object(
                 workbuddy,
                 "detect_source_grid",
-                return_value={"width": 59, "height": 86},
+                return_value={"width": 44, "height": 81},
             ):
                 failing = workbuddy._objective_preflight(source)
             self.assertFalse(failing["passed"])
             self.assertGreaterEqual(len(failing["reasons"]), 2)
+
+    def test_objective_preflight_density_boundaries_on_each_axis(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "source.png"
+            _opaque_png(source)
+            for width, height, accepted in (
+                (45, 45, True), (45, 80, True), (80, 45, True), (80, 80, True),
+                (44, 45, False), (45, 44, False),
+                (81, 80, False), (80, 81, False),
+            ):
+                with self.subTest(width=width, height=height):
+                    with patch.object(
+                        workbuddy, "detect_source_grid",
+                        return_value={"width": width, "height": height},
+                    ):
+                        result = workbuddy._objective_preflight(source)
+                    self.assertEqual(result["passed"], accepted)
+                    if not accepted:
+                        self.assertIn("45-80 cells per axis", result["reasons"][0])
 
     def test_tokenhub_client_submits_and_polls_async_job(self) -> None:
         config = json.loads(json.dumps(workbuddy.DEFAULT_CONFIG))

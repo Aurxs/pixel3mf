@@ -14,13 +14,13 @@ If segmentation is necessary, retain the existing CPU-only subprocess limits: su
 
 ## 2. Run Perfect Pixel before judging pixel quality
 
-Use `tools/refine_pixel.py --png-only`. This calls automatic grid detection with center sampling and no forced square/grid. The flag omits the old anime-source 60–85 density check; it does not resize to a chosen grid. Apply this refinement for both finished PNG and general-subject 3MF requests.
+Use `tools/refine_pixel.py --png-only`. This calls automatic grid detection with center sampling and no forced square/grid. The flag omits the old anime-source 45–80 density check; it does not resize to a chosen grid. Apply this refinement for both finished PNG and general-subject 3MF requests.
 
 For generated transparent artwork, add `--binarize-alpha`: sampled logical cells with alpha >=128 become opaque, the others transparent. This happens after Perfect Pixel, not by thresholding or flattening the full-resolution original. Retain the original and metadata, including how many sampled cells had partial alpha. Do not assume alpha thresholding preserves every intended part; inspect the result.
 
 For a semantic-confidence mask, leave alpha probabilities intact through sampling and use `finalize_pixel_grid(..., alpha_policy="semantic", background_rgb=<sampled background>)` for confidence/component decisions. If comparing an untouched source grid with a masked derivative, use the Python `refine_pixel` function's `expected_source_grid` check; a mismatch needs investigation, not a forced grid.
 
-Save `03_working_grid.png` and `03_working_grid_preview_8x.png`. Failed automatic detection is a technical failure, not permission to force 24×24. A detected count different from the prompt target or outside 60–85 does not by itself fail this general workflow.
+Save `03_working_grid.png` and `03_working_grid_preview_8x.png`. Failed automatic detection is a technical failure, not permission to force 28×28. A detected count different from the prompt target or outside 45–80 does not by itself fail this general workflow.
 
 ## 3. Finalize the actual logical grid
 
@@ -41,7 +41,7 @@ Inspect `04_pixel_perfect.png` and its enlarged preview against the source and s
 - Alpha is binary for a printable cutout; intentional subject whites and internal holes are preserved. An all-transparent or almost-erased subject does not pass.
 - The actual background matches intent, and no unwanted checkerboard, detached background or unresolved mask component remains.
 
-Do not reject solely for more than 6–8 colors, a detected grid different from 24×24, modest stepped shading across cells, or imperfections visible only in the raw generation. Perfect Pixel regularizes cells but does not guarantee a six-color palette or eliminate every tonal transition. Judge recognizability and pixel readability; do not invent stricter numerical aesthetic gates.
+Do not reject solely for more than 6–8 colors, a detected grid different from 28×28, modest stepped shading across cells, or imperfections visible only in the raw generation. Perfect Pixel regularizes cells but does not guarantee a six-color palette or eliminate every tonal transition. Judge recognizability and pixel readability; do not invent stricter numerical aesthetic gates.
 
 If the refined result still loses essential content or is unreadable, fix the smallest preparation issue or return to one fresh generation within the retry limit. Preserve failures and label their actual stage. Never silently quantize or force-resize to manufacture a pass.
 

@@ -29,7 +29,7 @@ After semantic removal, inspect the complete contour, pale subject areas and hol
 
 When reusing a later local-repair version, compare the full silhouette and outline with the earlier accepted artwork as well as checking the requested repair. A newer timestamp or corrected mouth is not evidence that background removal preserved the rest of the drawing. Reject unintended outline loss; prefer the intact source plus the authorized local correction over an unreviewed global thickening.
 
-Review the final enlarged preview against the original subject brief. Check recognition, complete silhouette, coarse readable cells, background intent and alpha. The tool labels output `needs_visual_review`, never automatically accepted. Keep prep metadata and failed candidates. No 60–85 density gate, Lumina sizing or 3MF cleanup rules apply.
+Review the final enlarged preview against the original subject brief. Check recognition, complete silhouette, coarse readable cells, background intent and alpha. The tool labels output `needs_visual_review`, never automatically accepted. Keep prep metadata and failed candidates. No 45–80 density gate, Lumina sizing or 3MF cleanup rules apply.
 
 Shrinking an accepted grid changes the design. If the user requires a smaller target, use [compression.md](compression.md) to prepare a separate derivative, preserve aspect ratio and the exterior outline, inspect the lost detail and record the change. The chart renderer itself only offers non-destructive padding through `--canvas`; shrinking belongs in that explicit compression stage.
 

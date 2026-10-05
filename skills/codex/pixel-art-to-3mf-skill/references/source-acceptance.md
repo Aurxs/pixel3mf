@@ -9,8 +9,8 @@ Inspect the completed image before accepting it:
 - Require generated sources to be fully opaque with a uniform pure-white background. Any transparent or partially transparent generated pixel is a hard failure and requires a fresh generation. This generated-source rule does not reject a user-provided transparent PNG submitted for direct conversion.
 - Compare its visible cell size and information density with the bundled coarse-density references.
 - Run Perfect Pixel auto-detection as a diagnostic.
-- Require `60–85` detected cells per axis, inclusive.
-- Reject when either axis is below `60` or above `85`.
+- Require `45–80` detected cells per axis, inclusive.
+- Reject when either axis is below `45` or above `80`.
 - Never resize, resample, sharpen, add detail, or force a grid to enter the accepted range.
 
 Treat the detected source grid as a preflight result. The density range applies to
