@@ -9,7 +9,9 @@ Read after `01_source.png` exists. This is input triage, not pixel-quality accep
 - Respect the requested composition and reference roles without imposing anime portrait anatomy or crop rules.
 - Preserve the original file and record the intended background mode.
 
-Record gradients, near-identical colors, blur, antialiasing, irregular-looking blocks, partial alpha and near-white backgrounds as `pending_refinement`. Do not mark `needs_revision` or regenerate solely for these before trying Perfect Pixel. The prompt's 28×28 and palette targets guide style; they are not exact raw-file acceptance thresholds.
+Record subject tonal gradients, near-identical colors, blur, antialiasing, irregular-looking blocks and partial alpha as `pending_refinement`. Do not mark `needs_revision` or regenerate solely for these before trying Perfect Pixel. The prompt's 28×28 and palette targets guide style; they are not exact raw-file acceptance thresholds.
+
+For a requested plain-white background, generation still requests pure white. Accept visually clean near-white micro-noise (for example RGB channel differences of 253/254/255) as `pending_refinement` when it can be reliably removed without damaging the subject or outline. Exact RGB (255, 255, 255) equality is not an acceptance gate. Obvious unintended background shadows, gradients, or outline contamination are not micro-noise: block acceptance and resolve them before refinement when reliable separation is uncertain. Preserve intentional scene backgrounds and the existing transparency routes. Final cutout review must confirm clean edges, intact white subject features, and no unresolved background components.
 
 ## Select preparation
 

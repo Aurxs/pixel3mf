@@ -6,7 +6,7 @@ Do not read this file until `01_source.png` exists. These rules are diagnostics 
 
 Inspect the completed image before accepting it:
 
-- Require generated sources to be fully opaque with a uniform pure-white background. Any transparent or partially transparent generated pixel is a hard failure and requires a fresh generation. This generated-source rule does not reject a user-provided transparent PNG submitted for direct conversion.
+- Require generated sources to be fully opaque. Generation still requests a uniform pure-white background, but source acceptance allows visually clean near-white micro-noise (for example RGB channel differences of 253/254/255) when background removal can reliably preserve the subject and its outline. Exact RGB (255, 255, 255) equality is not an acceptance gate. Record this as a recoverable background warning and proceed to refinement; it is not final background acceptance. Reject obvious unintended background shadows, gradients, or outline contamination, and block refinement when reliable separation is uncertain. Any transparent or partially transparent generated pixel is a hard failure and requires a fresh generation. This generated-source rule does not reject a user-provided transparent PNG submitted for direct conversion.
 - Compare its visible cell size and information density with the bundled coarse-density references.
 - Run Perfect Pixel auto-detection as a diagnostic.
 - Require `45–80` detected cells per axis, inclusive.

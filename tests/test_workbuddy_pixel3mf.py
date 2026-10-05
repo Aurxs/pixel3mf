@@ -378,6 +378,30 @@ class WorkBuddyGenerationTests(unittest.TestCase):
                     self.assertEqual(result["status"], status)
                     self.assertEqual(path.read_bytes(), original)
 
+    def test_preflight_near_white_noise_requires_visual_review(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "source.png"
+            for color, grid, passed in [
+                ((255, 255, 255, 255), (45, 80), True),
+                ((253, 255, 254, 255), (63, 64), True),
+                ((253, 255, 254, 200), (64, 64), False),
+                ((240, 240, 240, 255), (64, 64), False),
+                ((0, 0, 0, 255), (64, 64), False),
+                ((253, 255, 254, 255), (44, 64), False),
+                ((253, 255, 254, 255), (64, 81), False),
+            ]:
+                with self.subTest(color=color, grid=grid):
+                    Image.new("RGBA", (16, 16), color).save(path)
+                    original = path.read_bytes()
+                    with patch.object(workbuddy, "detect_source_grid", return_value={
+                        "width": grid[0], "height": grid[1],
+                    }):
+                        result = workbuddy._objective_preflight(path)
+                    self.assertEqual(result["passed"], passed)
+                    self.assertEqual(result["pure_white_border"], color[:3] == (255, 255, 255))
+                    self.assertEqual(bool(result["warnings"]), color[:3] == (253, 255, 254))
+                    self.assertEqual(path.read_bytes(), original)
+
     def _run_dir(self, root: str | Path) -> Path:
         return workbuddy.init_run(
             character_name="original",
