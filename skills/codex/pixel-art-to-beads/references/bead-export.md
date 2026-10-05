@@ -1,6 +1,6 @@
 # Charts and delivery
 
-## Standard four-chart workflow
+## Standard size-aware workflow
 
 Resolve `PYTHON` and `TOOLS_DIR` using [runtime.md](runtime.md). After the original logical grid passes review, start a new run:
 
@@ -9,7 +9,13 @@ Resolve `PYTHON` and `TOOLS_DIR` using [runtime.md](runtime.md). After the origi
   /absolute/original_logical.png /absolute/new_run --title '作品名' --target 52
 ```
 
-This retains the original, renders an uncompressed mirror pair, and prepares a size-constrained AI draft. Read `manifest.json` for the absolute `ai_input` and `ai_prompt` paths. Inspect the input, call the host image tool once using the generated prompt and that exact input, then finish:
+This retains the original and renders an uncompressed mirror pair. Input must be the accepted logical grid, not an enlarged preview. After trimming transparent outer padding, both dimensions <= target (default 52) means **two charts only**; do not pad before deciding. `manifest.json` records `logical_size`, `compression_required` and `expected_primary_products` (2 or 4). For `compression_required: false`, skip compression and AI entirely and run:
+
+```bash
+"$PYTHON" "$TOOLS_DIR/run_workflow.py" finish /absolute/new_run
+```
+
+Only if either logical dimension exceeds the target does prepare create a size-constrained AI draft. Read `manifest.json` for the absolute `ai_input` and `ai_prompt` paths. Inspect the input, call the host image tool once using the generated prompt and that exact input, then finish:
 
 ```bash
 "$PYTHON" "$TOOLS_DIR/run_workflow.py" finish \
@@ -27,27 +33,27 @@ Each run has this structure:
   work/
     00_original.* / 00_source.png
     01_uncompressed/                pair + preview/PDF/CSV/JSON
-    02_compression/                 seed, prompt, AI original, checks and refined grid
-    03_compressed_attempt-1/        pair + preview/PDF/CSV/JSON
+    02_compression/                 oversized only: seed, prompt, AI original, checks and refined grid
+    03_compressed_attempt-1/        oversized only: pair + preview/PDF/CSV/JSON
   delivery/
     01_未压缩.png
     02_未压缩_镜像.png
-    03_压缩.png
-    04_压缩_镜像.png
+    03_压缩.png                     oversized only
+    04_压缩_镜像.png                oversized only
 ```
 
-Only these four PNGs are primary deliverables. Do not place comparisons, PDFs, ZIPs or material lists in `delivery/`. The uncompressed pair trims all empty outer rows and columns from its cell matrix before rendering. Both the actual chart grid and reported dimensions use the occupied bounding box, with no outer blank rows or columns. Occupied cells and internal holes remain unchanged; no resampling occurs and palette matching still applies. The fitted pair is centered on the requested board and uses the same mapping settings, with the selected palette fixed during AI refinement. Do not rerender the uncompressed pair from the compressed or AI-modified image.
+Only the required two or four PNGs are primary deliverables. Small runs report `two_charts_ready_for_review`; oversized runs report `four_charts_ready_for_review`. Both require visual acceptance before setting `accepted`. Do not place comparisons, PDFs, ZIPs or material lists in `delivery/`. The uncompressed pair trims all empty outer rows and columns from its cell matrix before rendering. Both the actual chart grid and reported dimensions use the occupied bounding box, with no outer blank rows or columns. Occupied cells and internal holes remain unchanged; no resampling occurs and palette matching still applies. The fitted pair is centered on the requested board and uses the same mapping settings, with the selected palette fixed during AI refinement. Do not rerender the uncompressed pair from the compressed or AI-modified image.
 
 `prepare` accepts `--max-colors`, `--allowed`, `--locked`, `--palette`, `--outline auto|black|none` and `--font`. Both sizes receive the same mapping constraints. The numeric cap is an explicit candidate setting, not an automatic acceptance rule. Palette and font paths should be absolute. Exact count and mirror invariants are retained independently for each size. Keep the main chart title as the work name, adding only “镜像版” for mirrors; dimensions in the statistics and the filenames distinguish sizes.
 
 ## Effect-first color merging
 
-Prefer about 15 MARD colors as a starting target when the user has not specified another goal. Quality takes precedence: keep more colors when a smaller palette merges eyes, mouth steps, skin/hair separation or identifying costume regions. An explicit hard inventory limit remains a user constraint; explain a visible tradeoff instead of silently exceeding it.
+Prefer about 18 MARD colors as a starting target when the user has not specified another goal. Natural appearance and quality take precedence; do not force 18 colors or add unused colors: keep more colors when a smaller palette merges eyes, mouth steps, skin/hair separation or identifying costume regions. An explicit hard inventory limit remains a user constraint; explain a visible tradeoff instead of silently exceeding it.
 
 1. Retain the accepted, uncompressed logical source and an uncapped mapped preview/counts as the baseline. Start every palette trial from that source, never a previously reduced preview or old 52-cell output.
-2. Use the existing CIELAB matcher with `--max-colors 15` as a candidate. Review similar shades first. Low bead count is a review hint, not permission to delete a color: a few eye-white, iris, upper/lower lip or accessory cells may carry the expression. Choose `--locked` anchors from the actual palette after inspecting those regions; do not hardcode character-specific codes into the skill.
+2. Use the existing CIELAB matcher with `--max-colors 18` as a candidate. Review similar shades first. Low bead count is a review hint, not permission to delete a color: a few eye-white, iris, upper/lower lip or accessory cells may carry the expression. Choose `--locked` anchors from the actual palette after inspecting those regions; do not hardcode character-specific codes into the skill.
 3. Review structure and color loss separately. First compare the newly compressed drawing with the original for eye shape, gaze and mouth topology; a previous acceptance label does not prove those structures are sound. Then compare before/after palette reduction on the **same structural grid**, side by side at full view and with matching enlarged face crops (eyes and mouth). This isolates new color-merging loss from damage already caused by compression or AI. If a structural defect is found, revise and review that drawing before judging its reduced palette; unchanged silhouette, cell count or bead count alone cannot establish visual quality. The weighted matcher favors large regions and does not understand faces. Locks keep codes available during palette selection; they do not lock cell coordinates or guarantee that AI preserves a mouth. Raise the candidate cap or keep the baseline if visual separation is lost. Record which merges were accepted and which small detail colors were retained.
-4. Freeze the approved code list with `--allowed CODE1,CODE2,...` for the four-chart run, and pass the same `--locked` anchors. Both sizes must use this shared codebook; actual usage counts may differ. Include the protected outline code when outline protection is active. Do not select a new palette independently for the 52-cell branch. If a revision is needed, regenerate both sizes from the unchanged source with the revised shared list.
+4. Freeze the approved code list with `--allowed CODE1,CODE2,...` for the size-aware run, and pass the same `--locked` anchors. Both sizes must use this shared codebook; actual usage counts may differ. Include the protected outline code when outline protection is active. Do not select a new palette independently for the 52-cell branch. If a revision is needed, regenerate both sizes from the unchanged source with the revised shared list.
 
 When both the original logical grid and a newly accepted 52-cell result already exist, consider their occupied colors together when choosing the shared list. Reuse the existing frequency-weighted CIELAB selector with reviewed detail anchors; then remap each retained grid separately using the fixed allowed list. This is palette selection only: keep both grids and occupancy masks unchanged. Do not use an old compressed result as a substitute for a newly requested compression, and do not turn example character codes into universal anchors.
 
@@ -67,7 +73,7 @@ Use the project tool paths and a compatible interpreter. The source must be a lo
 
 Optional controls:
 
-- `--max-colors 15`: at most 15 actual colors, not a mandatory count. Defaults to no cap.
+- `--max-colors 18`: at most 18 actual colors, not a mandatory count. Defaults to no cap.
 - `--palette /absolute/palette.json`: custom JSON or CSV.
 - `--allowed H2,H5,H6,H7,E13`: use only this inventory.
 - `--locked H2,H7`: keep anchors available during color reduction.
@@ -100,4 +106,4 @@ Normal and mirror PNGs have identical dimensions and counts. Mirroring flips art
 
 ## Review
 
-Inspect the four primary charts, including one detail crop for each size. Verify asymmetrical features change sides, text remains readable, per-color sum equals occupied cells, and blanks are not counted. Inspect PDF rendering if the optional PDF will be delivered. Report multiple orthogonally disconnected components as a construction consideration; do not join them automatically. Only examine relevant outputs and run the focused repository bead tests when changing code.
+Inspect the required two or four primary charts, including one detail crop for each size. Verify asymmetrical features change sides, text remains readable, per-color sum equals occupied cells, and blanks are not counted. Inspect PDF rendering if the optional PDF will be delivered. Report multiple orthogonally disconnected components as a construction consideration; do not join them automatically. Only examine relevant outputs and run the focused repository bead tests when changing code.
