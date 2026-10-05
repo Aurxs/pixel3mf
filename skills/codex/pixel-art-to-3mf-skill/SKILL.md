@@ -60,7 +60,7 @@ Record the untouched-source grid and preliminary acceptance before opening the r
 
 ## Stage 3 — Prepare and refine pixels
 
-Only after Gate 2, read [pixel-refinement.md](references/pixel-refinement.md). Produce the semantic mask, temporary working grid, tight export grid, and preview artifacts described there.
+Only after Gate 2, read [pixel-refinement.md](references/pixel-refinement.md). Produce the semantic mask, temporary working grid, tight export grid, and preview artifacts described there. If IS-Net fails on an accepted opaque white-background source, that reference defines an explicit review-only fallback; keep semantic as the default and require main-conversation visual approval before export.
 
 ### Gate 3
 

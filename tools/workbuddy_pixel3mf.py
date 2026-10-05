@@ -1376,6 +1376,7 @@ def convert_run(
     alpha_policy: str = "auto",
     mask_override: str | Path | None = None,
     background_method: str = "auto",
+    white_fallback_review: str | Path | None = None,
     background_model: str = "auto",
     square_output: bool = False,
 ) -> Path:
@@ -1425,6 +1426,7 @@ def convert_run(
             character_name=state["character_name"],
             output_root=resolved.parent,
             background_method=background_method,
+            white_fallback_review=white_fallback_review,
             api_url=config["lumina"]["api_url"],
             official_character_research_path=research["path"],
             official_character_sources=research["sources"],
@@ -1696,6 +1698,7 @@ def _build_parser() -> argparse.ArgumentParser:
     convert_parser.add_argument("--alpha-policy", choices=("auto", "preserve", "repair"), default="auto")
     convert_parser.add_argument("--mask-override")
     convert_parser.add_argument("--background-method", choices=("auto", "rembg", "white"), default="auto")
+    convert_parser.add_argument("--white-fallback-review")
     convert_parser.add_argument(
         "--background-model",
         choices=("auto", "isnet-anime", "isnet-general-use"),
@@ -1791,6 +1794,7 @@ def main() -> None:
             alpha_policy=args.alpha_policy,
             mask_override=args.mask_override,
             background_method=args.background_method,
+            white_fallback_review=args.white_fallback_review,
             background_model=args.background_model,
             square_output=args.square_output,
         )
