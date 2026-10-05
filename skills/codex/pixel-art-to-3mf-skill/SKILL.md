@@ -55,7 +55,7 @@ After `01_source.png` exists, read [source-acceptance.md](references/source-acce
 
 ### Gate 2
 
-Record the untouched-source grid and preliminary acceptance before opening the refinement instructions. Apply the `60–85` density gate only here, never after semantic masking or temporary padding.
+Record the untouched-source grid and preliminary acceptance before opening the refinement instructions. Apply the `45–80` density gate only here, never after semantic masking or temporary padding.
 
 ## Stage 3 — Prepare and refine pixels
 

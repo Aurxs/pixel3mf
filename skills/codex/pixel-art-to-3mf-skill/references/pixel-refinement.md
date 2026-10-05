@@ -18,7 +18,7 @@ Keep the model probability in alpha through Pixel Fine. Do not alpha-matte or so
 
 Create `03_working_grid.png`, `04_pixel_perfect.png`, and `05_pixel_preview_8x.png`.
 
-- Auto-detect the untouched source grid before semantic masking and require `60–85` cells per axis there only.
+- Auto-detect the untouched source grid before semantic masking and require `45–80` cells per axis there only.
 - Run Pixel Fine again with semantic confidence in alpha and require the detected grid to match the source preflight exactly.
 - Preserve the rectangular grid and never force a fixed fallback grid.
 - Add two complete transparent logical rows and columns on every side as temporary working padding. The configured value may change explicitly, but percentage padding is not used by the pipeline.

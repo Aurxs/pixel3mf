@@ -36,7 +36,7 @@ except ImportError:  # doctor must remain runnable before installation.
     ImageOps = None  # type: ignore[assignment]
 
 try:
-    from refine_pixel import detect_source_grid
+    from refine_pixel import detect_source_grid, validate_detected_grid
     from run_pipeline import run_pipeline
 except ImportError:  # doctor reports the missing runtime dependency.
     detect_source_grid = None  # type: ignore[assignment]
@@ -801,10 +801,7 @@ def _objective_preflight(path: Path) -> dict[str, Any]:
     try:
         detected = detect_source_grid(path)
         grid = {"width": int(detected["width"]), "height": int(detected["height"])}
-        if not (60 <= grid["width"] <= 85 and 60 <= grid["height"] <= 85):
-            reasons.append(
-                f"detected source grid {grid['width']}x{grid['height']} is outside 60-85"
-            )
+        validate_detected_grid(grid["width"], grid["height"])
     except Exception as exc:
         reasons.append(f"Perfect Pixel preflight failed: {type(exc).__name__}: {exc}")
     return {

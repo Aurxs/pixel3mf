@@ -65,8 +65,8 @@ class PixelSizePlanTests(unittest.TestCase):
 
     def test_all_accepted_grid_pairs_map_exactly(self) -> None:
         for cells in (2, 3):
-            for width in range(60, 86):
-                for height in range(60, 86):
+            for width in range(45, 81):
+                for height in range(45, 81):
                     with self.subTest(cells=cells, width=width, height=height):
                         plan = build_pixel_size_plan(
                             width,
@@ -172,12 +172,37 @@ class RectangularPreparationTests(unittest.TestCase):
             self.assertEqual(metadata["partial_alpha_cells_before_binarization"], 6)
 
     def test_source_density_boundaries_are_inclusive(self) -> None:
-        validate_detected_grid(60, 85)
-        validate_detected_grid(85, 60)
-        with self.assertRaises(ValueError):
-            validate_detected_grid(59, 85)
-        with self.assertRaises(ValueError):
-            validate_detected_grid(60, 86)
+        for width in (45, 80):
+            for height in (45, 80):
+                with self.subTest(width=width, height=height):
+                    validate_detected_grid(width, height)
+        for width, height in ((44, 45), (45, 44), (81, 80), (80, 81)):
+            with self.subTest(width=width, height=height):
+                with self.assertRaisesRegex(ValueError, "45-80 cells per axis"):
+                    validate_detected_grid(width, height)
+
+    def test_source_detection_and_refinement_use_updated_density_range(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "source.png"
+            Image.new("RGBA", (160, 160), (20, 40, 60, 255)).save(source)
+            for width, height in ((45, 80), (80, 45), (44, 45), (45, 44), (81, 80), (80, 81)):
+                sampled = np.full((height, width, 4), (20, 40, 60, 255), dtype=np.uint8)
+                with self.subTest(width=width, height=height), patch(
+                    "refine_pixel.get_perfect_pixel", return_value=(width, height, sampled),
+                ):
+                    if width in (44, 81) or height in (44, 81):
+                        with self.assertRaisesRegex(ValueError, "45-80 cells per axis"):
+                            detect_source_grid(source)
+                        with self.assertRaisesRegex(ValueError, "45-80 cells per axis"):
+                            refine_pixel(source, root / "grid.png", root / "preview.png")
+                    else:
+                        detected = detect_source_grid(source)
+                        self.assertEqual((detected["width"], detected["height"]), (width, height))
+                        refined = refine_pixel(source, root / "grid.png", root / "preview.png")
+                        self.assertEqual(refined["accepted_grid_range"], {
+                            "minimum_per_axis": 45, "maximum_per_axis": 80, "inclusive": True,
+                        })
 
     def test_source_detection_failure_remains_a_hard_failure(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

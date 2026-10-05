@@ -32,7 +32,7 @@ Use case: stylized-concept
 Asset type: source image for a layered RYBW 3MF plaque
 Primary request: Create one recognizable <character> as coarse pixel art for a printable plaque.
 
-Priority 1 — pixel language: Internally design on exactly a 24 × 24 logical canvas and enlarge with nearest-neighbor only. Match Images 1–3 for large uniform cell size, low information density, stair-stepped contours, and symbolic detail. Keep all boundaries on one grid. Use about 8–12 flat colors.
+Priority 1 — pixel language: Internally design on exactly a 28 × 28 logical canvas and enlarge with nearest-neighbor only. Match Images 1–3 for large uniform cell size, low information density, stair-stepped contours, and symbolic detail. Keep all boundaries on one grid. Use about 8–12 flat colors.
 
 Pixel-block constraint: Do not use extra shading, gradients, or clusters of near-identical colors to simulate detail. When a detail cannot be expressed with a few clear logical cells, symbolize and simplify it into fewer cells. Keep detailed regions at the same cell scale as the rest of the image; never magnify them locally or use continuous tonal steps.
 

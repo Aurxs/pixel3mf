@@ -103,9 +103,9 @@ class PipelineExportTests(unittest.TestCase):
             with patch.object(
                 pipeline_module,
                 "detect_source_grid",
-                side_effect=ValueError("detected source grid 59x86 is outside 60-85"),
+                side_effect=ValueError("detected source grid 44x81 is outside 45-80"),
             ):
-                with self.assertRaisesRegex(ValueError, "59x86"):
+                with self.assertRaisesRegex(ValueError, "44x81"):
                     pipeline_module.run_pipeline(
                         source,
                         character_name="density failure",
@@ -121,7 +121,7 @@ class PipelineExportTests(unittest.TestCase):
             self.assertEqual(
                 manifest["source_acceptance"]["density_gate"], "failed"
             )
-            self.assertIn("59x86", manifest["source_acceptance"]["reason"])
+            self.assertIn("44x81", manifest["source_acceptance"]["reason"])
 
     def test_pipeline_exports_two_by_two_and_three_by_three_3mfs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -55,7 +55,7 @@ After a registered `01_source_attempt_NN.png` (generated) or registered `00_user
 
 ### Gate 2
 
-Record the original-size source grid after the permitted native background normalization and preliminary acceptance before opening the refinement instructions. Apply the `60–85` density gate only here, never after semantic masking or temporary padding.
+Record the original-size source grid after the permitted native background normalization and preliminary acceptance before opening the refinement instructions. Apply the `45–80` density gate only here, never after semantic masking or temporary padding.
 
 ## Stage 3 — Prepare and refine pixels
 
@@ -82,7 +82,7 @@ Never solve a later-stage failure by adding its measurements or settings to the 
 
 Use this adapter only in WorkBuddy. Keep the core stage order. This adapter and the packaged host reference files define the explicit WorkBuddy differences: candidate filenames, optional references, the Stage 1 canvas grid, and audited near-white normalization.
 
-- The packaged `references/generation-prompt.md` is the WorkBuddy-specific Stage 1 template, maintained directly in `skills/workbuddy/pixel-art-to-3mf/references/generation-prompt.md`. Its concise Chinese framing instructions and explicit 64 × 64 canvas grid replace the Codex 24 × 24 visual prior; keep the original source-acceptance rules. New runs snapshot the fenced template; retries use that snapshot. After an explicitly approved prompt change, start a new run instead of rewriting an existing run.
+- The packaged `references/generation-prompt.md` is the WorkBuddy-specific Stage 1 template, maintained directly in `skills/workbuddy/pixel-art-to-3mf/references/generation-prompt.md`. Its concise Chinese framing instructions and explicit 64 × 64 canvas grid replace the Codex 28 × 28 visual prior; keep the original source-acceptance rules. New runs snapshot the fenced template; retries use that snapshot. After an explicitly approved prompt change, start a new run instead of rewriting an existing run.
 - A research file may include one fenced `identity` block containing only the approved visual identity brief; the renderer uses that block and keeps URLs/audit notes in the saved research artifact.
 - Native new-generation tasks default to text-only in the CLI as well as this Skill; `init-run --no-bundled-style` makes it explicit and text-only ImageGen. Use `--with-bundled-style` only when those references are explicitly requested; respect the Stage 1 template.
 - `import-candidate` preserves the exact original and normalizes only opaque near-white (all RGB channels >= 240 and channel spread <= 8) background connected to a fully near-white canvas border. This user-approved normalization does not alter enclosed highlights, alpha, dimensions or the grid. Inspect `background_normalization` metadata; all original opacity, source-grid and visual gates still apply afterward.

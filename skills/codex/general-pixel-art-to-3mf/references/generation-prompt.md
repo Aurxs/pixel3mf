@@ -43,7 +43,7 @@ Choose one background instruction before calling the generator; insert only that
 Use the selected tool's documented transparency support rather than inventing a tool parameter or changing models. For the built-in image tool, request real transparency in the prompt. A failed transparent result is a candidate needing correction, not proof that the tool lacks support.
 
 ```text
-PIXEL ART GAME SPRITE. A tiny 24×24 pixel sprite enlarged with nearest-neighbor into big visible squares.
+PIXEL ART GAME SPRITE. A tiny 28×28 pixel sprite enlarged with nearest-neighbor into big visible squares.
 
 Subject: <one sentence describing the subject, requested framing/action and essential features>.
 
