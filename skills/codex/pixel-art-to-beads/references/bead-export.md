@@ -2,11 +2,11 @@
 
 ## Standard size-aware workflow
 
-Resolve `PYTHON` and `TOOLS_DIR` using [runtime.md](runtime.md). After the original logical grid passes review, start a new run:
+Resolve `PYTHON` and `TOOLS_DIR` using [runtime.md](runtime.md). After the original logical grid passes review, resolve a Chinese-first chart title using the naming policy in [SKILL.md](../SKILL.md#chinese-titles-and-accompanying-copy), then start a new run:
 
 ```bash
 "$PYTHON" "$TOOLS_DIR/run_workflow.py" prepare \
-  /absolute/original_logical.png /absolute/new_run --title '作品名' --target 52
+  /absolute/original_logical.png /absolute/new_run --title '中文作品名' --target 52
 ```
 
 This retains the original and renders an uncompressed mirror pair. Input must be the accepted logical grid, not an enlarged preview. After trimming transparent outer padding, both dimensions <= target (default 52) means **two charts only**; do not pad before deciding. `manifest.json` records `logical_size`, `compression_required` and `expected_primary_products` (2 or 4). For `compression_required: false`, skip compression and AI entirely and run:
@@ -44,7 +44,7 @@ Each run has this structure:
 
 Only the required two or four PNGs are primary deliverables. Small runs report `two_charts_ready_for_review`; oversized runs report `four_charts_ready_for_review`. Both require visual acceptance before setting `accepted`. Do not place comparisons, PDFs, ZIPs or material lists in `delivery/`. The uncompressed pair trims all empty outer rows and columns from its cell matrix before rendering. Both the actual chart grid and reported dimensions use the occupied bounding box, with no outer blank rows or columns. Occupied cells and internal holes remain unchanged; no resampling occurs and palette matching still applies. The fitted pair is centered on the requested board and uses the same mapping settings, with the selected palette fixed during AI refinement. Do not rerender the uncompressed pair from the compressed or AI-modified image.
 
-`prepare` accepts `--max-colors`, `--allowed`, `--locked`, `--palette`, `--outline auto|black|none` and `--font`. Both sizes receive the same mapping constraints. The numeric cap is an explicit candidate setting, not an automatic acceptance rule. Palette and font paths should be absolute. Exact count and mirror invariants are retained independently for each size. Keep the main chart title as the work name, adding only “镜像版” for mirrors; dimensions in the statistics and the filenames distinguish sizes.
+`prepare` accepts `--max-colors`, `--allowed`, `--locked`, `--palette`, `--outline auto|black|none` and `--font`. Both sizes receive the same mapping constraints. The numeric cap is an explicit candidate setting, not an automatic acceptance rule. Palette and font paths should be absolute. Exact count and mirror invariants are retained independently for each size. Use the Chinese work name as the main chart title, optionally followed by the Japanese name in parentheses, adding only “镜像版” for mirrors; dimensions in the statistics and the filenames distinguish sizes.
 
 ## Effect-first color merging
 

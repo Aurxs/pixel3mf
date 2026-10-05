@@ -9,6 +9,12 @@ The default final delivery is **01_未压缩.png** and **02_未压缩_镜像.png
 
 Keep the chart presentation concise: the main title is only the work's name; the mirrored chart adds “镜像版”. Do not print “正常版” on the chart. Omit explanatory captions and disclaimers such as “原始方向”, “一格一颗豆”, “色值为屏幕近似值”, “空格不放豆” and “非实物比例”. Keep the palette name, grid coordinates and material counts. Preserve provenance and technical limitations in project metadata and internal references, not chart decoration.
 
+## Chinese titles and accompanying copy
+
+Chart titles must lead with the Chinese work/character name; the Japanese name may appear only as an optional parenthetical supplement: `中文名（日文名）`. Prefer the user's Chinese name for the subject. When it is unknown, verify the Chinese name through official/first-party sources before supplying `--title`; record the source in internal research notes. Do not invent a translation/transliteration or silently use a Japanese-only title. If no reliable Chinese name or user-provided Chinese name is available, ask for the preferred Chinese name or use a neutral Chinese title such as `拼豆作品` without claiming it is the character's name. The renderer preserves supplied titles; resolve wording before export rather than adding automatic translation to code.
+
+When the user requests Xiaohongshu editorial copy, write both the post title and body entirely in Chinese, including hashtags; omit Japanese-name parentheses and other foreign-language wording there. Use natural Chinese descriptions if a proper name cannot be verified. This rule concerns requested copy and does not authorize posting or regenerating artwork.
+
 ## Scope and independence
 
 This directory contains instructions, prompts, style assets and palette data. Executable implementation lives in the project's `tools/beads/`, following the same rule/tool separation as the other skills. Locate the project by `tools/beads/run_workflow.py` and `skills/codex/pixel-art-to-beads/`; do not assume the installed skill directory is the project root. Do not invoke or read another skill. No Lumina, 3MF or printer profile is needed. See [runtime.md](references/runtime.md) to resolve tool paths, the Python runtime and fonts.
