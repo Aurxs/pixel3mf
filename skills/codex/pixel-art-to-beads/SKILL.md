@@ -1,11 +1,11 @@
 ---
 name: pixel-art-to-beads
-description: "Generate or read pixel art and deliver four MARD bead charts: uncompressed original/mirror and board-fitted original/mirror. Support outline-preserving 52-cell compression, AI refinement and accurate counts. Use for 拼豆图纸、像素画转拼豆、52格压缩. Uses project tools/beads; no other skill or Lumina required."
+description: "Generate or read pixel art and deliver two or four MARD bead charts based on logical size: original/mirror, plus board-fitted original/mirror only when oversized. Support outline-preserving 52-cell compression, AI refinement and accurate counts. Use for 拼豆图纸、像素画转拼豆、52格压缩. Uses project tools/beads; no other skill or Lumina required."
 ---
 
 # Pixel Art to Beads
 
-The default final delivery is exactly four primary PNGs: **01_未压缩.png**, **02_未压缩_镜像.png**, **03_压缩.png**, **04_压缩_镜像.png**. Use the four-chart workflow in [bead-export.md](references/bead-export.md). Mirror each cell matrix horizontally, then render upright labels and coordinates. Each mirror pair shares the bead count for one physical work. Respect an explicit request for fewer variants or algorithm-only compression.
+The default final delivery is **01_未压缩.png** and **02_未压缩_镜像.png** when the accepted logical grid fits within 52×52 (both axes <=52). Only when either axis exceeds the target, also deliver **03_压缩.png** and **04_压缩_镜像.png**. Decide from the logical occupied bounding box after trimming transparent outer padding, never enlarged PNG display pixels; never pad first to manufacture an oversized input. Use the size-aware workflow in [bead-export.md](references/bead-export.md). Mirror each cell matrix horizontally, then render upright labels and coordinates. Each mirror pair shares the bead count for one physical work. Respect explicit variant or algorithm-only requests.
 
 Keep the chart presentation concise: the main title is only the work's name; the mirrored chart adds “镜像版”. Do not print “正常版” on the chart. Omit explanatory captions and disclaimers such as “原始方向”, “一格一颗豆”, “色值为屏幕近似值”, “空格不放豆” and “非实物比例”. Keep the palette name, grid coordinates and material counts. Preserve provenance and technical limitations in project metadata and internal references, not chart decoration.
 
@@ -16,7 +16,7 @@ This directory contains instructions, prompts, style assets and palette data. Ex
 ## Select the route
 
 - **New artwork:** text, subject photo, character reference or requested creative edit -> generation, lightweight inspection, Perfect Pixel, final visual review, bead mapping.
-- **Existing logical PNG:** one actual pixel per intended bead, including final grids from previous work -> skip generation and grid detection; enter the four-chart workflow. Do not mistake an enlarged preview for this file.
+- **Existing logical PNG:** one actual pixel per intended bead, including final grids from previous work -> skip generation and grid detection; enter the size-aware workflow. Do not mistake an enlarged preview for this file.
 - **Enlarged pixel art:** recover its logical grid with the preparation tool, inspect, then map.
 - **Saved pattern JSON:** re-render without image generation, grid detection or recoloring.
 - **Fit a bead board / compress pixel dimensions:** read [compression.md](references/compression.md). Start from the untouched accepted logical source, not a previously repaired candidate. The user's usual board is 52×52; use that target when they request single-board fitting without another size. The selected workflow is algorithmic sizing followed by AI refinement and automatic Perfect Pixel checks. Preserve black exterior outlines without changing the global palette or interior facial colors. An explicit algorithm-only request skips AI.
@@ -38,13 +38,13 @@ Once an image exists, read [pixel-refinement.md](references/pixel-refinement.md)
 
 Inspect the resulting preview for identity, silhouette, white subject details, intentional holes and background correctness. Default to preserving the input background; new isolated subjects prefer genuine transparent alpha. Never globally erase white or silently manufacture a fixed 50×50 grid. Grid detection failure needs source review, not a forced density pass.
 
-After logical-grid acceptance, branch from the same original into an uncompressed pair and a board-fitted pair. Trim empty outer rows and columns from both uncompressed charts so the chart grid hugs the occupied bounding box. Preserve every occupied cell and internal empty cell without resampling; report the cropped dimensions, not the padded source canvas. The fitted pair defaults to 52×52, with algorithmic proportional sizing, outline protection, optional AI refinement and automatic grid checks. Record algorithmic resizing separately from AI changes. Use the reusable workflow instead of per-image coordinate edits. Do not add an outline to unoutlined art unless requested.
+After logical-grid acceptance, always produce an uncompressed pair; add a board-fitted pair from the same original only when oversized. Trim empty outer rows and columns from both uncompressed charts so the chart grid hugs the occupied bounding box. Preserve every occupied cell and internal empty cell without resampling; report the cropped dimensions, not the padded source canvas. The fitted pair defaults to 52×52, with algorithmic proportional sizing, outline protection, optional AI refinement and automatic grid checks. Record algorithmic resizing separately from AI changes. Use the reusable workflow instead of per-image coordinate edits. Do not add an outline to unoutlined art unless requested.
 
 ## Stage 3: Match colors and export
 
-Read [bead-export.md](references/bead-export.md). Use `tools/beads/run_workflow.py prepare` on the accepted logical PNG, read [compression.md](references/compression.md) for the one AI refinement pass, then `run_workflow.py finish` to publish all four charts. The default is the bundled MARD 221 community palette. For a supplied palette, follow [palette-format.md](references/palette-format.md).
+Read [bead-export.md](references/bead-export.md). Use `tools/beads/run_workflow.py prepare` on the accepted logical PNG, inspect `compression_required` in the manifest. If false, call `run_workflow.py finish RUN` without compression flags or AI. If true, read [compression.md](references/compression.md) for the one AI refinement pass, then finish with the candidate to publish four charts. The default is the bundled MARD 221 community palette. For a supplied palette, follow [palette-format.md](references/palette-format.md).
 
-Defaults: tightly crop only transparent outer padding in the uncompressed pair; fit the compressed pair to 52×52 without stretching; transparent cells are empty; opaque white is a bead; no dithering; prefer a visually reviewed palette of about 15 colors, with no compulsory cap; every 5 cells has a major line. PDFs, CSVs, previews and JSON remain in `work/`; only the four primary PNGs go in `delivery/`. If the user asks for a full background, select an explicit valid background code and preserve meaningful subject holes as requested.
+Defaults: tightly crop only transparent outer padding in the uncompressed pair; fit the compressed pair to 52×52 without stretching; transparent cells are empty; opaque white is a bead; no dithering; prefer a visually reviewed palette of about 18 colors, with no compulsory cap; every 5 cells has a major line. PDFs, CSVs, previews and JSON remain in `work/`; only the required two or four primary PNGs go in `delivery/`. If the user asks for a full background, select an explicit valid background code and preserve meaningful subject holes as requested.
 
 Before final export, follow the effect-first color merging review in [bead-export.md](references/bead-export.md#effect-first-color-merging). Share reviewed color codes across both sizes; keep a rare eye or mouth color when merging it would lose expression.
 
@@ -52,6 +52,6 @@ Preserve the pre-mapping source and render a nearest-neighbor preview of the map
 
 ## Stage 4: Focused acceptance and delivery
 
-Inspect both mirror pairs at full view and a representative label crop. Check counts, mirrored positions, upright text, cropped uncompressed dimensions, fitted dimensions, outer outline and facial readability. If delivering an optional PDF, inspect its rendering too. The workflow reports `four_charts_ready_for_review`; only set `manifest.json` status to `accepted` after visual checks. Record concise checks in `review.json`. Do not rerun unrelated project tests.
+Inspect every required mirror pair at full view and a representative label crop. Check counts, mirrored positions, upright text, cropped uncompressed dimensions, fitted dimensions, outer outline and facial readability. If delivering an optional PDF, inspect its rendering too. The workflow reports `two_charts_ready_for_review` or `four_charts_ready_for_review`; only set `manifest.json` status to `accepted` after visual checks. Record concise checks in `review.json`. Do not rerun unrelated project tests.
 
-Show a compact contact sheet if helpful and link the four files in `delivery/`. Give dimensions, color count and bead count for each size. Retain original/AI sources, PDFs, material lists and editable JSON internally; do not present these as extra primary deliverables unless requested. A run with a missing pair is incomplete.
+Show a compact contact sheet if helpful and link the two or four files in `delivery/`. Give dimensions, color count and bead count for each size. Retain original/AI sources, PDFs, material lists and editable JSON internally; do not present these as extra primary deliverables unless requested. A run with a missing required pair is incomplete; the skipped fitted pair is not missing.

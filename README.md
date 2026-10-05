@@ -112,7 +112,7 @@ uv pip install -r requirements-pixel3mf.txt
 | [pixel-art-to-3mf](skills/codex/pixel-art-to-3mf-skill/SKILL.md) | 原有动漫角色像素画，保留角色上半身、眼睛和姿态专用规则 |
 | [general-pixel-art-to-3mf](skills/codex/general-pixel-art-to-3mf/SKILL.md) | 通用粗像素画：人物、宠物、植物、物品、车辆、建筑和简洁场景；支持文字、参考图或实拍照片辅助生成，也可导出 3MF |
 | [high-fidelity-image-to-3mf](skills/codex/high-fidelity-image-to-3mf/SKILL.md) | 保留照片、插画的连续色调和高精细节，使用非像素转换流程 |
-| [pixel-art-to-beads](skills/codex/pixel-art-to-beads/SKILL.md) | 独立生成或读取像素画，交付未压缩/压缩 × 原向/镜像四张拼豆图纸；默认适配 52×52 板子 |
+| [pixel-art-to-beads](skills/codex/pixel-art-to-beads/SKILL.md) | 独立生成或读取像素画，逻辑宽高均 ≤52 时交付原向/镜像两张，超限时加适配 52×52 版本共四张；约18色、自然效果优先 |
 
 通用版示例：“使用 `$general-pixel-art-to-3mf`，参考这张我家猫的照片做粗像素画，保留花纹和眼睛颜色，再转成 3MF。”多图可分别指定主体、构图和风格；只要求成品像素 PNG 时，也先执行 Perfect Pixel，再验收整理后的逻辑图和放大预览；明确只要生图原件时才跳过整理。照片辅助生成会产生新的像素画；要求原照片直接转换且不重画时，应使用高保真流程。通用版先用 `tools/refine_pixel.py --png-only --binarize-alpha` 整理透明源图，再正式验收；需要抠图时显式使用 `isnet-general-use`。验收通过的网格直接交给 `tools/lumina_batch.py` 导出两个尺寸，不套用动漫版原图的 45–80 网格门槛，也不强制缩放到 28×28。动漫动作类任务的案例参考图位于 `examples/reference-action-interaction.png`。
 

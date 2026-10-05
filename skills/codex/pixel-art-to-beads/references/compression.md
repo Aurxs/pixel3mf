@@ -2,7 +2,7 @@
 
 Resolve `PYTHON` and the project’s `TOOLS_DIR` using [runtime.md](runtime.md).
 
-This is the fitted branch of the default four-chart workflow; the parallel uncompressed branch trims transparent outer padding without resizing any bead cells. Default single-board target is 52×52 for this user; explicit targets take precedence. Already-small artwork is centered without enlargement.
+This is the fitted branch of the default size-aware workflow; the parallel uncompressed branch trims transparent outer padding without resizing any bead cells. Default single-board target is 52×52 for this user; explicit targets take precedence. The standard workflow skips this branch entirely when both cropped logical dimensions fit the target: deliver only the original and mirror, without padding or AI. The lower-level compressor can center small artwork for explicit requests, but must not create a duplicate standard deliverable.
 
 The selected standard workflow is **algorithmic sizing, then AI refinement, then automatic Perfect Pixel validation**. Requests to improve the compression prompt refer to the generated prompt in this workflow. Direct AI downsizing experiments are not part of the installed workflow.
 
@@ -16,11 +16,11 @@ The input is the untouched final pixel source with binary alpha, before previous
   --target 52 --outline auto
 ```
 
-Optional `--max-colors N` and `--palette` control palette mapping. No hardcoded 15-color cap is applied. `--outline auto` protects a black exterior when at least 90% of the source's exterior edge is dark. `--outline black` explicitly requires black-outline protection; `--outline none` preserves unoutlined art. Custom palettes can provide a near-black `--outline-code` instead of MARD H7.
+Optional `--max-colors N` and `--palette` control palette mapping. No hardcoded 18-color cap is applied. `--outline auto` protects a black exterior when at least 90% of the source's exterior edge is dark. `--outline black` explicitly requires black-outline protection; `--outline none` preserves unoutlined art. Custom palettes can provide a near-black `--outline-code` instead of MARD H7.
 
 The deterministic stage trims only transparent outer space, scales proportionally by area-weighted color-code voting, and centers the result on the target canvas. Occupancy coverage and color votes are computed separately. It does not enlarge already-small artwork. For protected outlines, it locks one occupied-cell-wide exterior shell to the black code, without enlarging the silhouette or painting over internal eye/face regions. Enclosed cutout holes remain empty.
 
-Before sizing, use the reviewed shared codebook and detail anchors from [bead-export.md](bead-export.md#effect-first-color-merging). `prepare` accepts `--allowed` and `--locked`; use the same values as the uncompressed branch. A 15-color candidate still needs visual acceptance, especially for rare mouth and eye colors.
+Before sizing, use the reviewed shared codebook and detail anchors from [bead-export.md](bead-export.md#effect-first-color-merging). `prepare` accepts `--allowed` and `--locked`; use the same values as the uncompressed branch. A 18-color candidate still needs visual acceptance, especially for rare mouth and eye colors.
 
 Palette selection is independent of outline protection. Enabling black-outline preservation must not reselect all colors or change interior eye/mouth cells in the algorithmic draft. Select the palette once, then apply black only to the exterior shell. If the outline would exceed an explicit color cap, report that conflict instead of silently selecting a different palette. Tied area votes favor the original center cell.
 
@@ -60,4 +60,4 @@ At most two AI calls per run. A retry uses the same original-derived draft and a
   /absolute/new_run/attempt-1/project.json /absolute/new_run/charts --title '作品名'
 ```
 
-For standard four-chart delivery, prefer `run_workflow.py finish` from [bead-export.md](bead-export.md), which runs refinement and publishes this pair alongside the uncompressed pair. The lower-level commands above are for focused debugging or explicit single-pair requests. A representative original-source end-to-end run validates workflow changes; do not repeatedly polish one image as a substitute for improving the workflow. Repository tests cover scaling bounds, transparency and exterior-only outline preservation.
+For oversized standard four-chart delivery, prefer `run_workflow.py finish` from [bead-export.md](bead-export.md), which runs refinement and publishes this pair alongside the uncompressed pair. The lower-level commands above are for focused debugging or explicit single-pair requests. A representative original-source end-to-end run validates workflow changes; do not repeatedly polish one image as a substitute for improving the workflow. Repository tests cover scaling bounds, transparency and exterior-only outline preservation.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare both sizes, accept one AI candidate, and publish exactly four primary charts."""
+"""Publish an original mirror pair, adding a fitted pair only for oversized logical grids."""
 from __future__ import annotations
 
 import argparse
@@ -39,17 +39,20 @@ def trim_empty_border(project):
     return project
 
 
-def publish_four(uncompressed, compressed, destination):
-    """Only the four main PNGs enter delivery; retain the rest in work directories."""
+def publish_charts(uncompressed, compressed, destination):
+    """Publish the original pair and, when supplied, the compressed pair."""
     destination = Path(destination)
     if destination.exists():
         raise ValueError("Delivery already exists; retain previous results and use a new run")
     sources = [
         (Path(uncompressed)/"正常版.png", "01_未压缩.png", "uncompressed", False),
         (Path(uncompressed)/"镜像版.png", "02_未压缩_镜像.png", "uncompressed", True),
-        (Path(compressed)/"正常版.png", "03_压缩.png", "compressed", False),
-        (Path(compressed)/"镜像版.png", "04_压缩_镜像.png", "compressed", True),
     ]
+    if compressed is not None:
+        sources += [
+            (Path(compressed)/"正常版.png", "03_压缩.png", "compressed", False),
+            (Path(compressed)/"镜像版.png", "04_压缩_镜像.png", "compressed", True),
+        ]
     for source, _, _, _ in sources:
         with Image.open(source) as image:
             image.verify()
@@ -71,6 +74,8 @@ def prepare(source, run, title, *, target=52, palette=DEFAULT_PALETTE, max_color
     source, run = Path(source).resolve(), Path(run).resolve()
     if run.exists() and any(run.iterdir()):
         raise ValueError("Use a new empty run directory")
+    if target < 1:
+        raise ValueError("Target must be positive")
     # Validate the source and palette before creating partial workflow outputs.
     original = trim_empty_border(
         create_project(source, load_palette(palette), title, max_colors=max_colors,
@@ -84,22 +89,29 @@ def prepare(source, run, title, *, target=52, palette=DEFAULT_PALETTE, max_color
         image.convert("RGBA").save(source_png)
     original_charts = work/"01_uncompressed"
     export_project(original, original_charts, font=font)
-    compression = work/"02_compression"
-    prepare_compression(source_png, compression, target, palette, max_colors, outline,
-                        allowed=allowed, locked=locked)
-    seed = json.loads((compression/"run.json").read_text(encoding="utf-8"))
-    seed["title"] = title
-    save_json(compression/"run.json", seed)
-    state = {"schema": "bead-four-chart-workflow/v1", "status": "awaiting_ai",
+    logical_size = [len(original["cells"][0]), len(original["cells"])]
+    compression_required = any(size > target for size in logical_size)
+    state = {"schema": "bead-chart-workflow/v2", "status": "ready_to_publish",
              "title": title, "source": {"path": str(source),
                  "sha256": hashlib.sha256(source.read_bytes()).hexdigest()},
              "color_mapping": original["mapping"],
              "target": target, "font": str(Path(font).resolve()) if font else None,
-             "paths": {"uncompressed": str(original_charts), "compression": str(compression),
-                       "ai_input": str(compression/"02_ai_input.png"),
-                       "ai_prompt": str(compression/"03_prompt.txt")},
+             "logical_size": logical_size, "compression_required": compression_required,
+             "expected_primary_products": 4 if compression_required else 2,
+             "paths": {"uncompressed": str(original_charts)},
              "uncompressed_statistics": original["statistics"],
              "uncompressed_crop": original["uncompressed_crop"], "primary_products": []}
+    if compression_required:
+        compression = work/"02_compression"
+        prepare_compression(source_png, compression, target, palette, max_colors, outline,
+                            allowed=allowed, locked=locked)
+        seed = json.loads((compression/"run.json").read_text(encoding="utf-8"))
+        seed["title"] = title
+        save_json(compression/"run.json", seed)
+        state["status"] = "awaiting_ai"
+        state["paths"].update(compression=str(compression),
+                              ai_input=str(compression/"02_ai_input.png"),
+                              ai_prompt=str(compression/"03_prompt.txt"))
     save_json(run/"manifest.json", state)
     return state
 
@@ -108,10 +120,18 @@ def complete(run, candidate=None, *, algorithm_only=False, attempt="attempt-1"):
     run = Path(run).resolve()
     state_path = run/"manifest.json"
     state = json.loads(state_path.read_text(encoding="utf-8"))
-    if state.get("schema") != "bead-four-chart-workflow/v1":
+    if state.get("schema") not in {"bead-four-chart-workflow/v1", "bead-chart-workflow/v2"}:
         raise ValueError("Unsupported workflow schema")
     if (run/"delivery").exists():
-        raise ValueError("This workflow has already published its four products")
+        raise ValueError("This workflow has already published its products")
+    if not state.get("compression_required", True):
+        if candidate or algorithm_only:
+            raise ValueError("No compression is needed; finish without compression options")
+        state["compression_mode"] = "not_needed"
+        state["primary_products"] = publish_charts(state["paths"]["uncompressed"], None, run/"delivery")
+        state["status"] = "two_charts_ready_for_review"
+        save_json(state_path, state)
+        return state
     if algorithm_only == bool(candidate):
         raise ValueError("Choose exactly one of AI candidate or algorithm-only")
     if Path(attempt).name != attempt or attempt in {".", ".."}:
@@ -135,7 +155,7 @@ def complete(run, candidate=None, *, algorithm_only=False, attempt="attempt-1"):
     export_project(project, compressed_charts, font=state["font"])
     state["paths"]["compressed"] = str(compressed_charts)
     state["compressed_statistics"] = project["statistics"]
-    state["primary_products"] = publish_four(state["paths"]["uncompressed"], compressed_charts, run/"delivery")
+    state["primary_products"] = publish_charts(state["paths"]["uncompressed"], compressed_charts, run/"delivery")
     state["status"] = "four_charts_ready_for_review"
     state.pop("last_error", None)
     save_json(state_path, state)
@@ -158,7 +178,7 @@ def main():
     prep.add_argument("--font")
     done = sub.add_parser("finish")
     done.add_argument("run")
-    choice = done.add_mutually_exclusive_group(required=True)
+    choice = done.add_mutually_exclusive_group()
     choice.add_argument("--candidate")
     choice.add_argument("--algorithm-only", action="store_true")
     done.add_argument("--attempt", default="attempt-1")
@@ -174,6 +194,9 @@ def main():
             state = complete(args.run, args.candidate, algorithm_only=args.algorithm_only, attempt=args.attempt)
         print(json.dumps({"status": state["status"], "paths": state["paths"],
                           "primary_products": state["primary_products"],
+                          "logical_size": state.get("logical_size"),
+                          "compression_required": state.get("compression_required", True),
+                          "expected_primary_products": state.get("expected_primary_products", 4),
                           "uncompressed": state["uncompressed_statistics"],
                           "compressed": state.get("compressed_statistics")}, ensure_ascii=False))
     except (ValueError, OSError, KeyError, ImportError) as error:
