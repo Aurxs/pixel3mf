@@ -23,8 +23,7 @@ Reject and generate a brand-new source when any of these defects appears:
 
 - The portrait extends below the upper chest, sits too low, minimizes the head, or touches the canvas bottom.
 - The source resembles a polished illustration or contains fine hair strands, micro-texture, mixed cell sizes, or insufficiently large color blocks such that automatic grid detection is unstable.
-- The default pose becomes flatly frontal or full profile, hides an eye, or loses readable three-quarter depth.
-- The eyes use different top/bottom rows or different iris/pupil row counts, their centers or gaze do not align, or the far eye is shorter or more than one logical cell narrower. Ignore sclera-only occlusion when judging eye height.
+- The default pose becomes flatly frontal or full profile, or loses readable three-quarter depth.
 - The neck becomes a long narrow connector or the head looks detached from the collar and shoulders.
 - The exterior pure-black outline is open, the bottom-most occupied row is not a continuous black baseline, or no clean background row remains below it.
 
@@ -34,6 +33,8 @@ colors. These are recoverable warnings when Pixel Fine converts them into stable
 semantically useful logical cells. Record the reconstructed-pixel difference and
 logical palette count as diagnostics, but do not turn either metric into another
 hard density gate. Make the final decision after refinement.
+
+For eyes, record concerns during source triage and let the main-conversation assistant make the final visual decision on the refined image and enlarged preview. Natural differences in eye height, width, placement, and visible iris/pupil shapes due to perspective, slight head tilt, or partial occlusion are acceptable. Do not require shared global pixel rows, equal row counts, or a numerical limit on near/far-eye differences. Judge the whole face for a natural appearance, coherent gaze, and readable eye structures. If the refined generated result has obvious misalignment, broken eye shapes, or unexplained distortions, reject it and generate a fresh source. Preserve user-provided sources unless a creative edit is authorized.
 
 ## Rejection and retry
 

@@ -11,7 +11,7 @@ Inspect each supplied image before constructing the prompt. Use the image-genera
 - A **composition reference** controls viewpoint, framing, placement, or pose only.
 - For multiple images, state each role explicitly. Prefer the user's explicit priorities; otherwise use the clearest subject view for structure and other views for supporting details. Ask only if conflicting identities or designs cannot be reconciled without inventing the intended subject.
 - Separate observable facts from assumptions. Do not infer a person's name or hidden details from a photo. Do not beautify a person into an anime character, humanize an animal, or add facial features to an object unless requested.
-- Default to an isolated subject with its important silhouette visible. A person can be a portrait or full figure; a pet can sit or stand; objects and buildings use an informative view. Follow the requested framing. Do not force an upper-chest crop, three-quarter face, equal eye templates, oversized head, neck ratios, or straight bottom baseline.
+- Default to an isolated subject with its important silhouette visible. A person can be a portrait or full figure; a pet can sit or stand; objects and buildings use an informative view. Follow the requested framing. Do not force an upper-chest crop, three-quarter face, symmetric eyes, oversized head, neck ratios, or straight bottom baseline.
 - For a requested scene, use a compact coherent vignette with simplified major elements. Keep meaningful scenery inside the subject group; only the outside canvas is removable background. Do not erase sky, snow, windows, or white surfaces just because they are pale. If a panel border or base is useful, use one consistent with the requested design.
 
 Use supplied references as the visual authority for the requested rendition. For a named fictional character, mascot, or branded design, research first-party sources when canonical details are needed. Save any research in `00_official_character_research.md` with source URLs and verified facts versus inferences. Ordinary people, animals, objects, and scenery do not require invented “official character” research; record `not_applicable`. If identity is uncertain, preserve observed appearance or ask a focused question instead of guessing.
@@ -42,6 +42,8 @@ Always use this instruction in new-generation payloads. Do not request transpare
 PIXEL ART GAME SPRITE. A tiny 28×28 pixel sprite enlarged with nearest-neighbor into big visible squares.
 
 Subject: <one sentence describing the subject, requested framing/action and essential features>.
+
+For a subject with visible eyes, keep their structure readable and gaze coherent. Allow natural differences from perspective, slight head tilt, and partial occlusion; avoid obvious misalignment, broken shapes, or unexplained distortions.
 
 Build the subject from only a few LARGE SQUARE PIXELS on ONE uniform grid. Each small identifying feature occupies only one or a few whole cells. Use only these solid colors: <six to eight subject-appropriate colors>. Fill every region with one completely FLAT color, like the bucket-fill tool in a pixel editor. Crisp block edges. Simple stair-step silhouette. Dark one-cell outline where needed. Sacrifice secondary detail for large readable blocks. Keep the requested subject inside the canvas with a clear margin.
 
