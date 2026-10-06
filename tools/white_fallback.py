@@ -114,6 +114,23 @@ def prepare(source: Path, failure_evidence: Path, output: Path) -> Path:
     return output / "candidate.json"
 
 
+def validate_main_review(review: dict, manifest_path: Path, components: list, *, checks=CHECKS) -> None:
+    """Shared exact-manifest main review and per-region acceptance gate."""
+    if (review.get("manifest_sha256") != sha256(manifest_path)
+            or review.get("reviewer_role") != "main-conversation"
+            or review.get("decision") != "approved"
+            or not isinstance(review.get("notes"), str) or not review["notes"].strip()
+            or any(review.get("checks", {}).get(key) is not True for key in checks)):
+        raise ValueError("main-conversation visual approval of this exact candidate is required")
+    decisions = review.get("components", {})
+    if set(decisions) != {c["id"] for c in components}:
+        raise ValueError("every white region requires an individual review")
+    for decision in decisions.values():
+        if (decision.get("decision") != "foreground" or not isinstance(decision.get("reason"), str)
+                or not decision["reason"].strip()):
+            raise ValueError("suspected white holes or unresolved regions block export; do not auto-delete them")
+
+
 def validate_review(review_path: Path, source: Path | None = None) -> dict:
     """Verify the recorded main review against exact, unchanged candidate artifacts."""
     root = review_path.resolve().parent
@@ -121,12 +138,7 @@ def validate_review(review_path: Path, source: Path | None = None) -> dict:
     manifest_path = root / "candidate.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if (manifest.get("schema") != "white-fallback-candidate/v1"
-            or review.get("schema") != "white-fallback-review/v1"
-            or review.get("manifest_sha256") != sha256(manifest_path)
-            or review.get("reviewer_role") != "main-conversation"
-            or review.get("decision") != "approved"
-            or not isinstance(review.get("notes"), str) or not review["notes"].strip()
-            or any(review.get("checks", {}).get(key) is not True for key in CHECKS)):
+            or review.get("schema") != "white-fallback-review/v1"):
         raise ValueError("main-conversation visual approval of this exact candidate is required")
     artifacts = manifest.get("artifacts", {})
     required = {"01_source.png", "candidate.png", "candidate_8x.png", "03_working_grid.png",
@@ -147,13 +159,7 @@ def validate_review(review_path: Path, source: Path | None = None) -> dict:
     if source is not None and sha256(source) != manifest["source_sha256"]:
         raise ValueError("reviewed source hash mismatch")
     components = json.loads((root / "white_regions.json").read_text(encoding="utf-8"))
-    decisions = review.get("components", {})
-    if set(decisions) != {c["id"] for c in components}:
-        raise ValueError("every white region requires an individual review")
-    for decision in decisions.values():
-        if (decision.get("decision") != "foreground" or not isinstance(decision.get("reason"), str)
-                or not decision["reason"].strip()):
-            raise ValueError("suspected white holes or unresolved regions block export; do not auto-delete them")
+    validate_main_review(review, manifest_path, components)
     return {"candidate_path": str(root / "candidate.png"), "manifest_sha256": sha256(manifest_path),
             "review_sha256": sha256(review_path), "source_grid": manifest["source_grid"]}
 
