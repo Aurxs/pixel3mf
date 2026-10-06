@@ -101,11 +101,16 @@ def correct_regions(candidate_dir: Path, decisions_path: Path, output: Path) -> 
     corrected[removed, 3] = 0
     corrected_working[removed_working, 3] = 0
     occupied = np.argwhere(corrected[:, :, 3] == 255)
-    if (not len(occupied) or tuple(occupied.min(axis=0)) != (0, 0)
-            or tuple(occupied.max(axis=0)) != (height - 1, width - 1)):
-        raise ValueError("region correction must preserve the original tight canvas bounds")
+    if not len(occupied):
+        raise ValueError("region correction must retain foreground")
+    # Verify permission-scoped changes in the parent coordinate frame before
+    # cropping. Only fully transparent outer rows/columns may then be removed.
     assert np.array_equal(corrected[:, :, :3], candidate[:, :, :3])
     assert np.array_equal(corrected[~removed, 3], candidate[~removed, 3])
+    top, left = map(int, occupied.min(axis=0))
+    bottom, right = map(int, occupied.max(axis=0) + 1)
+    tight = corrected[top:bottom, left:right]
+    candidate_grid = {"width": right - left, "height": bottom - top}
 
     output.mkdir(parents=True, exist_ok=False)
     # Keep all source/failure evidence; never copy an existing approval or review.
@@ -114,9 +119,9 @@ def correct_regions(candidate_dir: Path, decisions_path: Path, output: Path) -> 
     for name in ("candidate.json", "candidate.png", "03_working_grid.png", "white_regions.json"):
         shutil.copyfile(candidate_dir / name, output / ("parent_" + name))
     write_json(output / "correction_decisions.json", decisions)
-    Image.fromarray(corrected).save(output / "candidate.png")
-    Image.fromarray(corrected).resize((width * 8, height * 8), Image.Resampling.NEAREST).save(output / "candidate_8x.png")
-    Image.fromarray(corrected[:, :, 3]).save(output / "candidate_mask.png")
+    Image.fromarray(tight).save(output / "candidate.png")
+    Image.fromarray(tight).resize(((right - left) * 8, (bottom - top) * 8), Image.Resampling.NEAREST).save(output / "candidate_8x.png")
+    Image.fromarray(tight[:, :, 3]).save(output / "candidate_mask.png")
     Image.fromarray(corrected_working).save(output / "03_working_grid.png")
     h, w = working.shape[:2]
     Image.fromarray(corrected_working).resize((w * 8, h * 8), Image.Resampling.NEAREST).save(output / "03_working_preview.png")
@@ -146,16 +151,24 @@ def correct_regions(candidate_dir: Path, decisions_path: Path, output: Path) -> 
     report = {"schema": "white-fallback-correction-result/v1",
               "status": "needs_new_main_visual_review", "parent_manifest_sha256": sha256(manifest_path),
               "parent_candidate_sha256": sha256(candidate_dir / "candidate.png"),
-              "source_sha256": manifest["source_sha256"], "candidate_grid": manifest["candidate_grid"],
+              "source_sha256": manifest["source_sha256"], "candidate_grid": candidate_grid,
+              "parent_candidate_grid": manifest["candidate_grid"],
               "removed_component_ids": sorted(selected, key=int), "removed_cells": int(removed.sum()),
               "preserved_component_ids": sorted(ids - selected, key=int),
               "removed_candidate_xy": [[int(x), int(y)] for y, x in np.argwhere(removed)],
-              "candidate_crop_origin_in_working": [x0, y0], "rgb_unchanged": True,
+              "removed_coordinates_frame": "parent_candidate",
+              "parent_candidate_crop_origin_in_working": [x0, y0],
+              "crop_box_in_parent_candidate": [left, top, right, bottom],
+              "candidate_crop_origin_in_working": [x0 + left, y0 + top],
+              "correction_diff_grid": manifest["candidate_grid"],
+              "pixel_invariants_frame": "parent_candidate_before_tight_crop",
+              "rgb_unchanged": True,
               "other_alpha_unchanged": True, "alpha_values": np.unique(corrected[:, :, 3]).tolist(),
               "prior_review_reused": False, "conversion_invoked": False}
     write_json(output / "correction.json", report)
     manifest = {**manifest, "status": "needs_main_visual_review", "correction": "correction.json",
-                "warning": "Explicit Alpha-only region correction; previous review does not approve this candidate.",
+                "candidate_grid": candidate_grid,
+                "warning": "Explicit Alpha-only region correction followed by transparent-edge tight cropping; previous review does not approve this candidate.",
                 "artifacts": {p.name: sha256(p) for p in sorted(output.iterdir()) if p.is_file()}}
     write_json(output / "candidate.json", manifest)
     write_json(output / "review.template.json", {

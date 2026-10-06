@@ -186,5 +186,145 @@ class RegionCorrectionTests(unittest.TestCase):
             self.correct()
 
 
+class RegionCorrectionCropTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+
+    def prepare(self, rgba, selected):
+        """Prepare synthetic logical cells through the existing fallback gate."""
+        source = self.root / "source.png"
+        opaque = rgba.copy()
+        opaque[:, :, 3] = 255
+        Image.fromarray(opaque).save(source)
+        failed = self.root / "failed.png"
+        Image.new("L", (rgba.shape[1], rgba.shape[0]), 0).save(failed)
+        evidence = self.root / "failure.json"
+        fallback.write_json(evidence, {
+            "schema": "white-fallback-failure/v1", "source_sha256": fallback.sha256(source),
+            "failure_kind": "semantic_mask_unusable", "reason": "Synthetic missing subject",
+            "source_accepted": True, "white_background_suitable": True,
+            "model_masks": [{"model": "isnet-anime", "path": failed.name,
+                             "sha256": fallback.sha256(failed)}]})
+        grid = {"width": rgba.shape[1], "height": rgba.shape[0]}
+
+        def refine(src, output, preview, **kwargs):
+            data = np.pad(rgba, ((2, 2), (2, 2), (0, 0)))
+            Image.fromarray(data).save(output)
+            Image.fromarray(data).save(preview)
+            return {"detected_grid": grid, "working_grid": {
+                "width": data.shape[1], "height": data.shape[0]}}
+
+        parent = self.root / "parent"
+        with patch.object(fallback, "detect_source_grid", return_value=grid), patch.object(
+            fallback, "refine_pixel", side_effect=refine
+        ):
+            fallback.prepare(source, evidence, parent)
+        regions = json.loads((parent / "white_regions.json").read_text())
+        decisions = self.root / "decisions.json"
+        fallback.write_json(decisions, {
+            "schema": "white-fallback-correction/v1", "reviewer_role": "main-conversation",
+            "manifest_sha256": fallback.sha256(parent / "candidate.json"),
+            "candidate_sha256": fallback.sha256(parent / "candidate.png"),
+            "components": {r["id"]: {
+                "decision": "background" if r["id"] in selected else "preserve",
+                "reason": "Synthetic reviewed edge" if r["id"] in selected else "Retained white detail",
+            } for r in regions}})
+        return parent, decisions, self.root / "corrected"
+
+    def test_reviewed_five_cells_allow_top_crop_without_changing_source_grid(self):
+        rgba = np.full((68, 70, 4), (255, 255, 255, 0), dtype=np.uint8)
+        rgba[2:67, 3:66] = (20, 30, 40, 255)
+        # Three reviewed regions: two top tips and a two-cell interior region.
+        for x, y in [(27, 1), (28, 1), (57, 1), (24, 7), (25, 7), (35, 30), (36, 30)]:
+            rgba[y, x] = (254, 253, 255, 255)
+        parent, decisions, output = self.prepare(rgba, {"1", "2", "3"})
+        before_files = {p.name: p.read_bytes() for p in parent.iterdir()}
+        original = np.array(Image.open(parent / "candidate.png"))
+        manifest = json.loads(correct_regions(parent, decisions, output).read_text())
+        report = json.loads((output / "correction.json").read_text())
+        final = np.array(Image.open(output / "candidate.png"))
+        self.assertEqual(original.shape, (66, 63, 4))
+        self.assertEqual(final.shape, (65, 63, 4))
+        self.assertEqual(report["removed_cells"], 5)
+        self.assertEqual(report["removed_candidate_xy"], [[24, 0], [25, 0], [54, 0], [21, 6], [22, 6]])
+        expected = original.copy()
+        for x, y in report["removed_candidate_xy"]:
+            expected[y, x, 3] = 0
+        self.assertTrue(np.array_equal(final, expected[1:]))
+        self.assertEqual(report["removed_coordinates_frame"], "parent_candidate")
+        self.assertEqual(report["crop_box_in_parent_candidate"], [0, 1, 63, 66])
+        self.assertEqual(report["parent_candidate_crop_origin_in_working"], [5, 3])
+        self.assertEqual(report["candidate_crop_origin_in_working"], [5, 4])
+        self.assertEqual(manifest["source_grid"], {"width": 70, "height": 68})
+        self.assertEqual(manifest["working_grid"], {"width": 74, "height": 72})
+        self.assertEqual(manifest["candidate_grid"], {"width": 63, "height": 65})
+        before_working = np.array(Image.open(parent / "03_working_grid.png"))
+        after_working = np.array(Image.open(output / "03_working_grid.png"))
+        expected_working = before_working.copy()
+        for x, y in report["removed_candidate_xy"]:
+            expected_working[y + 3, x + 5, 3] = 0
+        self.assertTrue(np.array_equal(after_working, expected_working))
+        self.assertTrue(np.array_equal(np.array(Image.open(output / "candidate_mask.png")), final[:, :, 3]))
+        with Image.open(output / "candidate_8x.png") as preview:
+            self.assertTrue(np.array_equal(np.array(preview), np.repeat(np.repeat(final, 8, axis=0), 8, axis=1)))
+        with Image.open(output / "correction_diff_8x.png") as diff:
+            self.assertEqual(diff.size, (63 * 8, 66 * 8))
+        remaining = json.loads((output / "white_regions.json").read_text())
+        self.assertEqual([r["id"] for r in remaining], ["4"])
+        self.assertEqual(remaining[0]["working_bbox"], [37, 32, 2, 1])
+        for name, data in before_files.items():
+            self.assertEqual((parent / name).read_bytes(), data)
+        for name, digest in manifest["artifacts"].items():
+            self.assertEqual(fallback.sha256(output / name), digest)
+        with self.assertRaises(ValueError):
+            fallback.promote(output / "review.template.json")
+        old_review = json.loads((parent / "review.template.json").read_text())
+        old_review.update(decision="approved", checks=dict.fromkeys(fallback.CHECKS, True), notes="Old approval")
+        fallback.write_json(output / "review.json", old_review)
+        with self.assertRaisesRegex(ValueError, "main-conversation"):
+            fallback.promote(output / "review.json")
+        fresh = json.loads((output / "review.template.json").read_text())
+        fresh.update(decision="approved", checks=dict.fromkeys(fallback.CHECKS, True), notes="Synthetic fresh crop review")
+        for item in fresh["components"].values():
+            item.update(decision="foreground", reason="Retained synthetic white detail")
+        fallback.write_json(output / "review.json", fresh)
+        self.assertEqual(fallback.promote(output / "review.json").read_bytes(), (output / "candidate.png").read_bytes())
+
+    def test_each_outer_edge_can_crop_without_removing_retained_pixels(self):
+        for edge in ("top", "bottom", "left", "right"):
+            with self.subTest(edge=edge), tempfile.TemporaryDirectory() as folder:
+                self.root = Path(folder)
+                rgba = np.full((53, 53, 4), (255, 255, 255, 0), dtype=np.uint8)
+                rgba[10:40, 10:40] = (20, 30, 40, 255)
+                selection = {"top": (10, slice(10, 40)), "bottom": (39, slice(10, 40)),
+                             "left": (slice(10, 40), 10), "right": (slice(10, 40), 39)}[edge]
+                rgba[selection] = (254, 253, 255, 255)
+                rgba[24, 24:26] = (254, 253, 255, 255)
+                selected = {"2"} if edge == "bottom" else {"1"}
+                parent, decisions, output = self.prepare(rgba, selected)
+                correct_regions(parent, decisions, output)
+                report = json.loads((output / "correction.json").read_text())
+                boxes = {"top": [0, 1, 30, 30], "bottom": [0, 0, 30, 29],
+                         "left": [1, 0, 30, 30], "right": [0, 0, 29, 30]}
+                self.assertEqual(report["crop_box_in_parent_candidate"], boxes[edge])
+                l, t, r, b = boxes[edge]
+                original = np.array(Image.open(parent / "candidate.png"))
+                self.assertTrue(np.array_equal(np.array(Image.open(output / "candidate.png")), original[t:b, l:r]))
+
+    def test_all_transparent_result_rejected_before_output(self):
+        rgba = np.full((53, 53, 4), (255, 255, 255, 0), dtype=np.uint8)
+        rgba[10:12, 10:12] = (254, 253, 255, 255)
+        # A second white component is retained in working evidence but already
+        # removed by preparation's isolated-cell cleanup. It is not authorized
+        # for deletion and must not make an empty corrected candidate valid.
+        rgba[20, 20] = (254, 253, 255, 255)
+        parent, decisions, output = self.prepare(rgba, {"1"})
+        with self.assertRaisesRegex(ValueError, "retain foreground"):
+            correct_regions(parent, decisions, output)
+        self.assertFalse(output.exists())
+
+
 if __name__ == "__main__":
     unittest.main()
