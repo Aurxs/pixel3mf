@@ -196,13 +196,15 @@ def verified_inputs(project, evidence_path):
         raise ValueError(
             "Sampling replay does not match recorded reference differences"
         )
-    # Permit only recorded white-edge removals, not unexplained geometry or recoloring.
+    # Recorded white-edge removals may retain sampled RGB under zero Alpha.
+    # Also accept the historical all-zero RGB representation, never recoloring.
     if len(actual) != evidence.get("manifest_cleanup", {}).get(
         "removed_edge_white_pixels", 0
     ) or any(
         min(v["sampled"][:3]) < 240
         or v["sampled"][3] < 128
-        or v["reference"] != [0, 0, 0, 0]
+        or v["reference"][3] != 0
+        or v["reference"][:3] not in ([0, 0, 0], v["sampled"][:3])
         for v in actual
     ):
         raise ValueError("Unexplained source-to-reference edits")
