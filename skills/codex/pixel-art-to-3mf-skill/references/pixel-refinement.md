@@ -80,3 +80,40 @@ Minor source blur, antialiasing, gradients, and near-identical colors pass when 
 The main-conversation assistant must inspect `04_pixel_perfect.png` and `05_pixel_preview_8x.png` before final acceptance. Judge the whole face for natural eye structure and coherent gaze. Allow differences caused by perspective, slight tilt, and natural partial occlusion; do not impose shared pixel rows, equal iris/pupil row counts, or numerical near/far-eye limits. If a generated result still has obvious misalignment, broken eye shapes, or unexplained distortions, reject it and return to a fresh Stage 1 generation. Preserve a user-provided source unless a creative edit is authorized.
 
 Do not read Lumina settings until the export artifact and preview pass this final gate.
+
+## Reviewed correction plus one-cell bridge handoff
+
+For an existing formal white-region correction followed by exactly one source-supported
+bridge from `tools/beads/bridge_pixels.py`, use the controlled
+`tools/reviewed_bridge_export.py` entrypoint. Do not replace the corrected/bridged
+pixels by rerunning the original white export, relabel the final grid as the original
+source, or call the low-level converter before promotion.
+
+1. Run `prepare --original <original-white-candidate-dir> --corrected <formal-correction-dir>
+   --project <bridge-input.json> --evidence <sampling-evidence.json>
+   --result <formal-bridge-result.json> --candidate <final.png> --output <new-review-dir>`.
+   It snapshots the complete evidence, replays original source-density and white
+   preparation checks (using retained masks, without model inference), replays the
+   formal correction, checks the exact source sampling boundaries and lossless
+   palette, and reruns the formal bridge entrypoint with budget one. The final
+   RGBA must equal the corrected candidate plus that unique reported cell. It
+   creates only a pending review bundle; no pixels are resampled for export.
+2. The main-conversation assistant must inspect the final candidate, enlarged
+   preview, correction and bridge changes, and all remaining numbered whites.
+   Copy `review.template.json` to `review.json`, retaining its new schema
+   `reviewed-bridge-review/v1`, `manifest_sha256` and `candidate_sha256`. Record the
+   actual main approval, all checks (including `correction_and_bridge_reviewed`),
+   and a meaningful foreground reason for each surviving white-region ID.
+   Earlier white-candidate reviews and approvals cannot authorize this new bundle.
+   A main approval already given for the exact final PNG may be transcribed only
+   after the new bundle has been verified to bind that same PNG and reviewed chain.
+3. Run `tools/reviewed_bridge_export.py promote --review <review.json>`.
+   It revalidates all hashes, the source/correction/bridge replay, the exact final
+   candidate and nearest-neighbor preview, and the fresh main review. Only then
+   does it copy the exact PNG bytes to `04_pixel_perfect.png` and the preview to
+   `05_pixel_preview_8x.png`, recording `approval.json`. Existing promotions are
+   never overwritten. Continue to Stage 4 through this entrypoint's `convert`.
+
+This route is limited to a formal original white candidate, one formal region
+correction, and exactly one formal source-supported bridge. Other edits remain
+unsupported. The original pipeline's reconstruction/equality guard is unchanged.

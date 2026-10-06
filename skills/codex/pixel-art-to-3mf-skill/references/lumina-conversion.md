@@ -84,3 +84,28 @@ Create `manifest.json` with:
 - status, gate results, and failure notes
 
 Keep `00_official_character_research.md`, `01_source.png`, all numbered intermediates, the manifest, and optional diagnostics in the run folder.
+
+## Controlled export of an approved corrected/bridged grid
+
+When Stage 3 used `reviewed_bridge_export.py`, convert its promoted bundle with:
+
+```bash
+.venv/bin/python tools/reviewed_bridge_export.py convert \
+  --review /absolute/review-bundle/review.json \
+  --output /absolute/new-stage4-directory \
+  --lumina-dir /absolute/Lumina-Layers \
+  --character-name '<subject>' \
+  --research /absolute/00_official_character_research.md \
+  --official-source 'https://official-source.example/character'
+```
+
+Repeat `--official-source` for each retained official source. The output directory
+must be new and outside the review bundle. This entrypoint rechecks the complete
+source/correction/bridge chain and exact promotion before invoking the existing
+Lumina batch converter for **both** sizes. It retains a self-contained copy of the
+reviewed chain, original source and research, exact final grid, previews, raw ZIPs,
+3MFs and per-variant sizing/profile/XY-compensation metadata. It records the exact
+local RYBW LUT SHA-256 and checks the LUT actually selected by conversion against
+it. The final status is `needs_main_color_review`; do not imply that structural
+approval also approves the predicted colors. Do not run additional model audits
+or slicing unless requested. All sizing, profile, and archive rules above apply.
