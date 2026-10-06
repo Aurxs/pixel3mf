@@ -1,0 +1,291 @@
+diff --git a/core/converter.py b/core/converter.py
+index 84ed251..204547e 100644
+--- a/core/converter.py
++++ b/core/converter.py
+@@ -288,6 +288,39 @@ def _normalize_color_replacements_input(color_replacements):
+     return {}
+ 
+ 
++def _resolve_raster_replacement_regions(replacements, quantized_image, matched_rgb, mask_solid):
++    """Resolve scope once: explicit mask > source color > legacy matched color.
++
++    Source colors must never fall back to a merged LUT color, even on no match.
++    All masks refer to the original raster; later replacements win on overlap.
++    """
++    if isinstance(replacements, dict):
++        replacements = [{'matched': src, 'replacement': dst}
++                        for src, dst in replacements.items()]
++    regions = []
++    for item in replacements or []:
++        dst = item.get('replacement') or item.get('replacement_hex')
++        if not dst:
++            continue
++        mask = item.get('mask')
++        if mask is not None:
++            mask = np.asarray(mask)
++            if mask.shape != mask_solid.shape or mask.dtype != np.bool_:
++                raise ValueError('Replacement mask must be boolean and match the raster shape')
++        else:
++            source = (item.get('quantized') or item.get('quantized_hex')
++                      or item.get('source'))
++            key = source or item.get('matched') or item.get('matched_hex')
++            if not key:
++                continue
++            image = quantized_image if source else matched_rgb
++            if image is None or image.shape != matched_rgb.shape:
++                raise ValueError('Source-scoped replacement requires the original quantized raster')
++            mask = np.all(image == _hex_to_rgb_tuple(key), axis=-1)
++        regions.append({'mask': mask & mask_solid, 'replacement': dst})
++    return regions
++
++
+ def _apply_region_replacement(image_rgb, region_mask, replacement_rgb):
+     """仅在 region_mask 覆盖区域应用替换色。"""
+     out = image_rgb.copy()
+@@ -891,57 +924,21 @@ def convert_image_to_3d(image_path, lut_path, target_width_mm, spacer_thick,
+                 c = preview_colors[sid]
+                 print(f"[CONVERTER]   slot{sid}: #{c[0]:02x}{c[1]:02x}{c[2]:02x}")
+ 
+-    # Apply color replacements if provided
+-    # Also convert API-format replacement_regions (without masks) into color_replacements
+-    effective_color_replacements = _normalize_color_replacements_input(color_replacements)
+-    if replacement_regions:
+-        api_format_replacements = _normalize_color_replacements_input(replacement_regions)
+-        if api_format_replacements:
+-            effective_color_replacements.update(api_format_replacements)
+-            # Remove API-format items (no mask) from replacement_regions to avoid
+-            # _apply_regions_to_raster_outputs skipping them silently
+-            replacement_regions = [r for r in replacement_regions if r.get('mask') is not None]
+-
+-    if effective_color_replacements:
+-        from core.color_replacement import ColorReplacementManager
+-        manager = ColorReplacementManager.from_dict(effective_color_replacements)
+-        old_rgb = matched_rgb.copy()
+-        matched_rgb = manager.apply_to_image(matched_rgb)
+-        print(f"[CONVERTER] Applied {len(manager)} color replacements")
+-
+-        # Update material_matrix: find the replacement color's LUT entry
+-        # and use its stacking layers (ref_stacks) for correct multi-layer output
+-        for orig_hex, repl_hex in effective_color_replacements.items():
+-            orig_rgb_tuple = ColorReplacementManager._hex_to_color(orig_hex)
+-            repl_rgb_tuple = ColorReplacementManager._hex_to_color(repl_hex)
+-            # Find pixels that were originally this color
+-            orig_mask = np.all(old_rgb == orig_rgb_tuple, axis=-1)
+-            if not np.any(orig_mask):
+-                continue
+-            # Query KDTree to find the closest LUT entry for the replacement color (in CIELAB space)
+-            repl_lab = processor._rgb_to_lab(np.array([repl_rgb_tuple], dtype=np.uint8))
+-            _, lut_idx = processor.kdtree.query(repl_lab)
+-            lut_idx = lut_idx[0]
+-            new_stacks = processor.ref_stacks[lut_idx]  # (COLOR_LAYERS,)
+-            material_matrix[orig_mask] = new_stacks
+-            lut_color = processor.lut_rgb[lut_idx]
+-            print(f"[CONVERTER] material_matrix: {orig_hex} → LUT#{lut_idx} rgb({lut_color[0]},{lut_color[1]},{lut_color[2]}) stacks={new_stacks}")
+-
+-    # Apply region replacements in-order (later items override earlier items)
+-    if replacement_regions:
++    # Preserve source/region scope before touching the matched raster.
++    resolved_regions = _resolve_raster_replacement_regions(
++        color_replacements, result.get('quantized_image'), matched_rgb, mask_solid)
++    resolved_regions += _resolve_raster_replacement_regions(
++        replacement_regions, result.get('quantized_image'), matched_rgb, mask_solid)
++    if resolved_regions:
+         def _resolve_lut_index_for_rgb(replacement_rgb):
+             repl_lab = processor._rgb_to_lab(np.array([replacement_rgb], dtype=np.uint8))
+             _, lut_idx = processor.kdtree.query(repl_lab)
+             return lut_idx[0]
+ 
+         matched_rgb, material_matrix = _apply_regions_to_raster_outputs(
+-            matched_rgb,
+-            material_matrix,
+-            mask_solid,
+-            replacement_regions,
+-            _resolve_lut_index_for_rgb,
+-            processor.ref_stacks,
+-        )
++            matched_rgb, material_matrix, mask_solid, resolved_regions,
++            _resolve_lut_index_for_rgb, processor.ref_stacks)
++
+     
+     print(f"[CONVERTER] Image processed: {target_w}×{target_h}px, scale={pixel_scale}mm/px")
+     
+@@ -3035,7 +3032,9 @@ def generate_preview_cached(image_path, lut_path, target_width_mm,
+         'quantize_colors': quantize_colors,
+         'backing_color_id': backing_color_id,
+         'is_dark': is_dark,
+-        'bed_label': BedManager.DEFAULT_BED
++        'bed_label': BedManager.DEFAULT_BED,
++        'replacement_lut_lab': processor.lut_lab.copy(),
++        'replacement_ref_stacks': processor.ref_stacks.copy(),
+     }
+ 
+     # 统一缓存契约：保证 quantized_image 始终可用
+@@ -3587,17 +3586,28 @@ def update_preview_with_replacements(cache, replacement_regions=None,
+         merger = ColorMerger(LuminaImageProcessor._rgb_to_lab)
+         matched_rgb = merger.apply_color_merging(matched_rgb, merge_map)
+ 
+-    # Apply region replacements in-order (later items override earlier items)
+-    for item in (replacement_regions or []):
+-        region_mask = item.get('mask')
+-        replacement_hex = item.get('replacement')
+-        if region_mask is None or not replacement_hex:
+-            continue
+-        replacement_rgb = _hex_to_rgb_tuple(replacement_hex)
+-        effective_mask = region_mask & mask_solid
+-        if np.any(effective_mask):
+-            matched_rgb[effective_mask] = np.array(replacement_rgb, dtype=np.uint8)
+-    
++    regions = _resolve_raster_replacement_regions(
++        replacement_regions, cache.get('quantized_image'), original_rgb, mask_solid)
++    original_material = cache.get('original_material_matrix', cache.get('material_matrix'))
++    material_matrix = original_material
++    if (original_material is not None and 'replacement_lut_lab' in cache
++            and 'replacement_ref_stacks' in cache):
++        from core.image_processing import LuminaImageProcessor
++        from scipy.spatial import KDTree
++        lut_tree = KDTree(cache['replacement_lut_lab'])
++
++        def resolve_lut_index(rgb):
++            lab = LuminaImageProcessor._rgb_to_lab(np.array([rgb], dtype=np.uint8))
++            return lut_tree.query(lab)[1][0]
++
++        matched_rgb, material_matrix = _apply_regions_to_raster_outputs(
++            matched_rgb, original_material, mask_solid, regions,
++            resolve_lut_index, cache['replacement_ref_stacks'])
++    else:
++        # Older caches retain their display-only behavior until refreshed.
++        for item in regions:
++            matched_rgb[item['mask']] = _hex_to_rgb_tuple(item['replacement'])
++
+     # Build new preview RGBA
+     preview_rgba = np.zeros((target_h, target_w, 4), dtype=np.uint8)
+     preview_rgba[mask_solid, :3] = matched_rgb[mask_solid]
+@@ -3606,6 +3616,9 @@ def update_preview_with_replacements(cache, replacement_regions=None,
+     # Update cache with new data
+     updated_cache = cache.copy()
+     updated_cache['matched_rgb'] = matched_rgb
++    if original_material is not None:
++        updated_cache['original_material_matrix'] = original_material
++        updated_cache['material_matrix'] = material_matrix
+     updated_cache['preview_rgba'] = preview_rgba.copy()
+     updated_cache['backing_color_id'] = backing_color_id  # Preserve backing color ID
+     
+diff --git a/tests/test_source_color_scope_regression.py b/tests/test_source_color_scope_regression.py
+new file mode 100644
+index 0000000..da4afc7
+--- /dev/null
++++ b/tests/test_source_color_scope_regression.py
+@@ -0,0 +1,97 @@
++"""Regression tests for raster scope; no model export or external fixtures."""
++import unittest
++import numpy as np
++from core.converter import _resolve_raster_replacement_regions, _apply_regions_to_raster_outputs
++from ui.callbacks import _build_full_color_region_mask
++
++class SourceColorScopeTests(unittest.TestCase):
++    def setUp(self):
++        self.matched = np.full((2, 733, 3), 255, dtype=np.uint8)
++        self.source = self.matched.copy()
++        self.source[0, :7] = [221, 224, 228]
++        self.solid = np.ones((2, 733), dtype=bool)
++        self.material = np.zeros((2, 733, 5), dtype=np.uint8)
++        self.stacks = np.array([[0,0,0,0,0], [0,0,0,3,1]], dtype=np.uint8)
++        self.record = {'quantized_hex':'#dde0e4', 'matched_hex':'#ffffff', 'replacement_hex':'#83878d'}
++
++    def apply(self, records, source=True):
++        regions = _resolve_raster_replacement_regions(records, self.source if source else None,
++                                                      self.matched, self.solid)
++        return _apply_regions_to_raster_outputs(self.matched, self.material, self.solid,
++                                                regions, lambda rgb: 1, self.stacks)
++
++    def test_seven_source_cells_do_not_expand_to_1466_matched_cells(self):
++        rgb, material = self.apply([self.record])
++        changed = np.any(rgb != self.matched, axis=-1)
++        self.assertEqual(int(changed.sum()), 7)
++        np.testing.assert_array_equal(changed, np.any(material != self.material, axis=-1))
++        np.testing.assert_array_equal(rgb[changed], np.tile([131,135,141], (7,1)))
++        np.testing.assert_array_equal(material[changed], np.tile(self.stacks[1], (7,1)))
++        np.testing.assert_array_equal(rgb[1], self.matched[1])  # protected white / face row
++
++    def test_source_alias_obeys_source_scope(self):
++        record = {'source':'#dde0e4', 'matched':'#ffffff', 'replacement':'#83878d'}
++        self.assertEqual(int(np.any(self.apply([record])[0] != self.matched, axis=-1).sum()), 7)
++
++    def test_source_no_match_does_not_fall_back(self):
++        record = dict(self.record, quantized_hex='#010203')
++        np.testing.assert_array_equal(self.apply([record])[0], self.matched)
++
++    def test_source_without_quantized_raster_fails_closed(self):
++        with self.assertRaisesRegex(ValueError, 'quantized raster'):
++            self.apply([self.record], source=False)
++
++    def test_explicit_mask_overrides_source_and_matched(self):
++        mask = np.zeros_like(self.solid); mask[0, :3] = True
++        rgb, material = self.apply([dict(self.record, mask=mask)])
++        np.testing.assert_array_equal(np.any(rgb != self.matched, axis=-1), mask)
++        np.testing.assert_array_equal(np.any(material != self.material, axis=-1), mask)
++
++    def test_empty_mask_does_not_fall_back(self):
++        np.testing.assert_array_equal(self.apply([dict(self.record, mask=np.zeros_like(self.solid))])[0], self.matched)
++
++    def test_bad_masks_rejected(self):
++        for mask in [np.zeros((1,1),dtype=bool), self.solid.astype(np.uint8)]:
++            with self.assertRaises(ValueError): self.apply([dict(self.record, mask=mask)])
++
++    def test_legacy_matched_only_and_dict_retain_global_behavior(self):
++        for records in [[{'matched_hex':'#ffffff','replacement_hex':'#83878d'}], {'#ffffff':'#83878d'}]:
++            self.assertEqual(int(np.any(self.apply(records)[0] != self.matched,axis=-1).sum()),1466)
++
++    def test_transparent_cells_are_excluded(self):
++        self.solid[0,0] = False
++        self.assertEqual(int(np.any(self.apply([self.record])[0] != self.matched,axis=-1).sum()),6)
++
++    def test_later_region_wins_without_scope_expansion(self):
++        mask=np.zeros_like(self.solid);mask[0,:2]=True
++        rgb,_=self.apply([self.record, {'mask':mask,'replacement':'#ffffff'}])
++        self.assertEqual(int(np.any(rgb != self.matched,axis=-1).sum()),5)
++
++    def test_gui_source_selection_cannot_union_matching_output_pixels(self):
++        self.matched[1,:] = [221,224,228]
++        cache={'quantized_image':self.source,'matched_rgb':self.matched,
++               'mask_solid':self.solid,'selected_quantized_hex':'#dde0e4'}
++        self.assertEqual(int(_build_full_color_region_mask(cache,'#dde0e4').sum()),7)
++
++    def test_fresh_preview_updates_material_and_undo_restores_it(self):
++        from unittest.mock import patch
++        from core.converter import update_preview_with_replacements
++        from core.image_processing import LuminaImageProcessor
++        cache = {'matched_rgb': self.matched, 'material_matrix': self.material,
++                 'quantized_image': self.source, 'mask_solid': self.solid,
++                 'color_conf': {}, 'replacement_ref_stacks': self.stacks,
++                 'replacement_lut_lab': LuminaImageProcessor._rgb_to_lab(
++                     np.array([[255,255,255],[131,135,141]], dtype=np.uint8))}
++        with patch('core.converter.render_preview', return_value=None), patch(
++                'core.converter.extract_color_palette', return_value=[]), patch(
++                'ui.palette_extension.generate_palette_html', return_value=''):
++            _, updated, _ = update_preview_with_replacements(cache, [self.record])
++            expected_rgb, expected_material = self.apply([self.record])
++            np.testing.assert_array_equal(updated['matched_rgb'], expected_rgb)
++            np.testing.assert_array_equal(updated['material_matrix'], expected_material)
++            _, restored, _ = update_preview_with_replacements(updated, [])
++            np.testing.assert_array_equal(restored['matched_rgb'], self.matched)
++            np.testing.assert_array_equal(restored['material_matrix'], self.material)
++            np.testing.assert_array_equal(cache['material_matrix'], self.material)
++
++if __name__ == '__main__': unittest.main()
+diff --git a/ui/callbacks.py b/ui/callbacks.py
+index bae700f..93c283b 100644
+--- a/ui/callbacks.py
++++ b/ui/callbacks.py
+@@ -30,7 +30,10 @@ def _build_full_color_region_mask(cache, selected_color: str):
+     rgb = _hex_to_rgb_tuple(selected_color)
+     q_match = np.all(q_img == np.array(rgb, dtype=np.uint8), axis=2)
+     m_match = np.all(m_img == np.array(rgb, dtype=np.uint8), axis=2)
+-    return solid & (q_match | m_match)
++    # A selected source color is not interchangeable with its merged LUT color.
++    if (cache or {}).get('selected_quantized_hex'):
++        return solid & q_match
++    return solid & m_match
+ 
+ 
+ # ═══════════════════════════════════════════════════════════════

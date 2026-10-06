@@ -2,3 +2,6 @@
 *.zip binary
 *.png binary
 *.3mf binary
+
+# Patch context preserves upstream whitespace verbatim.
+patches/*.patch -whitespace
