@@ -172,10 +172,10 @@ index 84ed251..204547e 100644
      
 diff --git a/tests/test_source_color_scope_regression.py b/tests/test_source_color_scope_regression.py
 new file mode 100644
-index 0000000..da4afc7
+index 0000000..db3e735
 --- /dev/null
 +++ b/tests/test_source_color_scope_regression.py
-@@ -0,0 +1,97 @@
+@@ -0,0 +1,140 @@
 +"""Regression tests for raster scope; no model export or external fixtures."""
 +import unittest
 +import numpy as np
@@ -272,20 +272,79 @@ index 0000000..da4afc7
 +            np.testing.assert_array_equal(restored['material_matrix'], self.material)
 +            np.testing.assert_array_equal(cache['material_matrix'], self.material)
 +
++    def test_cached_source_cannot_misinterpret_matched_color_as_source(self):
++        cache = {'quantized_image': self.source, 'matched_rgb': self.matched,
++                 'mask_solid': self.solid, 'selected_quantized_hex': '#dde0e4',
++                 'selected_matched_hex': '#ffffff'}
++        with self.assertRaisesRegex(ValueError, 'select the source color again'):
++            _build_full_color_region_mask(cache, '#ffffff')
++
++    def test_apply_rejects_stale_selection_even_with_cached_region(self):
++        from ui.callbacks import on_apply_color_replacement
++        cache = {'selected_quantized_hex': '#dde0e4',
++                 'selected_region_mask': self.solid.copy()}
++        regions, history = [], []
++        result = on_apply_color_replacement(cache, '#ffffff', '#83878d',
++                    regions, history, None, False, 4, 8, 2.5, 0)
++        self.assertIs(result[1], cache)
++        self.assertIs(result[3], regions)
++        self.assertIs(result[4], history)
++        self.assertIn('select the source color again', result[5])
++
++    def test_gui_state_uses_source_while_display_uses_matched_color(self):
++        from core.converter import _resolve_click_selection_hexes
++        cache = {'selected_quantized_hex': '#dde0e4',
++                 'selected_matched_hex': '#ffffff'}
++        display, state = _resolve_click_selection_hexes(cache, '#ffffff')
++        self.assertEqual(display, '#ffffff')
++        self.assertEqual(state, '#dde0e4')
++
++    def test_non_lut_rgb_keeps_legacy_literal_display_and_nearest_recipe(self):
++        from core.image_processing import LuminaImageProcessor
++        from scipy.spatial import KDTree
++        lut = np.array([[255,255,255],[131,135,141]], dtype=np.uint8)
++        tree = KDTree(LuminaImageProcessor._rgb_to_lab(lut))
++        regions = _resolve_raster_replacement_regions(
++            [dict(self.record, replacement_hex='#84878d')], self.source,
++            self.matched, self.solid)
++        def resolve(rgb):
++            return tree.query(LuminaImageProcessor._rgb_to_lab(np.array([rgb],dtype=np.uint8)))[1][0]
++        rgb, material = _apply_regions_to_raster_outputs(self.matched, self.material,
++                            self.solid, regions, resolve, self.stacks)
++        self.assertEqual(rgb[0,0].tolist(), [132,135,141])
++        self.assertEqual(material[0,0].tolist(), self.stacks[1].tolist())
++        self.assertNotEqual(rgb[0,0].tolist(), lut[1].tolist())
++
 +if __name__ == '__main__': unittest.main()
 diff --git a/ui/callbacks.py b/ui/callbacks.py
-index bae700f..93c283b 100644
+index bae700f..0a7f95a 100644
 --- a/ui/callbacks.py
 +++ b/ui/callbacks.py
-@@ -30,7 +30,10 @@ def _build_full_color_region_mask(cache, selected_color: str):
+@@ -30,7 +30,13 @@ def _build_full_color_region_mask(cache, selected_color: str):
      rgb = _hex_to_rgb_tuple(selected_color)
      q_match = np.all(q_img == np.array(rgb, dtype=np.uint8), axis=2)
      m_match = np.all(m_img == np.array(rgb, dtype=np.uint8), axis=2)
 -    return solid & (q_match | m_match)
 +    # A selected source color is not interchangeable with its merged LUT color.
-+    if (cache or {}).get('selected_quantized_hex'):
++    source_hex = (cache or {}).get('selected_quantized_hex')
++    if source_hex:
++        if _hex_to_rgb_tuple(source_hex) != rgb:
++            raise ValueError('Selection changed; select the source color again')
 +        return solid & q_match
 +    return solid & m_match
  
  
  # ═══════════════════════════════════════════════════════════════
+@@ -232,6 +238,12 @@ def on_apply_color_replacement(cache, selected_color, replacement_color,
+     if not replacement_color:
+         return gr.update(), cache, gr.update(), replacement_regions, replacement_history, I18n.get('palette_need_replacement', lang)
+ 
++    # A stale source selection must not reuse a different color's cached region.
++    source_hex = cache.get('selected_quantized_hex')
++    if source_hex and _hex_to_rgb_tuple(source_hex) != _hex_to_rgb_tuple(selected_color):
++        return (gr.update(), cache, gr.update(), replacement_regions, replacement_history,
++                "Selection changed; select the source color again")
++
+     # Save current regions-only state to history
+     new_history = replacement_history.copy() if replacement_history else []
+     new_history.append((replacement_regions.copy() if replacement_regions else []))
