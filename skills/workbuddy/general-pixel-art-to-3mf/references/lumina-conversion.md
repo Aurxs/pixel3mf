@@ -15,7 +15,7 @@ Do not read this file until `04_pixel_perfect.png` and `05_pixel_preview_8x.png`
 - LUT: `Bambulab&PLA&4色&RYBW&红-蓝-黄-白.npy` from Lumina's `lut-npy预设/bambulab/` presets
 - Modeling mode: pixel
 - `quantize_colors = 256`
-- `hue_weight = 0.6`
+- `hue_weight = 0.4`
 - Preserve the automatically refined grid without forcing a target grid
 - Prefer batch conversion, including a single-image batch
 - Preserve all intermediate outputs and the raw batch archive, including Lumina's generated 3MF project settings
@@ -84,3 +84,5 @@ Create `manifest.json` with:
 - status, gate results, and failure notes
 
 Keep `00_subject_brief.md`, any applicable `00_official_character_research.md`, the original reference files or their source paths, `01_source.png`, all numbered intermediates, the manifest, and optional diagnostics in the run folder. Add route, reference roles, retained visible attributes, deliberate simplifications, and background decisions to the manifest without replacing pipeline metadata. Ordinary photo subjects use research status `not_applicable`.
+
+`quantize_colors=256` is the fixed Lumina quantization parameter, not a requirement to produce 256 distinct colors. Always pass it explicitly to preview and conversion, including CLI/API and fallback paths; never lower it automatically. This does not change the separate 18-color bead workflow.

@@ -43,7 +43,7 @@
 ## The Lumina preview loses detail or shifts colors
 
 - Confirm the intended LUT and detected `color_mode`.
-- Confirm `quantize_colors=256`, `hue_weight=0.6`, and cleanup enabled.
+- Confirm `quantize_colors=256`, `hue_weight=0.4`, and cleanup enabled.
 - Inspect whether transparency or fine low-contrast features disappeared during preparation.
 - Compare cleanup on/off only when isolated-pixel cleanup removes meaningful tiny features.
 - Regenerate the preview after each single-variable change.

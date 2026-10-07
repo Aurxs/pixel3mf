@@ -28,6 +28,8 @@ from three_mf_xy_scale import THREE_BY_THREE_XY_SCALE, apply_centered_xy_scale
 LUT_FILENAME = "Bambulab&PLA&4色&RYBW&红-蓝-黄-白.npy"
 EXPECTED_LUMINA_CELL_MM = Decimal("0.42")
 DEFAULT_LUMINA_CELLS_PER_LOGICAL_PIXEL = 3
+# Pass these explicitly on every API/core path; API defaults may be lower.
+# 256 is the Lumina quantization parameter, not a minimum palette size.
 DEFAULT_PARAMS: dict[str, object] = {
     "spacer_thick": 1.2,
     "structure_mode": "Double-sided",
@@ -36,7 +38,7 @@ DEFAULT_PARAMS: dict[str, object] = {
     "modeling_mode": "pixel",
     "quantize_colors": 256,
     "enable_cleanup": True,
-    "hue_weight": 0.6,
+    "hue_weight": 0.4,
     "add_loop": False,
 }
 

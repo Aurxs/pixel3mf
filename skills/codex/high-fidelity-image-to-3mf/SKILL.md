@@ -1,6 +1,6 @@
 ---
 name: high-fidelity-image-to-3mf
-description: Turn a text-described subject or an uploaded high-fidelity raster image into a printable layered 3MF with the local Lumina-Layers checkout. Before any image generation or editing of a recognizable character, mascot, or branded figure, research official character sources and use that brief as the visual identity authority. Use when Codex must generate a detailed non-pixel source image, use an uploaded normal/high-fidelity image as a visual reference for a new target image, directly prepare an uploaded high-fidelity image as the final conversion input, or convert any of those inputs with Lumina High-Fidelity mode while retaining intermediate artifacts. Default to a 65 mm square, BambuLab PLA 4-color RYBW LUT, 1.2 mm backing, double-sided structure, no loop, modeling_mode high-fidelity, quantize_colors 256, hue_weight 0.6, cleanup enabled, and batch conversion when practical.
+description: Turn a text-described subject or an uploaded high-fidelity raster image into a printable layered 3MF with the local Lumina-Layers checkout. Before any image generation or editing of a recognizable character, mascot, or branded figure, research official character sources and use that brief as the visual identity authority. Use when Codex must generate a detailed non-pixel source image, use an uploaded normal/high-fidelity image as a visual reference for a new target image, directly prepare an uploaded high-fidelity image as the final conversion input, or convert any of those inputs with Lumina High-Fidelity mode while retaining intermediate artifacts. Default to a 65 mm square, BambuLab PLA 4-color RYBW LUT, 1.2 mm backing, double-sided structure, no loop, modeling_mode high-fidelity, quantize_colors 256, hue_weight 0.4, cleanup enabled, and batch conversion when practical.
 ---
 
 # High-Fidelity Image to 3MF
@@ -64,7 +64,7 @@ Unless the user overrides them, use:
 - the LUT’s detected `color_mode` rather than a guessed value; this LUT is currently `RYBW`;
 - `modeling_mode = high-fidelity`;
 - `quantize_colors = 256`;
-- `hue_weight = 0.6`;
+- `hue_weight = 0.4`;
 - isolated-pixel cleanup enabled in Lumina;
 - Lumina batch conversion when practical, including a one-image batch;
 - all intermediate outputs retained in a new timestamped run folder.
@@ -144,7 +144,7 @@ Prefer transparent PNG for a single-subject plaque, but preserve an intentional 
 
 Use the local `Lumina-Layers/` checkout. Query `/api/lut/list` or `LUTManager` to resolve the exact LUT display name and detected `color_mode`.
 
-Call the current preview API/core path using the prepared image and the fixed defaults. Pass `modeling_mode=high-fidelity`, `quantize_colors=256`, `enable_cleanup=true`, and `hue_weight=0.6`. Save the returned preview before 3MF generation.
+Call the current preview API/core path using the prepared image and the fixed defaults. Pass `modeling_mode=high-fidelity`, `quantize_colors=256`, `enable_cleanup=true`, and `hue_weight=0.4`. Save the returned preview before 3MF generation.
 
 Inspect the preview for subject loss, unwanted background, color collapse, muddy gradients, isolated color noise, or a large perceptual shift. Change only the smallest justified parameter or image-preparation choice, then regenerate the preview.
 
