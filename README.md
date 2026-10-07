@@ -207,8 +207,8 @@ UV_CACHE_DIR=.uv-cache uv pip install -r requirements-pixel3mf.txt
 - 不启用 loop（Lumina batch worker 固定为 `add_loop=False`）
 - LUT 实际检测出的 `color_mode`，当前为 `RYBW`
 - `modeling_mode=pixel`
-- `quantize_colors=256`
-- 高级设置里的色相保护 `hue_weight=0.6`
+- `quantize_colors=256`：固定量化参数，不要求凑满 256 色，不影响独立拼豆流程的 18 色；CLI/API 与回退路径须显式传参，不自动降档
+- 高级设置里的色相保护 `hue_weight=0.4`
 - Lumina 内置孤立像素清理开启
 - 优先调用 `/api/convert/batch`，即使只有一张图
 - `07_lumina_batch_result_*.zip` 原样保留 Lumina 返回的 3MF 及项目配置；只对已解压并命名的 `08_*.3mf` 成品做幂等配置规范化
