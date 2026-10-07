@@ -16,6 +16,7 @@ TOOLS_DIR = PROJECT_ROOT / "tools"
 sys.path.insert(0, str(TOOLS_DIR))
 
 from lumina_batch import (  # noqa: E402
+    DEFAULT_PARAMS,
     _preview_form_data,
     _read_lumina_nozzle_width,
     build_pixel_size_plan,
@@ -84,15 +85,17 @@ class PixelSizePlanTests(unittest.TestCase):
             "auto_bg": False,
             "bg_tol": 40,
             "modeling_mode": "pixel",
-            "quantize_colors": 256,
+            "quantize_colors": DEFAULT_PARAMS["quantize_colors"],
             "enable_cleanup": True,
-            "hue_weight": 0.6,
+            "hue_weight": DEFAULT_PARAMS["hue_weight"],
         }
         lut = {"name": "test-lut", "color_mode": "RYBW"}
 
         form = _preview_form_data(lut, params)
 
         self.assertEqual(form["target_width_mm"], "100.8")
+        self.assertEqual(form["hue_weight"], "0.4")
+        self.assertEqual(form["quantize_colors"], "256")
 
     def test_reads_expected_lumina_nozzle_width_without_importing_lumina(self) -> None:
         value = _read_lumina_nozzle_width(PROJECT_ROOT / "Lumina-Layers")

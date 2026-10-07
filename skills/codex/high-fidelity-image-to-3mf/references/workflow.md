@@ -47,7 +47,7 @@ Generate the 2D preview with:
 - `modeling_mode=high-fidelity`
 - `quantize_colors=256`
 - `enable_cleanup=true`
-- `hue_weight=0.6`
+- `hue_weight=0.4`
 
 Save the preview as `05_lumina_2d_preview.png`. Inspect it at full view and zoomed view. Compare subject boundaries, important facial/identity details, gradients, and background against `04_square_prepared.png`.
 
@@ -78,3 +78,5 @@ Record:
 - warnings, failures, and any user-approved deviations.
 
 Return the prepared high-fidelity image, Lumina preview, 3MF, and manifest.
+
+`quantize_colors=256` is the fixed Lumina quantization parameter, not a requirement to produce 256 distinct colors. Always pass it explicitly to preview and conversion, including CLI/API and fallback paths; never lower it automatically. This does not change the separate 18-color bead workflow.

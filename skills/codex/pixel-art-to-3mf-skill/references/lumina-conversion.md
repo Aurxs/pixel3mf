@@ -15,7 +15,7 @@ Do not read this file until `04_pixel_perfect.png` and `05_pixel_preview_8x.png`
 - LUT: `Bambulab&PLA&4色&RYBW&红-蓝-黄-白.npy` from Lumina's `lut-npy预设/bambulab/` presets
 - Modeling mode: pixel
 - `quantize_colors = 256`
-- `hue_weight = 0.6`
+- `hue_weight = 0.4`
 - Preserve the automatically refined grid without forcing a target grid
 - Prefer batch conversion, including a single-image batch
 - Preserve all intermediate outputs and the raw batch archive, including Lumina's generated 3MF project settings
@@ -109,3 +109,5 @@ local RYBW LUT SHA-256 and checks the LUT actually selected by conversion agains
 it. The final status is `needs_main_color_review`; do not imply that structural
 approval also approves the predicted colors. Do not run additional model audits
 or slicing unless requested. All sizing, profile, and archive rules above apply.
+
+`quantize_colors=256` is the fixed Lumina quantization parameter, not a requirement to produce 256 distinct colors. Always pass it explicitly to preview and conversion, including CLI/API and fallback paths; never lower it automatically. This does not change the separate 18-color bead workflow.
