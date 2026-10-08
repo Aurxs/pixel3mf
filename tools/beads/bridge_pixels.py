@@ -15,9 +15,11 @@ from scipy.ndimage import label
 
 from bead_palette import lab
 from bead_pattern import validate_project
+from ranma_reviewed_bridge import ALLOWED_XY, load_selection, verify_result
 
 
-def repair_bridges(cells, palette, source, x_edges, y_edges, *, max_additions=4):
+def repair_bridges(cells, palette, source, x_edges, y_edges, *, max_additions=4,
+                   _reviewed_selection=None):
     """Use exact source-cell footprints; preserve every existing bead and palette code."""
     rows = np.array(cells, dtype=object)
     original = rows.copy()
@@ -54,6 +56,8 @@ def repair_bridges(cells, palette, source, x_edges, y_edges, *, max_additions=4)
             choices = []
             for dy, dx in np.argwhere(~occupied):
                 cx, cy = x + int(dx), y + int(dy)
+                if _reviewed_selection is not None and [cx, cy] != ALLOWED_XY:
+                    continue
                 x0, x1 = x_edges[cx : cx + 2]
                 y0, y1 = y_edges[cy : cy + 2]
                 mask = source_mask[y0:y1, x0:x1]
@@ -109,6 +113,12 @@ def repair_bridges(cells, palette, source, x_edges, y_edges, *, max_additions=4)
                     (lab([colors[c] for c in neighbor_codes]) - lab(rgb)) ** 2, axis=1
                 )
                 code = neighbor_codes[int(np.argmin(distances))]
+                if _reviewed_selection is not None:
+                    # Hash-bound approval picks an existing endpoint color;
+                    # it never waives the coverage/crossing checks above.
+                    code = _reviewed_selection["code"]
+                    if code not in neighbor_codes:
+                        continue
                 choices.append(
                     {
                         "x": cx,
@@ -247,6 +257,8 @@ def run(project_path, evidence_path, output, max_additions=4):
     project = json.loads(Path(project_path).read_text())
     validate_project(project)
     source, xs, ys = verified_inputs(project, evidence_path)
+    selection = load_selection(project, evidence_path, source, xs, ys,
+                               max_additions=max_additions)
     result = deepcopy(project)
     result["cells"], result["bridge_repair"] = repair_bridges(
         project["cells"],
@@ -255,7 +267,9 @@ def run(project_path, evidence_path, output, max_additions=4):
         xs,
         ys,
         max_additions=max_additions,
+        _reviewed_selection=selection,
     )
+    verify_result(project, result["cells"], result["bridge_repair"], selection)
     result.pop("statistics", None)
     result.pop("components", None)
     result["bridge_repair"]["input_sha256"] = hashlib.sha256(

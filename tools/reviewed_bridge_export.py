@@ -21,6 +21,7 @@ from lumina_batch import LUT_FILENAME, DEFAULT_PARAMS, build_pixel_size_plan, co
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "beads"))
 from bridge_pixels import run as run_bridge  # noqa: E402
+from ranma_reviewed_bridge import image_artifacts  # noqa: E402
 
 
 def read(path):
@@ -91,6 +92,12 @@ def verify_chain(root):
         correct_regions(original, corrected / "correction_decisions.json", temp / "corrected")
         compare_candidate(corrected, temp / "corrected")
         evidence = read(bridge / "evidence.json")
+        if evidence.get("reviewed_selection") is not None:
+            selection = evidence["reviewed_selection"]
+            require(sha256(local(bridge, selection["source_original"])) == sha256(original / "01_source.png"),
+                    "reviewed bridge original source differs from the chain")
+            require(sha256(local(bridge, selection["approved_candidate"])) == sha256(root / "candidate.png"),
+                    "reviewed bridge final differs from the approved candidate")
         require(not read(bridge / "input.json").get("uncompressed_crop"), "use exact tight reference; no extra transform")
         for field, expected in (("source_canvas", original / "02_white_cutout.png"),
                                 ("reference_grid", corrected / "candidate.png")):
@@ -141,8 +148,10 @@ def prepare(original, corrected, project, evidence, result, candidate, output):
         bridge.mkdir()
         for src, name in ((project, "input.json"), (evidence, "evidence.json"), (result, "result.json")):
             shutil.copyfile(src, bridge / name)
-        for field in ("source_canvas", "reference_grid"):
-            name = read(evidence)[field]
+        ev = read(evidence)
+        names = [ev[field] for field in ("source_canvas", "reference_grid")] + image_artifacts(ev)
+        require(len(names) == len(set(names)), "bridge image basenames must be distinct")
+        for name in names:
             require(Path(name).name == name and name not in {"input.json", "evidence.json", "result.json"},
                     "bridge evidence requires local image basenames")
             shutil.copyfile(local(evidence.parent, name), bridge / name)
@@ -181,6 +190,7 @@ def validate_review(review_path):
         expected.update(f"{folder}/{name}" for name in read(root / folder / "candidate.json")["artifacts"])
     ev = read(root / "bridge/evidence.json")
     expected.update(f"bridge/{ev[key]}" for key in ("source_canvas", "reference_grid"))
+    expected.update(f"bridge/{name}" for name in image_artifacts(ev))
     require(set(manifest["artifacts"]) == expected, "incomplete chain hash inventory")
     for name, digest in manifest["artifacts"].items():
         require(sha256(local(root, name)) == digest, "reviewed chain artifact hash mismatch")
