@@ -38,7 +38,7 @@ DEFAULT_PARAMS: dict[str, object] = {
     "modeling_mode": "pixel",
     "quantize_colors": 256,
     "enable_cleanup": True,
-    "hue_weight": 0.4,
+    "hue_weight": 0.5,
     "add_loop": False,
 }
 

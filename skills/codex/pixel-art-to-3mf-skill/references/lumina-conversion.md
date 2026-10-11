@@ -15,7 +15,7 @@ Do not read this file until `04_pixel_perfect.png` and `05_pixel_preview_8x.png`
 - LUT: `Bambulab&PLA&4色&RYBW&红-蓝-黄-白.npy` from Lumina's `lut-npy预设/bambulab/` presets
 - Modeling mode: pixel
 - `quantize_colors = 256`
-- `hue_weight = 0.4`
+- `hue_weight = 0.5`
 - Preserve the automatically refined grid without forcing a target grid
 - Prefer batch conversion, including a single-image batch
 - Preserve all intermediate outputs and the raw batch archive, including Lumina's generated 3MF project settings
