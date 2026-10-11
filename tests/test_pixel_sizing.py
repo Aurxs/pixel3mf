@@ -94,7 +94,7 @@ class PixelSizePlanTests(unittest.TestCase):
         form = _preview_form_data(lut, params)
 
         self.assertEqual(form["target_width_mm"], "100.8")
-        self.assertEqual(form["hue_weight"], "0.4")
+        self.assertEqual(form["hue_weight"], "0.5")
         self.assertEqual(form["quantize_colors"], "256")
 
     def test_reads_expected_lumina_nozzle_width_without_importing_lumina(self) -> None:
