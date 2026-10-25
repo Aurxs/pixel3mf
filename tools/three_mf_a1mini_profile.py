@@ -128,10 +128,12 @@ _REQUIRED_TARGET_VALUES: dict[str, object] = {
     "brim_width": "5",
     "single_extruder_multi_material": "1",
     "enable_prime_tower": "1",
-    "prime_tower_width": "170",
+    # Studio re-clamps imported towers with a hard-coded 15 mm margin.
+    # 150 + 2 * 15 fits the 180 mm bed; 170 mm was shifted to X=-5.
+    "prime_tower_width": "150",
     "prime_tower_brim_width": "1",
     "prime_tower_rib_wall": "0",
-    "wipe_tower_x": ["5"],
+    "wipe_tower_x": ["15"],
     "wipe_tower_y": ["160"],
 }
 
