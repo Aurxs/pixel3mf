@@ -212,3 +212,18 @@ skills/workbuddy/pixel-art-to-3mf/
 ```
 
 默认原生生图不附加内置风格图，明确要求参考图时才使用这些资源。这个技能通过 `tools/workbuddy_pixel3mf.py` 执行，与通用技能分开选择。`.workbuddy.local.json` 是可选的本机提供商配置，已忽略，不进入源码包。
+
+
+## Git 上传与本地文件约定
+
+提交源码、测试、依赖清单、Windows 入口、CI 配置、打印配置基线、技能及其参考资产，以及项目文档。维护本机安装的技能后，应先比较 `skills/codex/` 或 `skills/workbuddy/` 中的副本，再同步可共享的更新；保留仓库的跨平台规则，不带入机器专用路径、凭据或宿主私有元数据。
+
+运行材料统一放在已被 `.gitignore` 排除的 `output/`：
+
+- `output/<timestamp>_<slug>/`：输入图片副本、中间结果、预览、3MF、拼豆图纸和任务日志。
+- `output/social/<timestamp>_<slug>/`：小红书等平台的文案、上传素材、截图及执行报告。
+- `output/local-archives/<date>-<reason>/`：保留但不上传的历史材料；2026-10-13 的两份小红书任务目录已归档到 `output/local-archives/20261025-git-cleanup/`。
+
+`output/.gitkeep` 是此目录唯一需要提交的占位文件。不要按扩展名全局忽略 PNG、JSON 或 ZIP：技能参考图、色卡、配置等共享资产仍需版本管理。
+
+虚拟环境、工具和模型缓存、IDE 设置、`Lumina-Layers/` 第三方源码保留在各自原位置，由现有忽略规则排除，无需搬进 `output/`。临时文件可放 `tmp/`；本机凭据使用环境变量或被忽略的 `.env`、`.workbuddy.local.json`，脱敏示例可以提交。

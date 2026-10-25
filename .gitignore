@@ -1,13 +1,16 @@
 .venv/
 .uv-cache/
 .cache/
+.ruff_cache/
+.pytest_cache/
 .windows-tools/
 .idea/
 __pycache__/
 *.pyc
 .DS_Store
-output/*
-!output/.gitkeep
+# Generated images, 3MFs, charts, logs, social drafts and local archives.
+/output/*
+!/output/.gitkeep
 
 # External software is cloned during first deployment and is intentionally not
 # included in this repository.
@@ -25,3 +28,9 @@ dist/
 
 # Optional local WorkBuddy provider configuration.
 .workbuddy.local.json
+
+# Local credentials; sanitized examples can be versioned.
+.env
+.env.*
+!.env.example
+!.env.*.example

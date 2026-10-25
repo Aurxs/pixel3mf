@@ -1,82 +1,59 @@
-# Workflow Details
+# Workflow
 
-## 1. Route selection and provenance
+Use the values in [default-parameters.md](default-parameters.md); do not redefine them here.
 
-- Select `generate` for a text-only request.
-- Select `reference-guided` when the user asks to use an upload as a reference or requests a transformed/new target.
-- Select `direct-conversion` when the user asks to convert the uploaded image itself.
-- Save the original before editing, transcoding, cropping, background removal, or resizing.
-- Record source path, extension, dimensions, alpha state, and a content hash when practical.
+## 1. Create the run and select the route
 
-## 2. High-fidelity target
+Create `output/<timestamp>_<slug>/` and select:
 
-For generation or reference-guided work, create `02_target_image.png` after visual inspection. Preserve continuous detail, smooth contours, gradients, shading, and requested style. Do not impose a pixel grid, pixel-art palette, Perfect Pixel detection, or logical-density threshold.
+- `generate` for text-only creation;
+- `reference-guided` for a new or edited target based on selected properties of an upload;
+- `direct-conversion` when the upload itself is the target.
 
-For direct conversion, create `02_target_image.png` as a lossless working derivative without creative changes. If the input is already a suitable PNG, it may be copied unchanged.
+Preserve the original before editing, transcoding, cropping, background removal, or resizing. Record its path, extension, dimensions, alpha state, and hash when practical. Complete the research procedure in `SKILL.md` before generation or creative editing when applicable.
 
-## 3. Background handling
+## 2. Create or accept the target
 
-Decide whether the background belongs to the intended print.
+For generation or reference-guided work, follow [generation-prompt.md](generation-prompt.md). For direct conversion, make a lossless working copy and skip creative generation.
+
+Inspect the target for requested identity and composition, accidental text/watermarks, duplicate subjects, anatomy or rendering artifacts, and adequate detail at the intended physical size. Regenerate or minimally edit generated targets that fail. For direct inputs, preserve the source and report limitations rather than redesigning it.
+
+## 3. Prepare the image
+
+Decide whether the background belongs to the print.
 
 - Preserve an intentional scene or full-frame design.
-- For a single-subject plaque, prefer existing alpha or segmentation.
-- Use a connected near-white fallback only for a plain removable background.
-- Inspect pale hair, white clothing, highlights, transparency around fine edges, and interior holes before accepting removal.
-- Save `03_bg_removed.png` only as a derived artifact; never overwrite the source.
+- For an isolated subject, keep valid alpha or prefer segmentation.
+- Use connected near-white removal only when safe for pale subject details.
+- Pad meaningful content onto a square canvas instead of cropping it.
+- Preserve smooth edges and alpha; resize only when necessary with a high-quality filter.
+- Do not upscale merely to invent detail. Ask before generative enhancement of a direct input.
 
-## 4. Square preparation
+Save all preparation results as derivatives without overwriting the source.
 
-Create `04_square_prepared.png`.
+## 4. Preview with Lumina
 
-- Use the visible intended artwork bounds, not accidental transparent noise.
-- Pad rather than crop meaningful content.
-- Center according to the composition; preserve an intentional offset.
-- Maintain alpha and smooth high-fidelity edges.
-- Avoid resizing unless required. When resizing, use a high-quality resampler and inspect fine features afterward.
-- Do not use nearest-neighbor or downsample to a logical grid.
+Resolve the configured LUT and its `color_mode` through the current API or `LUTManager`. Use the exact current parameter names and high-fidelity modeling enum.
 
-## 5. Lumina preview
+Generate and save the 2D preview with the same image and color parameters intended for conversion. Compare it with the prepared image for subject loss, unwanted background, color collapse, muddy gradients, isolated noise, and major perceptual shifts. Change one justified variable at a time and regenerate the preview.
 
-Resolve the LUT through `/api/lut/list` or `LUTManager`. Use the current accepted display name and detected color mode.
+## 5. Convert with Lumina
 
-Generate the 2D preview with:
+Prefer batch conversion and preserve the returned ZIP before extracting the unique 3MF. If the API is unavailable, use the current core functions with `ModelingMode.HIGH_FIDELITY`. Do not reuse a wrapper that silently applies pixel mode or Perfect Pixel. Do not rewrite the generated 3MF metadata.
 
-- `target_width_mm=65.0`
-- `auto_bg=false` after explicit preparation
-- `color_mode=<detected>`
-- `modeling_mode=high-fidelity`
-- `quantize_colors=256`
-- `enable_cleanup=true`
-- `hue_weight=0.4`
+## 6. Artifacts and manifest
 
-Save the preview as `05_lumina_2d_preview.png`. Inspect it at full view and zoomed view. Compare subject boundaries, important facial/identity details, gradients, and background against `04_square_prepared.png`.
+Keep the closest practical equivalent of:
 
-## 6. Lumina conversion
+- `00_official_character_research.md` when research is required
+- `01_source.<ext>`
+- `02_target_image.png`
+- `03_bg_removed.png` when background removal is used
+- `04_square_prepared.png`
+- `05_lumina_2d_preview.png`
+- `06_lumina_batch_result.zip`
+- `07_<subject-slug>.3mf`
+- `manifest.json`
+- `notes.txt` when warnings need explanation
 
-Prefer a single-image call to `/api/convert/batch` with the same color and modeling parameters plus:
-
-- `spacer_thick=1.2`
-- `structure_mode=Double-sided`
-- loop disabled
-
-Preserve the returned ZIP as `06_lumina_batch_result.zip`, extract the unique 3MF, and rename it to `07_<subject-slug>.3mf`.
-
-If the API is unavailable, call the current core functions with `ModelingMode.HIGH_FIDELITY`. Do not reuse a wrapper that silently hard-codes `modeling_mode=pixel`.
-
-## 7. Manifest and handoff
-
-Record:
-
-- route and source provenance;
-- source/target/prepared dimensions and alpha state;
-- background and square-preparation actions;
-- runtime Lumina processing dimensions;
-- LUT name, path, and detected color mode;
-- exact preview and conversion parameters;
-- API, batch, or core method;
-- preview, ZIP, and 3MF paths;
-- warnings, failures, and any user-approved deviations.
-
-Return the prepared high-fidelity image, Lumina preview, 3MF, and manifest.
-
-`quantize_colors=256` is the fixed Lumina quantization parameter, not a requirement to produce 256 distinct colors. Always pass it explicitly to preview and conversion, including CLI/API and fallback paths; never lower it automatically. This does not change the separate 18-color bead workflow.
+Record the route, subject, research status/sources, source provenance, target origin, preparation decisions, source/target/prepared/runtime dimensions, alpha state, resolved LUT/color mode, exact Lumina parameters, method used, artifact paths, status, and warnings. Return the prepared image, Lumina preview, 3MF, and manifest path.

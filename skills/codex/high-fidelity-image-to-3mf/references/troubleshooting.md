@@ -2,71 +2,43 @@
 
 ## The target became pixel art
 
-- Remove all logical-canvas, block-size, nearest-neighbor, coarse-grid, and limited-palette instructions.
-- Do not load the pixel-art skill’s bundled style references.
-- Skip Perfect Pixel and pixel-density detection entirely.
-- Confirm the conversion request uses `modeling_mode=high-fidelity`, not `pixel`.
+- Remove logical-grid, coarse-density, limited-palette, and nearest-neighbor instructions.
+- Do not load pixel-art style references or run Perfect Pixel.
+- Confirm `modeling_mode=high-fidelity` in both preview and conversion.
 
-## An uploaded direct target was redesigned
+## The wrong input route was used
 
-- Restore the untouched `01_source.<ext>`.
-- Rebuild derived artifacts without image generation or creative editing.
-- Limit changes to lossless conversion, user-approved background removal, square padding, and necessary high-quality resizing.
+- If a direct source was redesigned, restore the untouched original and rebuild only required derivatives.
+- If a reference was converted directly, identify the properties the user wanted transferred and create a separate target.
+- Keep the selected route and provenance explicit in the manifest.
 
-## A reference image was treated as the direct target
+## Background removal damages detail
 
-- Return to the original upload.
-- Identify the specific properties requested as references.
-- Generate/edit a separate `02_target_image.png`; keep provenance explicit in the manifest.
-
-## A generated target has a defect
-
-- Regenerate from the original request, research brief, and approved references by default.
-- Do not use the failed generated target as an edit target, attached reference, or recent-image context.
-- Edit only a user-provided source when the user explicitly requests a local correction.
-
-## Background removal damages pale or fine details
-
-- Prefer existing alpha.
-- Tune segmentation before using color-key removal.
+- Prefer existing alpha, then tune segmentation.
 - Preserve intentional full-frame backgrounds.
-- Avoid a near-white threshold when the subject contains white hair, clothing, glow, or highlights.
-- Compare edge alpha against the original at high zoom.
+- Avoid color-key removal around white hair, clothing, glow, or highlights.
+- Compare edge alpha and interior holes against the source at high zoom.
 
 ## The source is too small
 
-- Compare its dimensions with Lumina’s current processing target; this checkout uses roughly 10 px/mm in high-fidelity mode.
-- Do not silently invent detail.
-- For a generated/reference-guided target, regenerate at higher resolution.
+- Compare it with Lumina's current runtime processing dimensions.
+- Regenerate a generated/reference-guided target at higher resolution.
 - For direct conversion, disclose the limitation and ask before generative enhancement.
 
-## The Lumina preview loses detail or shifts colors
+## Preview loses detail or shifts color
 
-- Confirm the intended LUT and detected `color_mode`.
-- Confirm `quantize_colors=256`, `hue_weight=0.4`, and cleanup enabled.
-- Inspect whether transparency or fine low-contrast features disappeared during preparation.
-- Compare cleanup on/off only when isolated-pixel cleanup removes meaningful tiny features.
-- Regenerate the preview after each single-variable change.
+- Confirm the LUT, detected `color_mode`, and configured parameters.
+- Compare cleanup enabled/disabled only if it removes meaningful small features.
+- Change one variable at a time and regenerate the preview.
 
-## Lumina rejects a modeling mode or parameter
+## Lumina rejects a mode or parameter
 
-- Inspect the current `Lumina-Layers/config.py`, API schemas, and route form fields.
-- Use the exact API value `high-fidelity` or core enum `ModelingMode.HIGH_FIDELITY`.
-- Resolve LUT naming through `/api/lut/list` or `LUTManager` instead of guessing.
+- Inspect the current API schema, modeling enum, and `LUTManager`.
+- Use `high-fidelity` for the API or `ModelingMode.HIGH_FIDELITY` for core calls.
+- Resolve the LUT display name and `color_mode` instead of guessing.
 
-## The existing project wrapper still outputs pixel geometry
+## Batch or 3MF handling is wrong
 
-- Do not call `tools/run_pipeline.py` or `tools/lumina_batch.py` unchanged; the current versions contain Perfect Pixel stages and/or `modeling_mode=pixel` defaults.
-- Create a separate high-fidelity wrapper or add an explicit mode parameter while preserving the original pixel defaults.
-- Verify both preview and final conversion metadata record `high-fidelity`.
-
-## Batch returns a ZIP
-
-- Preserve the original ZIP.
-- Extract the unique `.3mf` and rename it for the requested subject.
-- Record the archive member name and final path in the manifest.
-
-## Printer or slicing settings need changes
-
-- Preserve the Lumina-generated 3MF during conversion.
-- Review printer, layer, first-layer, bed, filament, and G-code settings later in Bambu Studio.
+- Preserve a returned ZIP before extracting the unique 3MF.
+- Do not use wrappers that hard-code pixel processing.
+- Leave printer and slicing metadata unchanged for later review in Bambu Studio.
