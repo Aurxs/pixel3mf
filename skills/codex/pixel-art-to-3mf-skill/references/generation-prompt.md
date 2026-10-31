@@ -9,7 +9,7 @@ When the user supplies no stronger style reference, load:
 - `../assets/reference-24x24-block-style.png` as Image 1
 - `../assets/reference-coarse-density-a.png` as Image 2
 - `../assets/reference-coarse-density-b.png` as Image 3
-- For a clear action or handheld-object interaction, also load `../assets/reference-action-interaction.png` as Image 4
+- Do not load `../assets/reference-action-interaction.png` by default or automatically treat Image 4 as an action reference.
 
 Treat user-provided images as references unless the user explicitly asks to edit the supplied image.
 
@@ -17,8 +17,8 @@ Treat user-provided images as references unless the user explicitly asks to edit
 
 Before every generation or creative edit of a named or recognizable character:
 
-1. Search first-party sources for canonical identity, appearance, clothing, palette, props, and signature motifs.
-2. Save `00_official_character_research.md` with the canonical name/version, 1–4 official URLs, verified visual facts, and clearly separated inferences.
+1. Search first-party sources for canonical identity, appearance, clothing, palette, props, and signature motifs. Prefer collecting and using multiple clear, reliable official reference images of the same character and costume/version, together covering the face, hairstyle, and key clothing details. Cross-check distinctive identity features across the references to avoid a generic likeness. Do not mix different characters, skins, costumes, or mechanical/human forms, or force a fixed image count.
+2. Save `00_official_character_research.md` with the canonical name/version, the actual official source URLs and reference images used, verified visual facts, and clearly separated inferences. Record gaps in reference coverage; if only one official image is available, state that explicitly rather than claiming multiple references.
 3. Use the brief as the identity authority without copying logos, readable marks, slogans, or long source text.
 4. Record original/non-character subjects as `official_character_research_status=not_applicable`.
 5. Stop and ask for an approved reference when identity is ambiguous or no reliable official source exists.
@@ -46,7 +46,7 @@ Official-character research rule: Use the verified research brief at <official-c
 
 Reference rule: Images 1–3 control only cell scale, information density, outline weight, and simplification. Do not copy their identity, palette, pose, clothing, hand placement, drink, or accessories. Follow the user's requested character and action.
 
-Action-reference rule: If Image 4 is present, use it only as an example of readable action staging, hand/prop integration, head-dominant framing, and preserving a lively three-quarter face when an object approaches the face. Do not copy its identity, hairstyle, palette, clothing, hand side, exact pose, drink, or accessories. Replace all content with the user's requested character, action, and object.
+Character-reference rule: Use official character images only for identity, hairstyle, clothing, palette, and other appearance features. Do not use them as references for action, pose, or composition.
 
 Avoid: transparent or partially transparent pixels, checkerboard backgrounds, fine hair strands, micro-texture, tiny highlights, sub-cell marks, mixed cell sizes, dithering, gradients, antialiasing, soft edges, glossy illustration rendering, text, watermark, extra characters, a frontal mugshot, a long thin neck, visibly incoherent gaze, broken eye shapes, or a broken exterior/bottom outline.
 ```
