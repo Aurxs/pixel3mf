@@ -9,7 +9,7 @@ When the user supplies no stronger style reference, load:
 - `../assets/reference-24x24-block-style.png` as Image 1
 - `../assets/reference-coarse-density-a.png` as Image 2
 - `../assets/reference-coarse-density-b.png` as Image 3
-- For a clear action or handheld-object interaction, also load `../assets/reference-action-interaction.png` as Image 4
+- Do not load `../assets/reference-action-interaction.png` by default or automatically treat Image 4 as an action reference.
 
 Treat user-provided images as references unless the user explicitly asks to edit the supplied image.
 
@@ -46,7 +46,7 @@ Official-character research rule: Use the verified research brief at <official-c
 
 Reference rule: Images 1–3 control only cell scale, information density, outline weight, and simplification. Do not copy their identity, palette, pose, clothing, hand placement, drink, or accessories. Follow the user's requested character and action.
 
-Action-reference rule: If Image 4 is present, use it only as an example of readable action staging, hand/prop integration, head-dominant framing, and preserving a lively three-quarter face when an object approaches the face. Do not copy its identity, hairstyle, palette, clothing, hand side, exact pose, drink, or accessories. Replace all content with the user's requested character, action, and object.
+Character-reference rule: Use official character images only for identity, hairstyle, clothing, palette, and other appearance features. Do not use them as references for action, pose, or composition.
 
 Avoid: transparent or partially transparent pixels, checkerboard backgrounds, fine hair strands, micro-texture, tiny highlights, sub-cell marks, mixed cell sizes, dithering, gradients, antialiasing, soft edges, glossy illustration rendering, text, watermark, extra characters, a frontal mugshot, a long thin neck, visibly incoherent gaze, broken eye shapes, or a broken exterior/bottom outline.
 ```
