@@ -17,8 +17,8 @@ Treat user-provided images as references unless the user explicitly asks to edit
 
 Before every generation or creative edit of a named or recognizable character:
 
-1. Search first-party sources for canonical identity, appearance, clothing, palette, props, and signature motifs.
-2. Save `00_official_character_research.md` with the canonical name/version, 1–4 official URLs, verified visual facts, and clearly separated inferences.
+1. Search first-party sources for canonical identity, appearance, clothing, palette, props, and signature motifs. Prefer collecting and using multiple clear, reliable official reference images of the same character and costume/version, together covering the face, hairstyle, and key clothing details. Cross-check distinctive identity features across the references to avoid a generic likeness. Do not mix different characters, skins, costumes, or mechanical/human forms, or force a fixed image count.
+2. Save `00_official_character_research.md` with the canonical name/version, the actual official source URLs and reference images used, verified visual facts, and clearly separated inferences. Record gaps in reference coverage; if only one official image is available, state that explicitly rather than claiming multiple references.
 3. Use the brief as the identity authority without copying logos, readable marks, slogans, or long source text.
 4. Record original/non-character subjects as `official_character_research_status=not_applicable`.
 5. Stop and ask for an approved reference when identity is ambiguous or no reliable official source exists.
