@@ -16,6 +16,44 @@ MIN_ACCEPTED_GRID = 45
 MAX_ACCEPTED_GRID = 80
 
 
+def _auto_detect_grid(rgba: np.ndarray) -> tuple[int | None, int | None, np.ndarray]:
+    """Use Perfect Pixel, then recover only a provable, exact RGB lattice.
+
+    Perfect Pixel 0.1.4 discards FFT estimates with cells wider than 20 px;
+    its gradient fallback also misses two-pixel Sobel plateaus. On failure,
+    infer the coarsest origin-aligned lattice from *all* RGB transitions.
+    This deliberately cannot rescue blurred, noisy or irregular sources.
+    Alpha is sampled on the RGB grid, as in Perfect Pixel, so auxiliary masks
+    cannot change the detected source lattice.
+    """
+    result = get_perfect_pixel(rgba, sample_method="center", fix_square=False)
+    if result[0] is not None and result[1] is not None:
+        return result
+
+    rgb = rgba[:, :, :3]
+    pitch = []
+    for axis, extent in ((1, rgba.shape[1]), (0, rgba.shape[0])):
+        changes = np.any(np.diff(rgb, axis=axis) != 0,
+                         axis=(0, 2) if axis == 1 else (1, 2))
+        boundaries = np.flatnonzero(changes) + 1
+        if len(boundaries) < 4:
+            return result
+        cell = int(np.gcd.reduce(np.append(boundaries, extent)))
+        # Keep the upstream minimum cell width. Require an observed one-cell
+        # interval too: a common divisor alone could invent finer cells for
+        # irregular spacing or a phase-shifted grid with clipped border cells.
+        if cell < 4 or np.min(np.diff(boundaries)) != cell:
+            return result
+        pitch.append(cell)
+
+    cell_w, cell_h = pitch
+    if max(pitch) / min(pitch) > 1.5:
+        return result
+    grid_w, grid_h = rgba.shape[1] // cell_w, rgba.shape[0] // cell_h
+    print(f"Detected exact RGB lattice after Perfect Pixel failure: {grid_w}x{grid_h}")
+    return grid_w, grid_h, rgba[cell_h // 2::cell_h, cell_w // 2::cell_w].copy()
+
+
 def validate_detected_grid(grid_w: int, grid_h: int) -> None:
     """Reject source densities that should be regenerated before conversion."""
     if grid_w > MAX_ACCEPTED_GRID or grid_h > MAX_ACCEPTED_GRID:
@@ -78,9 +116,7 @@ def refine_mask_to_grid(
             raise ValueError("auxiliary mask size does not match source image")
         rgba[:, :, 3] = np.asarray(mask, dtype=np.uint8)
 
-    grid_w, grid_h, refined = get_perfect_pixel(
-        rgba, sample_method="center", fix_square=False
-    )
+    grid_w, grid_h, refined = _auto_detect_grid(rgba)
     expected = (
         int(expected_source_grid["width"]),
         int(expected_source_grid["height"]),
@@ -121,9 +157,7 @@ def refine_mask_to_grid(
 def detect_source_grid(input_path: str | Path) -> dict[str, object]:
     """Auto-detect and validate density on the untouched source canvas."""
     rgba = np.asarray(Image.open(input_path).convert("RGBA"))
-    grid_w, grid_h, refined = get_perfect_pixel(
-        rgba, sample_method="center", fix_square=False
-    )
+    grid_w, grid_h, refined = _auto_detect_grid(rgba)
     if grid_w is None or grid_h is None:
         raise ValueError(
             "Perfect Pixel could not detect the source logical grid; regenerate "
@@ -180,9 +214,7 @@ def refine_pixel(
     binarize_alpha: bool = False,
 ) -> dict[str, object]:
     rgba = np.asarray(Image.open(input_path).convert("RGBA"))
-    grid_w, grid_h, refined = get_perfect_pixel(
-        rgba, sample_method="center", fix_square=False
-    )
+    grid_w, grid_h, refined = _auto_detect_grid(rgba)
     auto_detected = grid_w is not None and grid_h is not None
     if not auto_detected:
         raise ValueError(
