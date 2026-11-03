@@ -53,10 +53,10 @@ class GridDetectionTests(unittest.TestCase):
         self.assertEqual((width, height), (64, 64))
         np.testing.assert_array_equal(sampled, logical)
 
-    def test_accepted_density_boundaries_with_coarse_cells_and_rectangular_canvas(self) -> None:
+    def test_accepted_densities_with_coarse_cells_and_rectangular_canvas(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            for width, height in ((45, 45), (45, 80), (80, 45), (80, 80)):
+            for width, height in ((45, 45), (48, 48), (45, 80), (80, 45), (80, 80)):
                 with self.subTest(width=width, height=height):
                     source, logical = regular_source(width, height, 24)
                     path = root / "source.png"
