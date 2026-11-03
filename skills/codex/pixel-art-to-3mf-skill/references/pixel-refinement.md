@@ -116,4 +116,66 @@ source, or call the low-level converter before promotion.
 
 This route is limited to a formal original white candidate, one formal region
 correction, and exactly one formal source-supported bridge. Other edits remain
-unsupported. The original pipeline's reconstruction/equality guard is unchanged.
+unsupported by this entrypoint. The original pipeline's reconstruction/equality guard is unchanged.
+
+## Reviewed RGB refinement of a promoted white correction
+
+For explicitly authorized palette reduction or local RGB refinement on the same
+logical grid, use `tools/reviewed_rgb_refinement_export.py`. This separate route
+requires a formal white correction with its actual main-conversation review and
+completed `white_fallback.py promote` record. It cannot add a bridge, accept an
+arbitrary mask, change any Alpha, crop, pad, or resample. Never relabel the refined
+grid as `01_source.png`, replace the upstream candidate, or bypass the original
+pipeline's equality check.
+
+```bash
+.venv/bin/python tools/reviewed_rgb_refinement_export.py prepare \
+  --corrected /absolute/formal-corrected-bundle \
+  --review /absolute/formal-corrected-bundle/review.json \
+  --candidate /absolute/parent_master.png \
+  --output /absolute/new-rgb-review-bundle
+```
+
+`prepare` preserves exact input PNG bytes, replays the original source detection
+and 45–80 gate using the retained failure masks (no inference), reconstructs the
+original white candidate, replays the formal correction, and checks the existing
+review and promotion hashes and pixels. A moved bundle may retain its historical
+absolute promotion path; that field is evidence only and is never opened. The
+snapshot includes the full original and corrected evidence, old review and
+approval, and promoted upstream pixels. Unrelated files in the corrected directory
+are not authority and are not copied.
+
+The final grid must have exactly the upstream dimensions, binary Alpha identical
+at every cell, unchanged hidden RGB on transparent cells, at most 18 **visible**
+RGB colors, and one 4-connected foreground component. Every surviving formal
+white region is mapped by its exact original membership, including eye whites;
+its RGB must stay within the existing background reference tolerance of 12 per
+channel. No caller-supplied protection mask or tolerance is accepted. Visual eye
+structure and gaze still require main-conversation review.
+
+The output contains `candidate.png`, `candidate_8x.png`, a magenta
+`rgb_diff_8x.png`, and `rgb_diff.json` with **every** changed cell's zero-based
+`x`, `y`, before RGB and after RGB, palette, topology and protected white-region
+coordinates. The `candidate.json` hash inventory binds all evidence. Only a new
+**pending** `review.template.json` is generated; no approval is inferred from an
+older master review or automatically written.
+
+The main-conversation assistant must inspect the new candidate and enlarged
+preview, the complete RGB diff and upstream correction, all surviving numbered
+whites, natural face and gaze. Copy the template to `review.json`, retain its
+`reviewed-rgb-review/v1` schema and exact `manifest_sha256`, `candidate_sha256`,
+and `rgb_diff_sha256`, then record the actual approval, meaningful notes, all
+checks (including `every_rgb_change_reviewed`), and an individual foreground
+decision and reason for every surviving white-region ID. Checking the RGB diff
+means approving its entire per-cell change list. Old white or master approvals
+cannot substitute for this fresh review.
+
+```bash
+.venv/bin/python tools/reviewed_rgb_refinement_export.py promote \
+  --review /absolute/new-rgb-review-bundle/review.json
+```
+
+Promotion replays all gates again and copies the approved PNG bytes to
+`04_pixel_perfect.png`, its preview to `05_pixel_preview_8x.png`, and records
+`approval.json`. Existing promotions cannot be overwritten. Proceed only through
+this entrypoint's Stage 4 `convert` after actual main approval.
