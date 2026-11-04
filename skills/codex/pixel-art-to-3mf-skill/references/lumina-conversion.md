@@ -129,8 +129,8 @@ bundle and the same Stage 4 context and defaults:
 
 Repeat `--official-source` for each retained official source. A fresh approved
 RGB review and matching promotion are mandatory. Before any Lumina call, the
-tool rechecks the original source/white preparation, formal correction, upstream
-approval and promotion, complete per-cell RGB diff, dimensions, Alpha, hidden
+tool rechecks the original source/white preparation, any formal correction,
+upstream approval and promotion, complete per-cell RGB diff, dimensions, Alpha, hidden
 RGB, palette, 4-connectivity, white protection and final review. It retains the
 entire evidence chain under `reviewed_chain/`; `source_path` always refers to
 the untouched original source and `refined_path` to the separately approved RGB

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Review, promote and export RGB-only refinement of a promoted white correction."""
+"""Review, promote and export RGB-only refinement of a promoted white candidate."""
 from __future__ import annotations
 
 import argparse
@@ -13,7 +13,7 @@ import numpy as np
 from PIL import Image
 
 import white_fallback as white
-from white_region_correction import correct_regions
+from white_region_correction import correct_regions, _original_candidate
 from refine_pixel import validate_detected_grid
 from reviewed_bridge_export import read, rgba, require, local, snapshot_candidate, compare_candidate
 from lumina_batch import LUT_FILENAME, DEFAULT_PARAMS, build_pixel_size_plan, convert_with_lumina_batch
@@ -21,7 +21,19 @@ from lumina_batch import LUT_FILENAME, DEFAULT_PARAMS, build_pixel_size_plan, co
 CHECKS = (*white.CHECKS, "upstream_correction_and_promotion_reviewed", "every_rgb_change_reviewed",
           "same_grid_and_alpha", "at_most_18_visible_colors", "four_connected_foreground",
           "protected_white_regions_reviewed")
+ORIGINAL_CHECKS = tuple("upstream_white_candidate_and_promotion_reviewed"
+                       if key == "upstream_correction_and_promotion_reviewed" else key for key in CHECKS)
 PROMOTED = ("04_pixel_perfect.png", "05_pixel_preview_8x.png", "approval.json")
+
+
+def _is_corrected(manifest):
+    correction = manifest.get("correction")
+    require(correction in (None, "correction.json"), "unknown white candidate correction record")
+    return correction is not None
+
+
+def _checks(root):
+    return CHECKS if _is_corrected(read(root / "corrected/candidate.json")) else ORIGINAL_CHECKS
 
 
 def verify_upstream(root):
@@ -37,8 +49,13 @@ def verify_upstream(root):
         temp = Path(temp)
         white.prepare(original / "01_source.png", original / "failure_evidence.json", temp / "original")
         compare_candidate(original, temp / "original")
-        correct_regions(original, corrected / "correction_decisions.json", temp / "corrected")
-        compare_candidate(corrected, temp / "corrected")
+        if _is_corrected(read(corrected / "candidate.json")):
+            correct_regions(original, corrected / "correction_decisions.json", temp / "corrected")
+            compare_candidate(corrected, temp / "corrected")
+        else:
+            # No fabricated no-op correction: bind the promoted source directly
+            # to the complete original preparation, including all white labels.
+            compare_candidate(corrected, temp / "original")
     validated = white.validate_review(corrected / "review.json")
     # A portable snapshot retains the old promotion's historical path verbatim.
     # It is evidence only: never open that path, and verify every other field.
@@ -46,14 +63,17 @@ def verify_upstream(root):
     require(isinstance(historical, str) and Path(historical).is_absolute()
             and Path(historical).name == "candidate.png", "invalid historical promotion path")
     require(read(corrected / "approval.json") == {**validated, "candidate_path": historical},
-            "upstream promotion does not match approved correction")
+            "upstream promotion does not match approved white candidate")
     require(white.sha256(corrected / PROMOTED[0]) == white.sha256(corrected / "candidate.png")
             and white.sha256(corrected / PROMOTED[1]) == white.sha256(corrected / "candidate_8x.png"),
             "upstream promoted pixels or preview changed")
-    return {"source_grid": parent["source_grid"], "source_sha256": parent["source_sha256"],
-            "upstream_manifest_sha256": validated["manifest_sha256"],
-            "upstream_review_sha256": validated["review_sha256"],
-            "upstream_approval_sha256": white.sha256(corrected / "approval.json")}
+    details = {"source_grid": parent["source_grid"], "source_sha256": parent["source_sha256"],
+               "upstream_manifest_sha256": validated["manifest_sha256"],
+               "upstream_review_sha256": validated["review_sha256"],
+               "upstream_approval_sha256": white.sha256(corrected / "approval.json")}
+    if not _is_corrected(read(corrected / "candidate.json")):
+        details["upstream_kind"] = "promoted_white_candidate"
+    return details
 
 
 def refinement_report(root):
@@ -77,11 +97,9 @@ def refinement_report(root):
     # new user mask or a globally applied color replacement/removal operation.
     bg = read(corrected / "semantic_components.json")
     require(bg["background_color_tolerance"] == 12, "white protection tolerance changed")
-    working = rgba(corrected / "parent_03_working_grid.png")
-    whites = ((working[:, :, 3] == 255) &
-              (np.max(np.abs(working[:, :, :3].astype(int) - bg["background_rgb"]), axis=2) <= 12))
-    _, labels = cv2.connectedComponents(whites.astype(np.uint8), connectivity=8)
-    ox, oy = read(corrected / "correction.json")["candidate_crop_origin_in_working"]
+    _, _, _, _, labels, (ox, oy) = _original_candidate(root / "original")
+    if _is_corrected(read(corrected / "candidate.json")):
+        ox, oy = read(corrected / "correction.json")["candidate_crop_origin_in_working"]
     h, w = solid.shape
     labels = labels[oy:oy + h, ox:ox + w]
     require(labels.shape == solid.shape, "white protection grid mismatch")
@@ -127,8 +145,7 @@ def prepare(corrected, review, candidate, output):
     require(review.resolve().parent == corrected.resolve(), "upstream review must belong to corrected bundle")
     require(not output.exists(), "use a new review bundle")
     white.validate_review(review)
-    require(read(corrected / "candidate.json").get("correction") == "correction.json",
-            "formal white correction required")
+    _is_corrected(read(corrected / "candidate.json"))
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=output.parent) as temp:
         root = Path(temp) / "bundle"
@@ -139,7 +156,7 @@ def prepare(corrected, review, candidate, output):
             shutil.copyfile(corrected / name, root / "corrected" / name)
         white.write_json(root / "upstream.json", {"candidate_path": read(corrected / "approval.json")["candidate_path"]})
         # Reconstruct the complete original bundle from unchanged retained
-        # source/failure evidence, then bind it to the formal correction replay.
+        # source/failure evidence, then bind it to the optional correction replay.
         evidence = read(root / "corrected/failure_evidence.json")
         for mask in evidence["model_masks"]:
             require(Path(mask["path"]).name == mask["path"], "unsafe failure mask path")
@@ -160,7 +177,7 @@ def prepare(corrected, review, candidate, output):
             "manifest_sha256": white.sha256(root / "candidate.json"),
             "candidate_sha256": white.sha256(root / "candidate.png"),
             "rgb_diff_sha256": white.sha256(root / "rgb_diff.json"),
-            "checks": dict.fromkeys(CHECKS, False), "components": {
+            "checks": dict.fromkeys(_checks(root), False), "components": {
                 c["id"]: {"decision": "unresolved", "reason": ""}
                 for c in read(root / "corrected/white_regions.json")}, "notes": ""})
         shutil.move(str(root), str(output))
@@ -174,7 +191,7 @@ def validate_review(review):
             and decision.get("schema") == "reviewed-rgb-review/v1", "fresh RGB refinement review schema required")
     require(decision.get("candidate_sha256") == white.sha256(root / "candidate.png"), "reviewed final hash mismatch")
     require(decision.get("rgb_diff_sha256") == white.sha256(root / "rgb_diff.json"), "reviewed RGB diff hash mismatch")
-    white.validate_main_review(decision, root / "candidate.json", read(root / "corrected/white_regions.json"), checks=CHECKS)
+    white.validate_main_review(decision, root / "candidate.json", read(root / "corrected/white_regions.json"), checks=_checks(root))
     require(set(manifest["artifacts"]) == inventory(root), "incomplete chain hash inventory")
     for name, digest in manifest["artifacts"].items():
         require(white.sha256(local(root, name)) == digest, "reviewed chain artifact hash mismatch")
