@@ -111,3 +111,34 @@ approval also approves the predicted colors. Do not run additional model audits
 or slicing unless requested. All sizing, profile, and archive rules above apply.
 
 `quantize_colors=256` is the fixed Lumina quantization parameter, not a requirement to produce 256 distinct colors. Always pass it explicitly to preview and conversion, including CLI/API and fallback paths; never lower it automatically. This does not change the separate 18-color bead workflow.
+
+## Controlled export of an approved RGB refinement
+
+When Stage 3 used `reviewed_rgb_refinement_export.py`, use its own promoted
+bundle and the same Stage 4 context and defaults:
+
+```bash
+.venv/bin/python tools/reviewed_rgb_refinement_export.py convert \
+  --review /absolute/rgb-review-bundle/review.json \
+  --output /absolute/new-stage4-directory \
+  --lumina-dir /absolute/Lumina-Layers \
+  --character-name '<subject>' \
+  --research /absolute/00_official_character_research.md \
+  --official-source 'https://official-source.example/character'
+```
+
+Repeat `--official-source` for each retained official source. A fresh approved
+RGB review and matching promotion are mandatory. Before any Lumina call, the
+tool rechecks the original source/white preparation, formal correction, upstream
+approval and promotion, complete per-cell RGB diff, dimensions, Alpha, hidden
+RGB, palette, 4-connectivity, white protection and final review. It retains the
+entire evidence chain under `reviewed_chain/`; `source_path` always refers to
+the untouched original source and `refined_path` to the separately approved RGB
+master. Research, source and final hashes and all parameters remain inspectable.
+
+Both 2×2 and 3×3 variants use the exact approved master and existing Lumina batch
+converter, size plans, XY compensation and A1 mini profile normalization. The
+fixed RYBW LUT and master SHA are checked before and after each variant; raw ZIPs,
+previews, 3MFs and their hashes are retained. The master palette limit of 18 is a
+Stage 3 gate; Lumina `quantize_colors` remains **256**. The final status remains
+`needs_main_color_review` pending actual main review of the predicted colors.
