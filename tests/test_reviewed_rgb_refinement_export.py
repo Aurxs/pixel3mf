@@ -222,6 +222,55 @@ class ReviewedRGBRefinementTests(unittest.TestCase):
         with self.assertRaises(FileNotFoundError): self.prepare(out)
         self.assertFalse(out.exists())
 
+    def test_historical_promotion_path_is_retained_as_evidence_and_never_opened(self):
+        approval = export.read(self.corrected / "approval.json")
+        historical = str(self.root / "missing-historical-machine" / "candidate.png")
+        self.assertFalse(Path(historical).exists())
+        approval["candidate_path"] = historical
+        white.write_json(self.corrected / "approval.json", approval)
+        output = self.root / "portable-bundle"
+        self.prepare(output)
+        self.assertEqual(export.read(output / "upstream.json")["candidate_path"], historical)
+        self.assertEqual(export.read(output / "review.template.json")["decision"], "pending")
+        self.assertEqual((output / "candidate.png").read_bytes(), self.master.read_bytes())
+        self.assertFalse(Path(historical).exists())
+
+    def test_protected_white_tolerance_is_inclusive_12_and_never_13(self):
+        for delta in (12, 13):
+            with self.subTest(delta=delta):
+                data = export.rgba(self.master)
+                data[17, 17, :3] = [255 - delta, 255, 255]
+                Image.fromarray(data).save(self.master)
+                output = self.root / f"white-boundary-{delta}"
+                if delta == 12:
+                    self.prepare(output)
+                    report = export.read(output / "rgb_diff.json")
+                    self.assertEqual(report["white_tolerance"], 12)
+                    self.assertEqual(report["protected_white_regions"][0]["cells_xy"], [[17, 17]])
+                else:
+                    with self.assertRaisesRegex(ValueError, "no longer white"):
+                        self.prepare(output)
+                    self.assertFalse(output.exists())
+
+    def test_exactly_18_visible_colors_pass_and_19_fail_without_changing_alpha(self):
+        baseline = export.rgba(self.corrected / "candidate.png")
+        for count in (18, 19):
+            with self.subTest(count=count):
+                data = baseline.copy()
+                for x in range(count - 2):
+                    data[0, x, :3] = [x + 1, 50, 100]
+                Image.fromarray(data).save(self.master)
+                output = self.root / f"palette-{count}"
+                if count == 18:
+                    self.prepare(output)
+                    self.assertEqual(export.read(output / "rgb_diff.json")["visible_colors"], 18)
+                    self.assertTrue(np.array_equal(export.rgba(output / "candidate.png")[:, :, 3],
+                                                   baseline[:, :, 3]))
+                else:
+                    with self.assertRaisesRegex(ValueError, "18 visible"):
+                        self.prepare(output)
+                    self.assertFalse(output.exists())
+
     def test_convert_requires_fresh_approval_and_promotion_before_calling_lumina(self):
         with patch.object(export, "convert_with_lumina_batch") as call:
             with self.assertRaises(ValueError):
