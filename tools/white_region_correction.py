@@ -4,6 +4,7 @@ No inference, color-key deletion, promotion, or conversion is performed here.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 import shutil
@@ -13,14 +14,13 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 
-def correct_regions(candidate_dir: Path, decisions_path: Path, output: Path) -> Path:
-    # Imported lazily so white_fallback can expose this as a CLI subcommand.
-    from white_fallback import CHECKS, sha256, write_json
+def _original_candidate(candidate_dir: Path):
+    # Imported lazily so white_fallback can expose the CLI without a cycle.
+    from white_fallback import sha256
 
-    candidate_dir, decisions_path, output = map(Path, (candidate_dir, decisions_path, output))
+    candidate_dir = Path(candidate_dir)
     manifest_path = candidate_dir / "candidate.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    decisions = json.loads(decisions_path.read_text(encoding="utf-8"))
     if (manifest.get("schema") != "white-fallback-candidate/v1"
             or manifest.get("correction") is not None
             or manifest.get("method") != "white"
@@ -38,25 +38,10 @@ def correct_regions(candidate_dir: Path, decisions_path: Path, output: Path) -> 
             raise ValueError("candidate artifact changed after preparation")
     if sha256(candidate_dir / "01_source.png") != manifest.get("source_sha256"):
         raise ValueError("candidate source hash mismatch")
-    if (decisions.get("schema") != "white-fallback-correction/v1"
-            or decisions.get("reviewer_role") != "main-conversation"
-            or decisions.get("manifest_sha256") != sha256(manifest_path)
-            or decisions.get("candidate_sha256") != sha256(candidate_dir / "candidate.png")):
-        raise ValueError("main-conversation correction with exact manifest and candidate hashes required")
-
     components = json.loads((candidate_dir / "white_regions.json").read_text(encoding="utf-8"))
-    choices = decisions.get("components", {})
     ids = {c["id"] for c in components}
-    if not isinstance(choices, dict) or len(ids) != len(components) or set(choices) != ids:
-        raise ValueError("component IDs must match every original numbered white region exactly")
-    for item in choices.values():
-        if (not isinstance(item, dict) or item.get("decision") not in {"background", "preserve"}
-                or not isinstance(item.get("reason"), str) or not item["reason"].strip()):
-            raise ValueError("each component requires an explicit background/preserve decision and reason")
-    selected = {key for key, item in choices.items() if item["decision"] == "background"}
-    if not selected or selected == ids:
-        raise ValueError("select a nonempty proper subset; blanket white-region deletion is prohibited")
-
+    if len(ids) != len(components):
+        raise ValueError("component IDs must be unique")
     working = np.asarray(Image.open(candidate_dir / "03_working_grid.png").convert("RGBA")).copy()
     candidate = np.asarray(Image.open(candidate_dir / "candidate.png").convert("RGBA")).copy()
     for name, rgba, key in (("working", working, "working_grid"),
@@ -93,10 +78,147 @@ def correct_regions(candidate_dir: Path, decisions_path: Path, output: Path) -> 
     if len(origins) != 1:
         raise ValueError("cannot uniquely map the candidate to its unchanged working grid")
     x0, y0 = origins[0]
+    return manifest, components, working, candidate, labels, (x0, y0)
+
+
+def _region_binding(labels: np.ndarray, component_id: str) -> dict:
+    cells = [[int(x), int(y)] for y, x in np.argwhere(labels == int(component_id))]
+    digest = hashlib.sha256(json.dumps(cells, separators=(",", ":")).encode("utf-8")).hexdigest()
+    return {"working_cells": cells, "region_sha256": digest}
+
+
+def _unique_fields(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate correction decision field")
+        result[key] = value
+    return result
+
+
+def correction_template(candidate_dir: Path, output: Path) -> Path:
+    """Bind an unresolved review to existing regions; never infer any decision."""
+    from white_fallback import sha256
+
+    candidate_dir, output = Path(candidate_dir), Path(output)
+    if output.resolve().is_relative_to(candidate_dir.resolve()):
+        raise ValueError("write the correction template outside the unchanged candidate directory")
+    _, components, _, _, labels, _ = _original_candidate(candidate_dir)
+    template = {
+        "schema": "white-fallback-correction/v2", "reviewer_role": "main-conversation",
+        "manifest_sha256": sha256(candidate_dir / "candidate.json"),
+        "candidate_sha256": sha256(candidate_dir / "candidate.png"),
+        "references": {},
+        "components": {c["id"]: {
+            "decision": "unresolved", "reason": "", **_region_binding(labels, c["id"]),
+            "reference_id": "", "reference_bbox": None,
+            "reference_observation": "", "candidate_observation": "",
+        } for c in components},
+    }
+    with output.open("x", encoding="utf-8") as stream:
+        stream.write(json.dumps(template, ensure_ascii=False, indent=2) + "\n")
+    return output
+
+
+def _validate_individual_reviews(decisions: dict, root: Path, labels: np.ndarray,
+                                 selected: set[str], artifacts: dict) -> dict[str, Path]:
+    from white_fallback import sha256
+
+    references = decisions.get("references")
+    if not isinstance(references, dict) or not references:
+        raise ValueError("individual review requires hash-bound reference images")
+    verified, sizes = {}, {}
+    for key, item in references.items():
+        if not isinstance(item, dict):
+            raise ValueError("each reference requires a local image, hash and source")
+        name = item.get("path")
+        if (not isinstance(name, str) or not name.startswith("correction_reference_")
+                or Path(name).name != name or "/" in name or "\\" in name
+                or name in artifacts or name in {p.name for p in verified.values()}):
+            raise ValueError("reference image must use a unique correction_reference_ basename")
+        path = root / name
+        if (not path.is_file() or path.is_symlink()
+                or not isinstance(item.get("source"), str) or not item["source"].strip()
+                or sha256(path) != item.get("sha256")):
+            raise ValueError("reference image hash or source provenance mismatch")
+        with Image.open(path) as image:
+            sizes[key] = image.size
+            image.verify()
+        verified[key] = path
+    used = set()
+    for key in selected:
+        item = decisions["components"][key]
+        expected = _region_binding(labels, key)
+        cells = item.get("working_cells")
+        if (not isinstance(cells, list)
+                or any(not isinstance(p, list) or len(p) != 2
+                       or any(type(v) is not int for v in p) for p in cells)
+                or cells != expected["working_cells"]
+                or item.get("region_sha256") != expected["region_sha256"]):
+            raise ValueError("individual region coordinates and hash must match exact working-grid membership")
+        ref = item.get("reference_id")
+        if not isinstance(ref, str) or ref not in verified:
+            raise ValueError("each deleted region requires its own explicit reference correspondence")
+        bbox = item.get("reference_bbox")
+        if (not isinstance(bbox, list) or len(bbox) != 4
+                or any(type(v) is not int for v in bbox)):
+            raise ValueError("reference_bbox must identify integer image coordinates [x, y, width, height]")
+        x, y, w, h = bbox
+        rw, rh = sizes[ref]
+        if min(x, y) < 0 or min(w, h) <= 0 or x + w > rw or y + h > rh:
+            raise ValueError("reference_bbox is outside its hash-bound image")
+        for field in ("reference_observation", "candidate_observation"):
+            if not isinstance(item.get(field), str) or not item[field].strip():
+                raise ValueError("each deleted region requires reference and candidate observations")
+        used.add(ref)
+    if used != set(verified):
+        raise ValueError("reference images must correspond exactly to individually reviewed regions")
+    return verified
+
+
+def correct_regions(candidate_dir: Path, decisions_path: Path, output: Path) -> Path:
+    from white_fallback import CHECKS, sha256, write_json
+
+    candidate_dir, decisions_path, output = map(Path, (candidate_dir, decisions_path, output))
+    manifest, components, working, candidate, labels, (x0, y0) = _original_candidate(candidate_dir)
+    manifest_path = candidate_dir / "candidate.json"
+    artifacts = manifest["artifacts"]
+    decisions = json.loads(decisions_path.read_text(encoding="utf-8"), object_pairs_hook=_unique_fields)
+    if (decisions.get("schema") not in {"white-fallback-correction/v1", "white-fallback-correction/v2"}
+            or decisions.get("reviewer_role") != "main-conversation"
+            or decisions.get("manifest_sha256") != sha256(manifest_path)
+            or decisions.get("candidate_sha256") != sha256(candidate_dir / "candidate.png")):
+        raise ValueError("main-conversation correction with exact manifest and candidate hashes required")
+
+    choices = decisions.get("components", {})
+    ids = {c["id"] for c in components}
+    if not isinstance(choices, dict) or len(ids) != len(components) or set(choices) != ids:
+        raise ValueError("component IDs must match every original numbered white region exactly")
+    for item in choices.values():
+        if (not isinstance(item, dict) or item.get("decision") not in {"background", "preserve"}
+                or not isinstance(item.get("reason"), str) or not item["reason"].strip()):
+            raise ValueError("each component requires an explicit background/preserve decision and reason")
+    selected = {key for key, item in choices.items() if item["decision"] == "background"}
+    if not selected or (selected == ids and decisions["schema"] == "white-fallback-correction/v1"):
+        raise ValueError("select a nonempty proper subset; blanket white-region deletion is prohibited")
+
+    references = {}
+    if decisions["schema"] == "white-fallback-correction/v2":
+        references = _validate_individual_reviews(decisions, decisions_path.parent,
+                                                  labels, selected, artifacts)
+    height, width = candidate.shape[:2]
     removed_working = np.isin(labels, [int(key) for key in selected])
     removed = removed_working[y0:y0 + height, x0:x0 + width]
     if removed.sum() != removed_working.sum() or not np.all(candidate[removed, 3] == 255):
         raise ValueError("selected component is not fully opaque inside the candidate")
+    if selected == ids:
+        # This exception is only for individually evidenced interior holes.
+        # Topology cannot classify white clothing/eyes: main review still must.
+        interior = cv2.erode((candidate[:, :, 3] == 255).astype(np.uint8),
+                             np.ones((3, 3), dtype=np.uint8),
+                             borderType=cv2.BORDER_CONSTANT, borderValue=0).astype(bool)
+        if not np.all(interior[removed]):
+            raise ValueError("all-region correction requires enclosed regions away from transparency and canvas edges")
     corrected, corrected_working = candidate.copy(), working.copy()
     corrected[removed, 3] = 0
     corrected_working[removed_working, 3] = 0
@@ -116,6 +238,8 @@ def correct_regions(candidate_dir: Path, decisions_path: Path, output: Path) -> 
     # Keep all source/failure evidence; never copy an existing approval or review.
     for name in artifacts:
         shutil.copyfile(candidate_dir / name, output / name)
+    for path in references.values():
+        shutil.copyfile(path, output / path.name)
     for name in ("candidate.json", "candidate.png", "03_working_grid.png", "white_regions.json"):
         shutil.copyfile(candidate_dir / name, output / ("parent_" + name))
     write_json(output / "correction_decisions.json", decisions)
@@ -165,6 +289,10 @@ def correct_regions(candidate_dir: Path, decisions_path: Path, output: Path) -> 
               "rgb_unchanged": True,
               "other_alpha_unchanged": True, "alpha_values": np.unique(corrected[:, :, 3]).tolist(),
               "prior_review_reused": False, "conversion_invoked": False}
+    if decisions["schema"] == "white-fallback-correction/v2":
+        report.update(decision_schema=decisions["schema"],
+                      all_numbered_regions_selected=selected == ids,
+                      enclosed_region_guard_applied=selected == ids)
     write_json(output / "correction.json", report)
     manifest = {**manifest, "status": "needs_main_visual_review", "correction": "correction.json",
                 "candidate_grid": candidate_grid,

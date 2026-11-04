@@ -12,7 +12,7 @@ from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 import white_fallback as fallback
-from white_region_correction import correct_regions
+from white_region_correction import correct_regions, correction_template
 
 
 class RegionCorrectionTests(unittest.TestCase):
@@ -324,6 +324,163 @@ class RegionCorrectionCropTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "retain foreground"):
             correct_regions(parent, decisions, output)
         self.assertFalse(output.exists())
+
+
+class IndividualRegionReviewTests(unittest.TestCase):
+    """All decisions below are synthetic test evidence, never character reviews."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.prepare_fixture()
+
+    def prepare_fixture(self, *, edge=False, internal_transparency=False):
+        rgba = np.full((53, 53, 4), (255, 255, 255, 0), dtype=np.uint8)
+        rgba[5:48, 5:48] = (20, 30, 40, 255)
+        top = 5 if edge else 12
+        rgba[top:top + 2, 15:18] = (254, 253, 255, 255)
+        if internal_transparency:
+            rgba[11, 14, 3] = 0  # Diagonally touches the first reviewed region.
+        for x, y in ((30, 30), (31, 30), (31, 31)):
+            rgba[y, x] = (254, 253, 255, 255)
+        self.parent, _, self.output = RegionCorrectionCropTests.prepare(self, rgba, {"1", "2"})
+        self.path = self.root / "individual-decisions.json"
+        correction_template(self.parent, self.path)
+        self.decisions = json.loads(self.path.read_text())
+        self.reference = self.root / "correction_reference_synthetic.png"
+        Image.fromarray(rgba).save(self.reference)
+        self.assertEqual(set(self.decisions["components"]), {"1", "2"})
+
+    def reviewed_decisions(self):
+        self.decisions["references"] = {"synthetic": {
+            "path": self.reference.name, "sha256": fallback.sha256(self.reference),
+            "source": "Synthetic test reference, not an official-character review",
+        }}
+        for key, item in self.decisions["components"].items():
+            cells = item["working_cells"]
+            xs, ys = [x - 2 for x, _ in cells], [y - 2 for _, y in cells]
+            item.update(decision="background", reason=f"Synthetic reviewed gap {key}",
+                        reference_id="synthetic",
+                        reference_bbox=[min(xs), min(ys), max(xs) - min(xs) + 1, max(ys) - min(ys) + 1],
+                        reference_observation=f"Reference gap {key} is empty space in this fixture",
+                        candidate_observation=f"Candidate region {key} corresponds to that fixture gap")
+        return json.loads(json.dumps(self.decisions))
+
+    def correct(self, decisions=None):
+        fallback.write_json(self.path, self.decisions if decisions is None else decisions)
+        return correct_regions(self.parent, self.path, self.output)
+
+    def test_two_individually_evidenced_holes_change_only_exact_alpha_and_remain_pending(self):
+        self.reviewed_decisions()
+        before_files = {p.name: p.read_bytes() for p in self.parent.iterdir()}
+        original = np.array(Image.open(self.parent / "candidate.png"))
+        manifest = json.loads(self.correct().read_text())
+        final = np.array(Image.open(self.output / "candidate.png"))
+        report = json.loads((self.output / "correction.json").read_text())
+        expected = original.copy()
+        for x, y in report["removed_candidate_xy"]:
+            expected[y, x, 3] = 0
+        np.testing.assert_array_equal(final, expected)
+        np.testing.assert_array_equal(final[:, :, :3], original[:, :, :3])
+        self.assertEqual(report["removed_cells"], 9)
+        self.assertTrue(report["all_numbered_regions_selected"])
+        self.assertTrue(report["enclosed_region_guard_applied"])
+        self.assertEqual(json.loads((self.output / "white_regions.json").read_text()), [])
+        self.assertEqual(manifest["source_grid"], {"width": 53, "height": 53})
+        for name, content in before_files.items():
+            self.assertEqual((self.parent / name).read_bytes(), content)
+        self.assertEqual((self.output / self.reference.name).read_bytes(), self.reference.read_bytes())
+        for name, digest in manifest["artifacts"].items():
+            self.assertEqual(fallback.sha256(self.output / name), digest)
+        pending = json.loads((self.output / "review.template.json").read_text())
+        self.assertEqual(pending["decision"], "pending")
+        self.assertFalse(any(pending["checks"].values()))
+        with self.assertRaises(ValueError):
+            fallback.promote(self.output / "review.template.json")
+        self.assertFalse((self.output / "approval.json").exists())
+        # Replays must use the copied, hash-bound reference rather than relying
+        # on an external path that may disappear after the review was recorded.
+        self.reference.unlink()
+        replay = self.root / "replay"
+        correct_regions(self.parent, self.output / "correction_decisions.json", replay)
+        self.assertEqual((replay / "candidate.json").read_bytes(), (self.output / "candidate.json").read_bytes())
+
+    def test_template_is_unresolved_cannot_overwrite_or_change_parent(self):
+        before = {p.name: p.read_bytes() for p in self.parent.iterdir()}
+        with self.assertRaises(ValueError):
+            self.correct()
+        self.assertFalse(self.output.exists())
+        with self.assertRaises(FileExistsError):
+            correction_template(self.parent, self.path)
+        with self.assertRaisesRegex(ValueError, "outside"):
+            correction_template(self.parent, self.parent / "decisions.json")
+        for name, content in before.items():
+            self.assertEqual((self.parent / name).read_bytes(), content)
+
+    def test_missing_or_inexact_individual_evidence_rejected_before_output(self):
+        baseline = self.reviewed_decisions()
+        variants = []
+        for field, value in (("working_cells", []), ("working_cells", [[0, 0]]),
+                             ("region_sha256", "incorrect"), ("reference_id", "unknown"),
+                             ("reference_bbox", [0, 0, 1000, 1]),
+                             ("reference_bbox", [False, 0, 1, 1]),
+                             ("candidate_observation", " "), ("reference_observation", "")):
+            item = {**baseline["components"]["1"], field: value}
+            variants.append({**baseline, "components": {**baseline["components"], "1": item}})
+        cells = baseline["components"]["1"]["working_cells"]
+        for invalid in (cells + [cells[0]], cells + [[7, 7]], cells[1:]):
+            variants.append({**baseline, "components": {**baseline["components"], "1": {
+                **baseline["components"]["1"], "working_cells": invalid}}})
+        variants.extend([{**baseline, "references": {}},
+                         {**baseline, "components": {"all": baseline["components"]["1"]}},
+                         {**baseline, "manifest_sha256": "incorrect"},
+                         {**baseline, "candidate_sha256": "incorrect"},
+                         {**baseline, "reviewer_role": "automatic"}])
+        for field, value in (("path", "../correction_reference_synthetic.png"),
+                             ("path", "candidate.png"), ("source", ""), ("sha256", "incorrect")):
+            variants.append({**baseline, "references": {"synthetic": {
+                **baseline["references"]["synthetic"], field: value}}})
+        for decisions in variants:
+            with self.subTest(decisions=decisions):
+                with self.assertRaises(ValueError):
+                    self.correct(decisions)
+                self.assertFalse(self.output.exists())
+
+    def test_reference_image_tampering_invalidates_review(self):
+        self.reviewed_decisions()
+        self.reference.write_bytes(self.reference.read_bytes() + b"changed")
+        with self.assertRaisesRegex(ValueError, "reference image hash"):
+            self.correct()
+        self.assertFalse(self.output.exists())
+
+    def test_duplicate_region_keys_are_not_silently_overwritten(self):
+        raw = json.dumps(self.reviewed_decisions()).replace('"components": {', '"components": {"1": {},', 1)
+        self.path.write_text(raw)
+        with self.assertRaisesRegex(ValueError, "duplicate"):
+            correct_regions(self.parent, self.path, self.output)
+        self.assertFalse(self.output.exists())
+
+    def test_preserved_white_region_is_not_removed_by_another_region_decision(self):
+        self.reviewed_decisions()
+        self.decisions["components"]["2"].update(decision="preserve", reason="Retain this synthetic white detail")
+        self.correct()
+        report = json.loads((self.output / "correction.json").read_text())
+        self.assertEqual(report["removed_cells"], 6)
+        self.assertEqual(report["preserved_component_ids"], ["2"])
+        self.assertFalse(report["all_numbered_regions_selected"])
+
+    def test_all_numbered_regions_may_not_include_a_silhouette_edge(self):
+        root = self.root
+        for kind in ("edge", "internal_transparency"):
+            with self.subTest(kind=kind):
+                self.root = root / kind
+                self.root.mkdir()
+                self.prepare_fixture(**{kind: True})
+                self.reviewed_decisions()
+                with self.assertRaisesRegex(ValueError, "enclosed regions"):
+                    self.correct()
+                self.assertFalse(self.output.exists())
 
 
 if __name__ == "__main__":
