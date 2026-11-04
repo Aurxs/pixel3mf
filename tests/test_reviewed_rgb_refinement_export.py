@@ -222,6 +222,22 @@ class ReviewedRGBRefinementTests(unittest.TestCase):
         with self.assertRaises(FileNotFoundError): self.prepare(out)
         self.assertFalse(out.exists())
 
+    def test_corrected_candidate_cannot_be_disguised_as_an_uncorrected_source(self):
+        manifest = export.read(self.original / "candidate.json")
+        manifest["artifacts"] = {name: white.sha256(self.corrected / name)
+                                 for name in manifest["artifacts"]}
+        white.write_json(self.corrected / "candidate.json", manifest)
+        for name in export.PROMOTED:
+            (self.corrected / name).unlink()
+        review = export.read(self.corrected / "review.template.json")
+        review["manifest_sha256"] = white.sha256(self.corrected / "candidate.json")
+        self.approve_synthetic(review, self.upstream_review)
+        white.promote(self.upstream_review)
+        output = self.root / "disguised-original"
+        with self.assertRaisesRegex(ValueError, "replay mismatch"):
+            self.prepare(output)
+        self.assertFalse(output.exists())
+
     def test_historical_promotion_path_is_retained_as_evidence_and_never_opened(self):
         approval = export.read(self.corrected / "approval.json")
         historical = str(self.root / "missing-historical-machine" / "candidate.png")
@@ -323,6 +339,187 @@ class ReviewedRGBRefinementTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "promoted pixels"):
                 export.convert(self.review, self.root / "out", self.root / "lumina", **self.context)
             call.assert_not_called()
+
+
+class PromotedWhiteCandidateRGBTests(unittest.TestCase):
+    """Four synthetic foreground whites; no region correction is performed."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        grid = {"width": 45, "height": 45}
+        detector = patch.object(white, "detect_source_grid", return_value=grid)
+        detector.start()
+        self.addCleanup(detector.stop)
+
+        def refine(source, output, preview, **kwargs):
+            data = np.pad(export.rgba(source)[5::10, 5::10], ((2, 2), (2, 2), (0, 0)))
+            Image.fromarray(data).save(output)
+            Image.fromarray(data).resize((392, 392), Image.Resampling.NEAREST).save(preview)
+            return {"detected_grid": grid, "working_grid": {"width": 49, "height": 49}}
+
+        refiner = patch.object(white, "refine_pixel", side_effect=refine)
+        refiner.start()
+        self.addCleanup(refiner.stop)
+        source = np.full((450, 450, 4), 255, dtype=np.uint8)
+        source[30:420, 30:420] = [90, 130, 170, 255]
+        source[30:60, 30:60] = 255  # Exterior notch retains transparent hidden RGB.
+        self.white_cells = {(7, 7), (17, 17), (27, 22), (9, 27)}
+        for x, y in self.white_cells:
+            source[(y + 3)*10:(y + 4)*10, (x + 3)*10:(x + 4)*10] = 255
+        Image.fromarray(source).save(self.root / "source.png")
+        Image.new("L", (450, 450), 0).save(self.root / "failed.png")
+        white.write_json(self.root / "failure.json", {
+            "schema": "white-fallback-failure/v1", "source_sha256": white.sha256(self.root / "source.png"),
+            "failure_kind": "semantic_mask_unusable", "reason": "Synthetic test failure only",
+            "source_accepted": True, "white_background_suitable": True,
+            "model_masks": [{"model": "isnet-anime", "path": "failed.png",
+                             "sha256": white.sha256(self.root / "failed.png")}]})
+        self.upstream = self.root / "uncorrected"
+        white.prepare(self.root / "source.png", self.root / "failure.json", self.upstream)
+        self.assertEqual(len(export.read(self.upstream / "white_regions.json")), 4)
+        self.review = self.upstream / "review.json"
+        ReviewedRGBRefinementTests.approve_synthetic(export.read(self.upstream / "review.template.json"), self.review)
+        white.promote(self.review)
+        self.master = self.root / "master.png"
+        pixels = export.rgba(self.upstream / "candidate.png")
+        pixels[4, 4, :3] = [80, 120, 160]
+        Image.fromarray(pixels).save(self.master)
+        self.output = self.root / "rgb-review"
+
+    def prepare(self):
+        return export.prepare(self.upstream, self.review, self.master, self.output)
+
+    def test_uncorrected_promoted_source_binds_all_four_whites_and_requires_fresh_review(self):
+        before = {p.name: p.read_bytes() for p in self.upstream.iterdir()}
+        manifest = export.read(self.prepare())
+        self.assertEqual(manifest["upstream_kind"], "promoted_white_candidate")
+        self.assertEqual({p.name: p.read_bytes() for p in self.upstream.iterdir()}, before)
+        self.assertEqual((self.output / "candidate.png").read_bytes(), self.master.read_bytes())
+        self.assertNotIn("correction", export.read(self.output / "corrected/candidate.json"))
+        self.assertFalse((self.output / "corrected/correction.json").exists())
+        report = export.read(self.output / "rgb_diff.json")
+        cells = {tuple(p) for region in report["protected_white_regions"] for p in region["cells_xy"]}
+        self.assertEqual(cells, self.white_cells)
+        pending = export.read(self.output / "review.template.json")
+        self.assertEqual(len(pending["components"]), 4)
+        self.assertEqual(pending["decision"], "pending")
+        self.assertFalse(any(pending["checks"].values()))
+        self.assertIn("upstream_white_candidate_and_promotion_reviewed", pending["checks"])
+        self.assertNotIn("upstream_correction_and_promotion_reviewed", pending["checks"])
+        with self.assertRaisesRegex(ValueError, "visual approval"):
+            export.promote(self.output / "review.template.json")
+        fresh = self.output / "review.json"
+        ReviewedRGBRefinementTests.approve_synthetic(pending, fresh)
+        valid = export.read(fresh)
+        wrong = json.loads(json.dumps(valid))
+        wrong["checks"].pop("upstream_white_candidate_and_promotion_reviewed")
+        wrong["checks"]["upstream_correction_and_promotion_reviewed"] = True
+        white.write_json(fresh, wrong)
+        with self.assertRaisesRegex(ValueError, "visual approval"):
+            export.promote(fresh)
+        self.assertFalse((self.output / "approval.json").exists())
+        white.write_json(fresh, valid)
+        promoted = export.promote(fresh)
+        self.assertEqual(promoted.read_bytes(), self.master.read_bytes())
+
+    def test_each_original_white_region_still_needs_hash_bound_main_foreground_review(self):
+        baseline = export.read(self.review)
+        for key in baseline["components"]:
+            for decision in ("unresolved", "background", None):
+                with self.subTest(region=key, decision=decision):
+                    review = json.loads(json.dumps(baseline))
+                    if decision is None:
+                        review["components"].pop(key)
+                    else:
+                        review["components"][key]["decision"] = decision
+                    white.write_json(self.review, review)
+                    with self.assertRaises(ValueError):
+                        self.prepare()
+                    self.assertFalse(self.output.exists())
+        for change in ({"decision": "pending"}, {"reviewer_role": "worker"},
+                       {"manifest_sha256": "wrong"}, {"checks": {}}, {"notes": ""}):
+            with self.subTest(change=change):
+                white.write_json(self.review, {**baseline, **change})
+                with self.assertRaises(ValueError):
+                    self.prepare()
+                self.assertFalse(self.output.exists())
+
+    def test_original_promotion_must_exist_and_match_review_and_pixels(self):
+        for name in export.PROMOTED:
+            path = self.upstream / name
+            original = path.read_bytes()
+            path.unlink()
+            try:
+                with self.assertRaises((ValueError, FileNotFoundError)):
+                    self.prepare()
+                self.assertFalse(self.output.exists())
+            finally:
+                path.write_bytes(original)
+        approval = export.read(self.upstream / "approval.json")
+        white.write_json(self.upstream / "approval.json", {**approval, "review_sha256": "wrong"})
+        with self.assertRaisesRegex(ValueError, "upstream promotion"):
+            self.prepare()
+        self.assertFalse(self.output.exists())
+
+    def test_uncorrected_source_preserves_alpha_hidden_rgb_and_every_white_region(self):
+        original = export.rgba(self.master)
+        variants = []
+        for x, y in self.white_cells:
+            pixels = original.copy()
+            pixels[y, x, :3] = [242, 255, 255]
+            variants.append((pixels, "no longer white"))
+        for x, y, value in ((4, 4, 0), (4, 4, 128), (0, 0, 255)):
+            pixels = original.copy()
+            pixels[y, x, 3] = value
+            variants.append((pixels, "Alpha"))
+        pixels = original.copy()
+        pixels[0, 0, 0] ^= 1
+        variants.append((pixels, "transparent RGB"))
+        for pixels, message in variants:
+            with self.subTest(message=message):
+                Image.fromarray(pixels).save(self.master)
+                with self.assertRaisesRegex(ValueError, message):
+                    self.prepare()
+                self.assertFalse(self.output.exists())
+
+    def test_uncorrected_conversion_keeps_fresh_review_gate_and_both_existing_size_variants(self):
+        self.prepare()
+        pending = self.output / "review.template.json"
+        fresh = self.output / "review.json"
+        research = self.root / "research.md"
+        research.write_text("Synthetic test research, not an actual character review")
+        context = {"character_name": "Synthetic", "research": research,
+                   "official_sources": ["https://example.test/synthetic"]}
+        stage4, lumina = self.root / "stage4", self.root / "lumina"
+        with patch.object(export, "convert_with_lumina_batch") as converter:
+            with self.assertRaises(ValueError):
+                export.convert(pending, stage4, lumina, **context)
+            ReviewedRGBRefinementTests.approve_synthetic(export.read(pending), fresh)
+            with self.assertRaises(FileNotFoundError):
+                export.convert(fresh, stage4, lumina, **context)
+            converter.assert_not_called()
+        self.assertFalse(stage4.exists())
+        export.promote(fresh)
+        lut = lumina / "lut-npy预设/bambulab" / export.LUT_FILENAME
+        lut.parent.mkdir(parents=True)
+        lut.write_bytes(b"Synthetic LUT")
+
+        def convert(image, archive, final, lumina, api_url, **kwargs):
+            self.assertEqual(white.sha256(image), white.sha256(self.master))
+            archive.write_bytes(b"Synthetic archive")
+            final.write_bytes(b"Synthetic 3MF")
+            Image.new("RGB", (2, 2)).save(kwargs["preview_path"])
+            return {"lut_path": str(lut), "parameters": dict(export.DEFAULT_PARAMS)}
+
+        with patch.object(export, "convert_with_lumina_batch", side_effect=convert) as converter:
+            report = export.read(export.convert(fresh, stage4, lumina, **context))
+        self.assertEqual(converter.call_count, 2)
+        self.assertEqual(set(report["variants"]), {"2x2", "3x3"})
+        self.assertEqual(report["upstream_kind"], "promoted_white_candidate")
+        self.assertEqual(report["parameters"]["quantize_colors"], 256)
+        self.assertEqual(report["status"], "needs_main_color_review")
 
 
 if __name__ == "__main__":

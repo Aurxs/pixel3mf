@@ -128,30 +128,38 @@ This route is limited to a formal original white candidate, one formal region
 correction, and exactly one formal source-supported bridge. Other edits remain
 unsupported by this entrypoint. The original pipeline's reconstruction/equality guard is unchanged.
 
-## Reviewed RGB refinement of a promoted white correction
+## Reviewed RGB refinement of a promoted white candidate
 
 For explicitly authorized palette reduction or local RGB refinement on the same
 logical grid, use `tools/reviewed_rgb_refinement_export.py`. This separate route
-requires a formal white correction with its actual main-conversation review and
-completed `white_fallback.py promote` record. It cannot add a bridge, accept an
-arbitrary mask, change any Alpha, crop, pad, or resample. Never relabel the refined
+requires either an uncorrected formal white candidate or a formal white correction,
+with its actual main-conversation review and completed `white_fallback.py promote`
+record. An uncorrected candidate must have every original numbered white region
+individually confirmed as foreground; no correction or invented no-op record is
+needed. This route cannot add a bridge, accept an arbitrary mask, change any Alpha,
+crop, pad, or resample. Never relabel the refined
 grid as `01_source.png`, replace the upstream candidate, or bypass the original
 pipeline's equality check.
 
 ```bash
 .venv/bin/python tools/reviewed_rgb_refinement_export.py prepare \
-  --corrected /absolute/formal-corrected-bundle \
-  --review /absolute/formal-corrected-bundle/review.json \
+  --corrected /absolute/promoted-white-bundle \
+  --review /absolute/promoted-white-bundle/review.json \
   --candidate /absolute/parent_master.png \
   --output /absolute/new-rgb-review-bundle
 ```
 
 `prepare` preserves exact input PNG bytes, replays the original source detection
 and 45–80 gate using the retained failure masks (no inference), reconstructs the
-original white candidate, replays the formal correction, and checks the existing
-review and promotion hashes and pixels. A moved bundle may retain its historical
-absolute promotion path; that field is evidence only and is never opened. The
-snapshot includes the full original and corrected evidence, old review and
+original white candidate, replays a formal correction when present, and checks
+the existing review and promotion hashes and pixels. Without a correction, the
+upstream snapshot must exactly match the replayed original candidate, including
+its complete artifact inventory and numbered white regions. The historical
+`--corrected` option and `corrected/` snapshot directory name accept either kind
+of promoted white bundle; they do not imply that an edit occurred. A moved bundle
+may retain its historical absolute promotion path; that field is evidence only
+and is never opened. The
+snapshot includes the full original and upstream evidence, old review and
 approval, and promoted upstream pixels. Unrelated files in the corrected directory
 are not authority and are not copied.
 
@@ -171,14 +179,20 @@ coordinates. The `candidate.json` hash inventory binds all evidence. Only a new
 older master review or automatically written.
 
 The main-conversation assistant must inspect the new candidate and enlarged
-preview, the complete RGB diff and upstream correction, all surviving numbered
-whites, natural face and gaze. Copy the template to `review.json`, retain its
+preview, the complete RGB diff and upstream white candidate (plus its correction
+when present), all surviving numbered whites, natural face and gaze. Copy the
+template to `review.json`, retain its
 `reviewed-rgb-review/v1` schema and exact `manifest_sha256`, `candidate_sha256`,
 and `rgb_diff_sha256`, then record the actual approval, meaningful notes, all
 checks (including `every_rgb_change_reviewed`), and an individual foreground
 decision and reason for every surviving white-region ID. Checking the RGB diff
 means approving its entire per-cell change list. Old white or master approvals
-cannot substitute for this fresh review.
+cannot substitute for this fresh review. For an uncorrected upstream, the new review
+also requires `upstream_white_candidate_and_promotion_reviewed`; corrected-source
+bundles retain `upstream_correction_and_promotion_reviewed`. Source mode is
+derived from the validated evidence, not selected by a caller flag. All original
+white regions in the uncorrected route receive the same exact-membership and
+tolerance-12 protection; Alpha, hidden RGB, grid and palette limits are unchanged.
 
 ```bash
 .venv/bin/python tools/reviewed_rgb_refinement_export.py promote \
