@@ -190,11 +190,15 @@ def main() -> None:
     correct.add_argument("--candidate", required=True, type=Path)
     correct.add_argument("--decisions", required=True, type=Path)
     correct.add_argument("--output", required=True, type=Path)
+    template = sub.add_parser("correction-template")
+    template.add_argument("--candidate", required=True, type=Path)
+    template.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
-    if args.command == "correct":
-        from white_region_correction import correct_regions
+    if args.command in {"correct", "correction-template"}:
+        from white_region_correction import correct_regions, correction_template
 
-        print(correct_regions(args.candidate, args.decisions, args.output))
+        print(correction_template(args.candidate, args.output) if args.command == "correction-template"
+              else correct_regions(args.candidate, args.decisions, args.output))
     else:
         print(prepare(args.source, args.failure_evidence, args.output) if args.command == "prepare"
               else promote(args.review))
