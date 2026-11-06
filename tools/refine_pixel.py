@@ -16,19 +16,71 @@ MIN_ACCEPTED_GRID = 45
 MAX_ACCEPTED_GRID = 80
 
 
+def _exact_fractional_grid(rgba: np.ndarray) -> tuple[int, int, np.ndarray] | None:
+    """Recover a fully observed, nearest-neighbor RGB lattice.
+
+    Each logical boundary must cause at least one RGB transition somewhere on
+    its axis, and there must be no transitions anywhere else. This strict
+    condition avoids inferring unobserved subdivisions or tolerating noise.
+    The model spans the entire canvas, with no unknown offset or clipped cells.
+    An unobserved finer grid is indistinguishable from this visible lattice;
+    the returned count is not proof of an artist's intended logical density.
+    """
+    rgb = rgba[:, :, :3]
+    coordinates = []
+    counts = []
+    for axis, extent in ((1, rgba.shape[1]), (0, rgba.shape[0])):
+        changes = np.any(np.diff(rgb, axis=axis) != 0,
+                         axis=(0, 2) if axis == 1 else (1, 2))
+        observed = np.flatnonzero(changes) + 1
+        count = len(observed) + 1
+        if len(observed) < 4 or extent / count < 4:
+            return None
+        # Model pixel centers mapped to equally spaced cells. Compare every
+        # transition, not merely the count or an approximate periodicity.
+        indices = ((2 * np.arange(extent, dtype=np.int64) + 1) * count) // (2 * extent)
+        expected = np.flatnonzero(np.diff(indices)) + 1
+        # A pixel center exactly on a boundary can belong to either cell.
+        # Rasterizers differ in tie-breaking; accept only those exact ties.
+        lower_indices = (((2 * np.arange(extent, dtype=np.int64) + 1) * count) - 1) // (2 * extent)
+        alternate = np.flatnonzero(np.diff(lower_indices)) + 1
+        if (len(expected) != len(observed) or len(alternate) != len(observed)
+                or not np.all((observed == expected) | (observed == alternate))):
+            return None
+        edges = np.concatenate(([0], observed, [extent]))
+        coordinates.append((edges[:-1] + edges[1:]) // 2)
+        counts.append(count)
+
+    width, height = counts
+    pitches = (rgba.shape[1] / width, rgba.shape[0] / height)
+    if max(pitches) / min(pitches) > 1.5:
+        return None
+    xs, ys = coordinates
+    return width, height, rgba[ys[:, None], xs[None, :]].copy()
+
+
 def _auto_detect_grid(rgba: np.ndarray) -> tuple[int | None, int | None, np.ndarray]:
-    """Use Perfect Pixel, then recover only a provable, exact RGB lattice.
+    """Use Perfect Pixel, then recover an exact observed RGB lattice.
 
     Perfect Pixel 0.1.4 discards FFT estimates with cells wider than 20 px;
     its gradient fallback also misses two-pixel Sobel plateaus. On failure,
-    infer the coarsest origin-aligned lattice from *all* RGB transitions.
-    This deliberately cannot rescue blurred, noisy or irregular sources.
+    infer an origin-aligned lattice from *all* RGB transitions. A final strict
+    fallback handles noninteger spacing when every boundary is observable.
+    These fallbacks cannot rescue blurred, noisy or irregular sources and do
+    not establish that no finer, visually indistinguishable grid exists.
     Alpha is sampled on the RGB grid, as in Perfect Pixel, so auxiliary masks
     cannot change the detected source lattice.
     """
     result = get_perfect_pixel(rgba, sample_method="center", fix_square=False)
     if result[0] is not None and result[1] is not None:
         return result
+
+    def fractional_fallback() -> tuple[int | None, int | None, np.ndarray]:
+        fractional = _exact_fractional_grid(rgba)
+        if fractional is None:
+            return result
+        print(f"Detected exact full-canvas RGB lattice after Perfect Pixel failure: {fractional[0]}x{fractional[1]}")
+        return fractional
 
     rgb = rgba[:, :, :3]
     pitch = []
@@ -37,18 +89,18 @@ def _auto_detect_grid(rgba: np.ndarray) -> tuple[int | None, int | None, np.ndar
                          axis=(0, 2) if axis == 1 else (1, 2))
         boundaries = np.flatnonzero(changes) + 1
         if len(boundaries) < 4:
-            return result
+            return fractional_fallback()
         cell = int(np.gcd.reduce(np.append(boundaries, extent)))
         # Keep the upstream minimum cell width. Require an observed one-cell
         # interval too: a common divisor alone could invent finer cells for
         # irregular spacing or a phase-shifted grid with clipped border cells.
         if cell < 4 or np.min(np.diff(boundaries)) != cell:
-            return result
+            return fractional_fallback()
         pitch.append(cell)
 
     cell_w, cell_h = pitch
     if max(pitch) / min(pitch) > 1.5:
-        return result
+        return fractional_fallback()
     grid_w, grid_h = rgba.shape[1] // cell_w, rgba.shape[0] // cell_h
     print(f"Detected exact RGB lattice after Perfect Pixel failure: {grid_w}x{grid_h}")
     return grid_w, grid_h, rgba[cell_h // 2::cell_h, cell_w // 2::cell_w].copy()
@@ -178,6 +230,14 @@ def detect_source_grid(input_path: str | Path) -> dict[str, object]:
         axis=2,
     )
     changed_fraction = float(np.mean(rgb_error > 8))
+    if changed_fraction > 0.01:
+        # PIL's tie-breaking can differ from a source's exact lattice at
+        # boundary pixel centers. Do not report blur when all observed RGB
+        # transitions prove exact cells and their samples match this result.
+        exact = _exact_fractional_grid(rgba)
+        if (exact is not None and exact[:2] == (int(grid_w), int(grid_h))
+                and np.array_equal(exact[2][:, :, :3], refined[:, :, :3])):
+            changed_fraction = 0.0
     palette_size = int(
         np.unique(refined[:, :, :3].reshape(-1, 3), axis=0).shape[0]
     )

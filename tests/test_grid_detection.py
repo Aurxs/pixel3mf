@@ -14,7 +14,7 @@ from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 
-from refine_pixel import _auto_detect_grid, detect_source_grid, refine_pixel, refine_mask_to_grid
+from refine_pixel import _auto_detect_grid, _exact_fractional_grid, detect_source_grid, refine_pixel, refine_mask_to_grid
 
 
 def regular_source(width: int, height: int, pitch: int) -> tuple[np.ndarray, np.ndarray]:
@@ -25,10 +25,120 @@ def regular_source(width: int, height: int, pitch: int) -> tuple[np.ndarray, np.
     return logical.repeat(pitch, axis=0).repeat(pitch, axis=1), logical
 
 
+def fractional_source(width: int, height: int, canvas: tuple[int, int]) -> tuple[np.ndarray, np.ndarray]:
+    logical = regular_source(width, height, 1)[1]
+    return np.asarray(Image.fromarray(logical).resize(canvas, Image.Resampling.NEAREST)).copy(), logical
+
+
 class GridDetectionTests(unittest.TestCase):
     def detect(self, source: np.ndarray) -> tuple[int | None, int | None, np.ndarray]:
         with redirect_stdout(io.StringIO()):
             return _auto_detect_grid(source)
+
+    def test_fractional_grid_round_trip_on_original_canvas(self) -> None:
+        for width, height, canvas in ((49, 49, (1254, 1254)), (45, 80, (1151, 2047)),
+                                      (80, 45, (2047, 1151))):
+            with self.subTest(width=width, height=height):
+                source, logical = fractional_source(width, height, canvas)
+                original = source.copy()
+                result = self.detect(source)
+                self.assertEqual(result[:2], (width, height))
+                np.testing.assert_array_equal(result[2], logical)
+                np.testing.assert_array_equal(source, original)
+
+    def test_fractional_grid_density_gate_remains_in_force(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "source.png"
+            for width, height in ((44, 45), (45, 44), (81, 80), (80, 81)):
+                source, _ = fractional_source(width, height, (width * 25 + 7, height * 25 + 7))
+                Image.fromarray(source).save(path)
+                with self.subTest(width=width, height=height), redirect_stdout(io.StringIO()), self.assertRaisesRegex(ValueError, "45-80"):
+                    detect_source_grid(path)
+
+    def test_fractional_tie_breaking_and_exact_rgb_reconstruction(self) -> None:
+        logical = regular_source(50, 50, 1)[1]
+        extent, count = 1255, 50
+        numerator = (2 * np.arange(extent, dtype=np.int64) + 1) * count
+        self.assertFalse(np.array_equal(numerator // (2 * extent),
+                                        (numerator - 1) // (2 * extent)))
+        for offset in (0, -1):
+            index = (numerator + offset) // (2 * extent)
+            source = logical[index[:, None], index[None, :]]
+            with self.subTest(offset=offset):
+                result = _exact_fractional_grid(source)
+                self.assertIsNotNone(result)
+                width, height, sampled = result
+                self.assertEqual((width, height), (50, 50))
+                np.testing.assert_array_equal(sampled, logical)
+                np.testing.assert_array_equal(sampled[index[:, None], index[None, :], :3], source[:, :, :3])
+
+    def test_fractional_detection_cannot_exclude_invisible_subdivisions(self) -> None:
+        source, logical = fractional_source(49, 49, (1254, 1254))
+        finer = logical.repeat(2, axis=0).repeat(2, axis=1)
+        same_source = np.asarray(Image.fromarray(finer).resize((1254, 1254), Image.Resampling.NEAREST))
+        np.testing.assert_array_equal(source, same_source)
+        self.assertEqual(self.detect(same_source)[:2], (49, 49))
+
+    def test_fractional_tie_does_not_create_false_blur_warning(self) -> None:
+        logical = regular_source(80, 80, 1)[1]
+        extent, count = 1960, 80
+        index = (((2 * np.arange(extent, dtype=np.int64) + 1) * count) - 1) // (2 * extent)
+        source = logical[index[:, None], index[None, :]]
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'source.png'
+            Image.fromarray(source).save(path)
+            with redirect_stdout(io.StringIO()):
+                result = detect_source_grid(path)
+        self.assertEqual((result['width'], result['height']), (80, 80))
+        self.assertNotIn('minor_blur_antialiasing_or_whole_cell_tone_variation', result['warnings'])
+        self.assertEqual(result['render_metrics']['rgb_pixels_over_delta_8_fraction'], 0)
+
+    def test_fractional_evidence_rejects_missing_extra_and_shifted_boundaries(self) -> None:
+        source, logical = fractional_source(49, 49, (1254, 1254))
+        # A silent logical boundary makes a finer grid unobservable.
+        ambiguous = logical.copy()
+        ambiguous[:, 10] = ambiguous[:, 9]
+        ambiguous = np.asarray(Image.fromarray(ambiguous).resize((1254, 1254), Image.Resampling.NEAREST))
+        noisy = source.copy()
+        noisy[5, 5, 0] ^= 1
+        shifted = np.roll(source, 5, axis=1)
+        for candidate in (ambiguous, noisy, shifted):
+            with self.subTest(kind=('ambiguous' if candidate is ambiguous else 'noisy' if candidate is noisy else 'shifted')):
+                self.assertIsNone(_exact_fractional_grid(candidate))
+                self.assertEqual(self.detect(candidate)[:2], (None, None))
+
+    def test_fractional_evidence_rejects_mixed_widths_and_non_pixel_image(self) -> None:
+        source, _ = fractional_source(49, 49, (1254, 1254))
+        # Move one boundary only, introducing mixed logical widths.
+        mixed = source.copy()
+        mixed[:, 512:516] = mixed[:, 511:512]
+        y, x = np.indices((512, 512))
+        photo = np.stack((x % 256, y % 256, (x + y) % 256, np.full_like(x, 255)), axis=2).astype(np.uint8)
+        for candidate in (mixed, photo):
+            self.assertIsNone(_exact_fractional_grid(candidate))
+            self.assertEqual(self.detect(candidate)[:2], (None, None))
+
+    def test_fractional_mask_uses_same_original_cell_centers(self) -> None:
+        source, logical = fractional_source(49, 49, (1254, 1254))
+        rng = np.random.default_rng(9)
+        mask = rng.integers(0, 256, source.shape[:2], dtype=np.uint8)
+        # Recover centers independently from the known rasterizer mapping.
+        index = ((2 * np.arange(1254) + 1) * 49) // (2 * 1254)
+        edges = np.concatenate(([0], np.flatnonzero(np.diff(index)) + 1, [1254]))
+        centers = (edges[:-1] + edges[1:]) // 2
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            path, mask_path = root / 'source.png', root / 'mask.png'
+            Image.fromarray(source).save(path)
+            Image.fromarray(mask).save(mask_path)
+            original = path.read_bytes(), mask_path.read_bytes()
+            with redirect_stdout(io.StringIO()):
+                grid = detect_source_grid(path)
+                refine_pixel(path, root / 'grid.png', root / 'preview.png', expected_source_grid=grid)
+                refine_mask_to_grid(path, root / 'alpha.png', expected_source_grid=grid, mask_path=mask_path)
+            np.testing.assert_array_equal(np.asarray(Image.open(root / 'grid.png')), logical)
+            np.testing.assert_array_equal(np.asarray(Image.open(root / 'alpha.png')), mask[centers[:, None], centers[None, :]])
+            self.assertEqual((path.read_bytes(), mask_path.read_bytes()), original)
 
     def test_regular_40_grid_is_detected_but_rejected_by_source_density_gate(self) -> None:
         source, logical = regular_source(40, 40, 32)
