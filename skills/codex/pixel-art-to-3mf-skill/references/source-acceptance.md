@@ -39,7 +39,7 @@ For eyes, record concerns during source triage and let the main-conversation ass
 - Start a fresh Stage 1 generation from the original request, approved identity brief, bundled references, and original user references.
 - Do not use the rejected generated image as an edit target, attached reference, or recent-image context.
 - Rebuild the retry exclusively from the fenced generation block in `generation-prompt.md`.
-- Do not add detected counts, acceptance thresholds, Perfect Pixel terminology, physical dimensions, or conversion settings to the retry prompt. Preserve the artistic grid range already present in the Stage 1 template unchanged.
+- Do not add detected counts, acceptance thresholds, Perfect Pixel terminology, physical dimensions, or conversion settings to the retry prompt. Preserve the artistic grid target already present in the Stage 1 template unchanged.
 
 ## User-provided source
 
