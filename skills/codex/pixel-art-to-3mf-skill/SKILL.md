@@ -17,7 +17,7 @@ Use the current Pixel3MF project root. Command examples use POSIX syntax; on Win
 - Read a reference only when its stage explicitly authorizes it and its prerequisite artifact already exists.
 - Before the first image-generation or image-editing result exists, read only [generation-prompt.md](references/generation-prompt.md). Do not open or search any later-stage reference, pipeline script, conversion source, README, manifest from a prior run, or configuration file.
 - Build every image-generation payload exclusively from one fenced prompt block in `generation-prompt.md`. Replace placeholders, but do not append instructions, measurements, diagnostics, physical dimensions, conversion settings, or terminology from later stages.
-- The image-generation model receives only that rendered prompt block, the original user request, the approved identity brief, and the allowed source/style images. It never receives this `SKILL.md` or any post-generation reference.
+- The image-generation model receives only the rendered prompt block with the requested visual subject and verified identity summary filled into its placeholders, plus the allowed source/style images. Do not forward the complete workflow request or research document. It never receives this `SKILL.md` or any post-generation reference.
 - A retry is a new Stage 1 call. Rebuild it from `generation-prompt.md`; never add detector results or later-stage thresholds to its prompt.
 
 ## Route the request
@@ -46,29 +46,23 @@ Do not continue until `01_source.png` exists. Until then, do not inspect later-s
 
 ## Stage 2 — Validate the completed source
 
-After `01_source.png` exists, read [source-acceptance.md](references/source-acceptance.md). Apply its visual and diagnostic checks.
-
-- Accept visually clean, reliably removable near-white background micro-noise as a recoverable warning; reject obvious background shadows, gradients, or outline contamination. Review the refined cutout before final acceptance.
-- Treat minor blur, antialiasing, whole-cell tonal transitions, and near-identical colors as recoverable warnings. Let Pixel Fine decide whether they resolve into a stable logical grid.
-- If the source is rejected for an unrecoverable grid, composition, or identity defect and regeneration is allowed, return to Stage 1 and preserve the prompt boundary.
-- If a user-provided source is unsuitable and creative changes were not authorized, preserve it and report the limitation.
-- Do not begin refinement until the source passes or the user explicitly accepts the limitation.
+Only after `01_source.png` exists, read [source-acceptance.md](references/source-acceptance.md). Apply and record its source checks before continuing. Keep diagnostic results out of generation payloads.
 
 ### Gate 2
 
-Record the untouched-source grid and preliminary acceptance before opening the refinement instructions. Apply the `45–80` density gate only here, never after semantic masking or temporary padding.
+Proceed only after preliminary source acceptance, or explicit user acceptance of a reported limitation. If regeneration is authorized, return to Stage 1 and rebuild its isolated payload.
 
 ## Stage 3 — Prepare and refine pixels
 
-Only after Gate 2, read [pixel-refinement.md](references/pixel-refinement.md). Produce the semantic mask, temporary working grid, tight export grid, and preview artifacts described there. If IS-Net fails on an accepted opaque white-background source, that reference defines an explicit review-only fallback; keep semantic as the default and require main-conversation visual approval before export.
+Only after Gate 2, read [pixel-refinement.md](references/pixel-refinement.md). Follow its preparation, refinement, and visual-review requirements.
 
 ### Gate 3
 
-Do not open conversion settings until the refined export artifact and its preview exist, its alpha is binary, and no unapproved ambiguous background component remains. The main-conversation assistant must visually review the refined image and enlarged preview, including natural eye structure and gaze, before final acceptance. Reject an unnatural generated result and return to a fresh Stage 1 generation.
+Proceed only when the required refined artifacts exist and have passed the checks and main-conversation visual review specified in that reference. Resolve rejected results using that stage's failure route.
 
-## Stage 4 — Convert with Lumina and finalize
+## Stage 4 — Convert and finalize
 
-Only after Gate 3, read [lumina-conversion.md](references/lumina-conversion.md). Derive both exact physical sizes from the same final logical grid, then generate the required `2 × 2` and `3 × 3` Lumina previews, 3MFs, manifests, and retained archives using that stage's defaults. Do not make the user choose a size before export.
+Only after Gate 3, and only when conversion is within the user's requested scope, read [lumina-conversion.md](references/lumina-conversion.md). Follow its export and final-delivery requirements.
 
 ## Failure routing
 

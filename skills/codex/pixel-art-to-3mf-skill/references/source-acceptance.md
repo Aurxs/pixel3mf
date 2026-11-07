@@ -26,8 +26,8 @@ Reject and generate a brand-new source when any of these defects appears:
 - The exterior pure-black outline is open, the bottom-most occupied row is not a continuous black baseline, or no clean background row remains below it.
 
 Record, but do not reject solely for, minor blur, antialiasing, whole-cell tonal
-transitions, a palette larger than the prompt target, or clusters of near-identical
-colors. These are recoverable warnings when Pixel Fine converts them into stable,
+transitions or clusters of near-identical colors. There is no fixed palette-size
+limit in the generation prompt. These are recoverable warnings when Pixel Fine converts them into stable,
 semantically useful logical cells. Record the reconstructed-pixel difference and
 logical palette count as diagnostics, but do not turn either metric into another
 hard density gate. Make the final decision after refinement.
@@ -39,7 +39,7 @@ For eyes, record concerns during source triage and let the main-conversation ass
 - Start a fresh Stage 1 generation from the original request, approved identity brief, bundled references, and original user references.
 - Do not use the rejected generated image as an edit target, attached reference, or recent-image context.
 - Rebuild the retry exclusively from the fenced generation block in `generation-prompt.md`.
-- Do not put detected counts, the accepted range, Perfect Pixel terminology, physical dimensions, or conversion settings into the retry prompt.
+- Do not add detected counts, acceptance thresholds, Perfect Pixel terminology, physical dimensions, or conversion settings to the retry prompt. Preserve the artistic grid range already present in the Stage 1 template unchanged.
 
 ## User-provided source
 
