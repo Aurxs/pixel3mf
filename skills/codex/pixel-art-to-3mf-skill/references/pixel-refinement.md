@@ -44,7 +44,7 @@ Set the acceptance/suitability fields only after reviewing the source: plain nea
 
 ### Explicit correction of visually confirmed background regions
 
-When the main-conversation assistant has classified specific numbered regions as background, use `tools/white_fallback.py correct --candidate /absolute/original-candidate-directory --decisions /absolute/correction-decisions.json --output /absolute/new-directory`. This is a review-only correction, not approval. Do not use the unrelated hardcoded `remove_selected_white_holes.py` script.
+When the main-conversation assistant has classified specific numbered regions as background, use `tools/white_fallback.py correct --candidate /absolute/original-candidate-directory --decisions /absolute/correction-decisions.json --output /absolute/new-directory`. This is a review-only correction, not approval. Keep image-specific region selections in the source-bound decisions file; never hardcode image coordinates or artifact hashes in reusable tools.
 
 The decisions JSON must use schema `white-fallback-correction/v1`, `reviewer_role: "main-conversation"`, `manifest_sha256` for the original `candidate.json`, and `candidate_sha256` for its `candidate.png`. Its `components` object must name **every original component ID**, with `decision: "background"` only for explicitly confirmed holes, otherwise `decision: "preserve"`, and a meaningful `reason` for each. A preserve instruction means no edit, not final foreground acceptance. IDs refer to `white_regions.json`, not labels used in other diagnostic images. This legacy v1 format still requires a nonempty proper subset; selecting every ID with v1 remains prohibited. There is no wildcard, threshold override or global color-deletion option.
 

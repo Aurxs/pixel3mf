@@ -30,9 +30,7 @@ pixel3mf/
 │   ├── lumina_batch.py              Lumina 预览、双尺寸转换及成品处理
 │   ├── three_mf_xy_scale.py         对 3x3 模型做幂等的 XY 43/42 尺寸补偿
 │   ├── three_mf_a1mini_profile.py   为成品写入固定 A1 mini 项目配置
-│   ├── prepare_square_canvas.py     旧版补方兼容工具，当前总入口不调用
-│   └── remove_selected_white_holes.py
-│                                   针对历史特定图片坐标的白孔修复；不是通用入口
+│   └── prepare_square_canvas.py     旧版补方兼容工具，当前总入口不调用
 │
 ├── profiles/
 │   ├── README.md                   打印配置快照的来源、用途与更新注意事项
