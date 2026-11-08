@@ -15,7 +15,7 @@ When the user supplies no stronger style reference, load:
 - `../assets/reference-kafka-style.png` as Image 1
 - `../assets/reference-xiaowanzhou-style.png` as Image 2
 - `../assets/reference-yoimiya-style.png` as Image 3
-- Do not load `../assets/reference-action-interaction.png` by default or automatically treat Image 4 as an action reference.
+- Use only these three bundled style references. Do not search for or load retired style references from other skill copies, archives, or prior runs.
 
 Treat user-provided images as references unless the user explicitly asks to edit the supplied image.
 
