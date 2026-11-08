@@ -43,9 +43,46 @@ def foreground(project, cell, *, texture=True):
     return image, bbox
 
 
+def background_frame(source, size, *, fit, zoom, focal, blur):
+    """Fit original art uniformly; softly fill uncovered canvas with the same art."""
+    ratios = (size[0]/source.width, size[1]/source.height)
+    scale = (min(ratios) if fit == "contain" else max(ratios))*zoom
+    scaled = tuple(max(1, round(v*scale)) for v in source.size)
+    position = tuple(round((bound-extent)*anchor) for bound, extent, anchor in zip(size, scaled, focal))
+    box = (max(0, position[0]), max(0, position[1]),
+           min(size[0], position[0]+scaled[0]), min(size[1], position[1]+scaled[1]))
+    # Crop first so the resized detail never exceeds the canvas, even for panoramas or zoom=3.
+    source_box = ((box[0]-position[0])*source.width/scaled[0],
+                  (box[1]-position[1])*source.height/scaled[1],
+                  (box[2]-position[0])*source.width/scaled[0],
+                  (box[3]-position[1])*source.height/scaled[1])
+    visible = (box[2]-box[0], box[3]-box[1])
+    detail = source.resize(visible, Image.Resampling.LANCZOS, box=source_box)
+    detail = detail.filter(ImageFilter.GaussianBlur(size[0]*blur))
+    backing = ImageOps.fit(source, size, Image.Resampling.LANCZOS, centering=focal)
+    backing = backing.filter(ImageFilter.GaussianBlur(size[0]*max(0.04, blur*2.5)))
+    layer = backing.copy()
+    layer.paste(detail, box[:2])
+    mask = Image.new("L", size)
+    feather = max(0, min(round(min(size)*0.14), (min(visible)-1)//4))
+    # Feather only internal edges, leaving a fully covered edge opaque.
+    inset = (box[0]+(feather if box[0] else 0), box[1]+(feather if box[1] else 0),
+             box[2]-1-(feather if box[2] < size[0] else 0),
+             box[3]-1-(feather if box[3] < size[1] else 0))
+    ImageDraw.Draw(mask).rectangle(inset, fill=255)
+    if feather:
+        mask = mask.filter(ImageFilter.GaussianBlur(feather/3))
+    geometry = {"fit": fit, "uniform_scale": scale, "scaled_size": scaled,
+                "canvas_box": box, "visible_source_box": source_box,
+                "visible_fraction": ((source_box[2]-source_box[0])*(source_box[3]-source_box[1])
+                                     / (source.width*source.height)),
+                "backing": "same_reference_blurred_fill", "feather_pixels": feather}
+    return Image.composite(layer, backing, mask), geometry
+
+
 def render_cover(project_path, reference_path, output, *, reference_note,
                  reference_source=None, size=(1080, 1440), reference_crop=None,
-                 focal=(0.5, 0.5), zoom=1.12, blur=0.026, brightness=0.78,
+                 focal=(0.5, 0.5), zoom=1.0, blur=0.016, background_fit="contain", brightness=0.78,
                  saturation=0.88, subject_width=0.70, subject_height=0.62,
                  center=(0.5, 0.49), texture=True):
     project_path, reference_path, output = (Path(p).resolve() for p in
@@ -60,7 +97,8 @@ def render_cover(project_path, reference_path, output, *, reference_note,
     values = (*focal, *center, zoom, blur, brightness, saturation, subject_width, subject_height)
     if (len(focal) != 2 or len(center) != 2 or not all(math.isfinite(v) for v in values)
             or not all(0 <= v <= 1 for v in (*focal, *center))
-            or not 1 <= zoom <= 3 or not 0 < blur <= 0.15
+            or background_fit not in {"contain", "cover"}
+            or not 0.5 <= zoom <= 3 or not 0 < blur <= 0.15
             or not 0 < brightness <= 1.5 or not 0 <= saturation <= 2
             or not 0.1 <= subject_width <= 0.9 or not 0.1 <= subject_height <= 0.9):
         raise ValueError("Invalid cover layout or background settings")
@@ -82,9 +120,8 @@ def render_cover(project_path, reference_path, output, *, reference_note,
     # Flatten reference transparency before resizing to avoid hidden-RGB fringes.
     matte = Image.new("RGBA", source.size, (37, 39, 43, 255))
     matte.alpha_composite(source)
-    background = ImageOps.fit(matte.convert("RGB"), size, Image.Resampling.LANCZOS,
-                              bleed=(1-1/zoom)/2, centering=focal)
-    background = background.filter(ImageFilter.GaussianBlur(size[0]*blur))
+    background, framing = background_frame(matte.convert("RGB"), size, fit=background_fit,
+                                           zoom=zoom, focal=focal, blur=blur)
     background = ImageEnhance.Color(background).enhance(saturation)
     background = ImageEnhance.Brightness(background).enhance(brightness)
     # Soft edge falloff keeps the crisp subject prominent without a panel or caption.
@@ -122,6 +159,7 @@ def render_cover(project_path, reference_path, output, *, reference_note,
                       "source": reference_source, "identity_and_costume_check": reference_note,
                       "original_size": reference_size, "crop": reference_crop},
         "layout": {"size": size, "focal": focal, "zoom": zoom, "blur_fraction": blur,
+                   "background_framing": framing,
                    "blur_pixels": size[0]*blur, "brightness": brightness, "saturation": saturation,
                    "subject_width": subject_width, "subject_height": subject_height,
                    "center": center, "cell_pixels": cell, "subject_position": position,
@@ -151,8 +189,10 @@ def add_options(parser):
     parser.add_argument("--reference-crop", nargs=4, type=int, metavar=("LEFT", "TOP", "RIGHT", "BOTTOM"))
     parser.add_argument("--size", nargs=2, type=int, default=(1080, 1440), metavar=("WIDTH", "HEIGHT"))
     parser.add_argument("--focal", nargs=2, type=float, default=(0.5, 0.5), metavar=("X", "Y"))
-    parser.add_argument("--zoom", type=float, default=1.12)
-    parser.add_argument("--blur", type=float, default=0.026, help="Gaussian radius as a fraction of width")
+    parser.add_argument("--background-fit", choices=["contain", "cover"], default="contain",
+                        help="Preserve the reference framing by default; soft same-art fill covers margins")
+    parser.add_argument("--zoom", type=float, default=1.0, help="Uniform background scale, 0.5-3")
+    parser.add_argument("--blur", type=float, default=0.016, help="Gaussian radius as a fraction of width")
     parser.add_argument("--brightness", type=float, default=0.78)
     parser.add_argument("--saturation", type=float, default=0.88)
     parser.add_argument("--subject-width", type=float, default=0.70)
@@ -162,7 +202,7 @@ def add_options(parser):
 
 
 def options(args):
-    names = ("reference_note", "reference_source", "reference_crop", "size", "focal", "zoom", "blur",
+    names = ("reference_note", "reference_source", "reference_crop", "size", "focal", "zoom", "blur", "background_fit",
              "brightness", "saturation", "subject_width", "subject_height", "center")
     return {**{name: getattr(args, name) for name in names}, "texture": not args.flat}
 

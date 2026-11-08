@@ -11,7 +11,7 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/"tools/beads"))
-from render_cover import foreground, render_cover  # noqa: E402
+from render_cover import background_frame, foreground, render_cover  # noqa: E402
 from run_workflow import cover  # noqa: E402
 
 
@@ -21,6 +21,42 @@ def hashes(root):
 
 
 class BeadCoverTests(unittest.TestCase):
+    def test_contain_retains_full_reference_and_fills_canvas_without_stretching(self):
+        source = Image.new("RGB", (1200, 600), (200, 40, 30))
+        source.paste((30, 50, 200), (600, 0, 1200, 600))
+        image, plan = background_frame(source, (600, 800), fit="contain", zoom=1,
+                                       focal=(0.5, 0.5), blur=0.016)
+        self.assertEqual(image.size, (600, 800))
+        self.assertEqual(image.mode, "RGB")
+        self.assertEqual(plan["visible_source_box"], (0, 0, 1200, 600))
+        self.assertEqual(plan["scaled_size"], (600, 300))
+        self.assertEqual(plan["visible_fraction"], 1)
+        self.assertEqual(plan["backing"], "same_reference_blurred_fill")
+        self.assertEqual(image.getpixel((80, 400)), (200, 40, 30))
+        self.assertEqual(image.getpixel((520, 400)), (30, 50, 200))
+        self.assertTrue(all(min(image.getpixel(p)) > 0 for p in ((0, 0), (599, 0), (0, 799), (599, 799))))
+        _, close = background_frame(source, (600, 800), fit="cover", zoom=1.12,
+                                     focal=(0.5, 0.5), blur=0.026)
+        self.assertLess(close["visible_fraction"], 0.4)
+
+    def test_background_geometry_handles_portraits_panoramas_and_zoom_out(self):
+        for source_size in ((500, 900), (2000, 300), (1, 700)):
+            for fit, zoom, focal in (("contain", 0.75, (0, 1)), ("contain", 1, (0.5, 0.5)),
+                                     ("cover", 3, (1, 0))):
+                with self.subTest(source=source_size, fit=fit, zoom=zoom):
+                    source = Image.new("RGB", source_size, (40, 80, 150))
+                    image, plan = background_frame(source, (300, 400), fit=fit, zoom=zoom,
+                                                   focal=focal, blur=0.016)
+                    self.assertEqual(image.size, (300, 400))
+                    self.assertAlmostEqual(plan["scaled_size"][0], source.width*plan["uniform_scale"], delta=1)
+                    self.assertAlmostEqual(plan["scaled_size"][1], source.height*plan["uniform_scale"], delta=1)
+                    left, top, right, bottom = plan["visible_source_box"]
+                    self.assertTrue(0 <= left < right <= source.width)
+                    self.assertTrue(0 <= top < bottom <= source.height)
+                    self.assertLessEqual(plan["visible_fraction"], 1)
+                    if fit == "contain":
+                        self.assertEqual(plan["visible_fraction"], 1)
+
     def fixture(self, root):
         project = {
             "schema": "pixel-art-to-beads/v1", "title": "拼豆作品",
@@ -70,6 +106,10 @@ class BeadCoverTests(unittest.TestCase):
             self.assertEqual(report["project"]["sha256"], before["图纸数据.json"])
             self.assertFalse(report["layout"]["text"])
             self.assertFalse(report["layout"]["mirrored"])
+            self.assertEqual(report["layout"]["background_framing"]["fit"], "contain")
+            self.assertEqual(report["layout"]["background_framing"]["visible_fraction"], 1)
+            self.assertEqual(report["layout"]["zoom"], 1)
+            self.assertEqual(report["layout"]["blur_fraction"], 0.016)
             with Image.open(report["products"]["cover"]) as image:
                 self.assertEqual(image.size, (600, 800))
                 self.assertEqual(image.mode, "RGB")
@@ -86,7 +126,8 @@ class BeadCoverTests(unittest.TestCase):
             root = Path(directory)
             _, path, reference = self.fixture(root)
             for settings in ({"reference_note": " "}, {"size": (0, 800)}, {"size": (4096, 4096)},
-                             {"blur": float("nan")}, {"zoom": 0.9}, {"focal": (1.1, 0.5)},
+                             {"blur": float("nan")}, {"zoom": 0.49}, {"background_fit": "stretch"},
+                             {"focal": (1.1, 0.5)},
                              {"center": (0, 0)}, {"reference_crop": (-1, 0, 50, 50)},
                              {"reference_crop": (0, 0, 1000, 700)}):
                 with self.subTest(settings=settings), self.assertRaises(ValueError):
@@ -101,6 +142,21 @@ class BeadCoverTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "unknown color"):
                 render_cover(path, reference, root/"new", reference_note="same")
             self.assertFalse((root/"new").exists())
+
+    def test_background_revision_preserves_foreground_and_chart_inputs_exactly(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _, project, reference = self.fixture(root)
+            before = hashes(root)
+            close = render_cover(project, reference, root/"covers/close", reference_note="same",
+                                 size=(600, 800), background_fit="cover", zoom=1.12, blur=0.026)
+            wide = render_cover(project, reference, root/"covers/wide", reference_note="same", size=(600, 800))
+            self.assertEqual(hashes(root), before)
+            self.assertEqual(close["statistics"], wide["statistics"])
+            self.assertEqual(close["products_sha256"]["foreground"], wide["products_sha256"]["foreground"])
+            self.assertNotEqual(close["products_sha256"]["background"], wide["products_sha256"]["background"])
+            self.assertGreater(wide["layout"]["background_framing"]["visible_fraction"],
+                               close["layout"]["background_framing"]["visible_fraction"])
 
     def test_workflow_cover_keeps_two_and_four_chart_runs_byte_identical(self):
         for oversized in (False, True):
@@ -161,13 +217,15 @@ class BeadCoverTests(unittest.TestCase):
             result = subprocess.run([sys.executable, str(ROOT/"tools/beads/render_cover.py"),
                                      str(path), str(root/"covers/cli"), "--reference", str(root/"rotated.jpg"),
                                      "--reference-note", "same character/costume", "--size", "600", "800",
-                                     "--reference-crop", "0", "0", "700", "900", "--flat"],
+                                     "--reference-crop", "0", "0", "700", "900", "--flat",
+                                     "--background-fit", "contain", "--zoom", "0.85"],
                                     capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(json.loads(result.stdout)["status"], "cover_ready_for_review")
             report = json.loads((root/"covers/cli/cover.json").read_text())
             self.assertEqual(report["reference"]["original_size"], [700, 900])
             self.assertEqual(report["layout"]["texture"], "flat")
+            self.assertEqual(report["layout"]["zoom"], 0.85)
 
 
 if __name__ == "__main__":
