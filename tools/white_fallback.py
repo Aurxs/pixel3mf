@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Explicit white-background candidate preparation and main-conversation review gate."""
+"""White-first or fallback candidate preparation with Agent visual review."""
 from __future__ import annotations
 
 import argparse
@@ -7,6 +7,7 @@ import hashlib
 import json
 from pathlib import Path
 import shutil
+import tempfile
 
 import cv2
 import numpy as np
@@ -29,21 +30,30 @@ def write_json(path: Path, value: object) -> None:
 
 
 def prepare(source: Path, failure_evidence: Path, output: Path) -> Path:
-    """Create a new review-only candidate; never infer failure or invoke conversion."""
+    """Create a review-only candidate from source review or retained model failure."""
     evidence = json.loads(failure_evidence.read_text(encoding="utf-8"))
-    if (evidence.get("schema") != "white-fallback-failure/v1"
+    automatic = evidence.get("schema") == "white-first-processing/v1"
+    white_first = automatic or evidence.get("schema") == "white-first-source-review/v1"
+    valid_route = (
+        white_first and evidence.get("reviewer_role") == ("not-reviewed" if automatic else "main-conversation")
+        and evidence.get("model_masks", []) == []
+    ) or (
+        evidence.get("schema") == "white-fallback-failure/v1"
+        and evidence.get("failure_kind") == "semantic_mask_unusable"
+    )
+    if (not valid_route
             or evidence.get("source_sha256") != sha256(source)
-            or evidence.get("failure_kind") != "semantic_mask_unusable"
             or not isinstance(evidence.get("reason"), str) or not evidence["reason"].strip()
-            or evidence.get("source_accepted") is not True
+            or (evidence.get("source_ready_for_processing") is not True
+                if white_first else evidence.get("source_accepted") is not True)
             or evidence.get("white_background_suitable") is not True):
-        raise ValueError("source acceptance, white suitability and source-bound model failure evidence required")
+        raise ValueError("source-bound acceptance and white suitability review or model failure evidence required")
     rgba = np.asarray(Image.open(source).convert("RGBA"))
     border = np.concatenate((rgba[0], rgba[-1], rgba[:, 0], rgba[:, -1]))
     if not np.all(rgba[:, :, 3] == 255) or not np.all(border[:, :3] >= 245):
         raise ValueError("white fallback requires an opaque source with a near-white border (245)")
-    masks = evidence.get("model_masks")
-    if not isinstance(masks, list) or not masks:
+    masks = evidence.get("model_masks", []) if white_first else evidence.get("model_masks")
+    if not isinstance(masks, list) or (not white_first and not masks):
         raise ValueError("retain at least one failed IS-Net mask as evidence")
     verified_masks = []
     for item in masks:
@@ -55,7 +65,7 @@ def prepare(source: Path, failure_evidence: Path, output: Path) -> Path:
         if sha256(path) != item.get("sha256") or mask_size != (rgba.shape[1], rgba.shape[0]):
             raise ValueError("failed model mask hash or size mismatch")
         verified_masks.append(path)
-    grid = detect_source_grid(source)
+    grid = detect_source_grid(source, validate_density=not white_first)
     output.mkdir(parents=True, exist_ok=False)
     shutil.copyfile(source, output / "01_source.png")
     copied_evidence = dict(evidence)
@@ -64,12 +74,15 @@ def prepare(source: Path, failure_evidence: Path, output: Path) -> Path:
         name = f"failed_model_{i}.png"
         shutil.copyfile(path, output / name)
         copied_evidence["model_masks"].append({**item, "path": name})
+    # Retain this legacy filename for correction/export replay compatibility;
+    # the schema distinguishes a source review from actual model failure.
     write_json(output / "failure_evidence.json", copied_evidence)
     bg = remove_background(output / "01_source.png", output / "02_white_cutout.png",
                            method="white", semantic_mask_path=output / "02_white_mask.png")
     refined = refine_pixel(output / "02_white_cutout.png", output / "03_working_grid.png",
                            output / "03_working_preview.png", expected_source_grid=grid,
-                           working_padding_cells=2, binarize_alpha=False)
+                           working_padding_cells=2, binarize_alpha=False,
+                           validate_source_density=not white_first)
     cleanup = finalize_pixel_grid(
         output / "03_working_grid.png", output / "candidate.png", output / "candidate_8x.png",
         background_rgb=bg["background_rgb"], components_path=output / "semantic_components.json",
@@ -102,6 +115,7 @@ def prepare(source: Path, failure_evidence: Path, output: Path) -> Path:
                 "source_sha256": sha256(source), "source_grid": grid,
                 "detected_grid": refined["detected_grid"], "working_grid": refined["working_grid"],
                 "candidate_grid": cleanup["export_grid"], "method": "white", "white_threshold": 245,
+                "preparation_route": "white-first" if white_first else "semantic-fallback",
                 "working_padding_cells": 2, "artifacts": artifacts,
                 "warning": "Color alpha is not semantic confidence; every internal white region needs review."}
     write_json(output / "candidate.json", manifest)
@@ -112,6 +126,21 @@ def prepare(source: Path, failure_evidence: Path, output: Path) -> Path:
         "components": {c["id"]: {"decision": "unresolved", "reason": ""} for c in components},
         "notes": ""})
     return output / "candidate.json"
+
+
+def prepare_automatic(source: Path, output: Path) -> Path:
+    """Run white-first processing without asking the Agent for a preliminary review."""
+    evidence = {
+        "schema": "white-first-processing/v1", "reviewer_role": "not-reviewed",
+        "source_sha256": sha256(source), "source_ready_for_processing": True,
+        "white_background_suitable": True,
+        "reason": "Automatic processing request only; decode/alpha/border checks run in prepare. No visual acceptance asserted.",
+        "model_masks": [],
+    }
+    with tempfile.TemporaryDirectory(prefix="pixel-white-first-") as temp:
+        path = Path(temp) / "processing.json"
+        write_json(path, evidence)
+        return prepare(source, path, output)
 
 
 def validate_main_review(review: dict, manifest_path: Path, components: list, *, checks=CHECKS) -> None:
@@ -182,7 +211,10 @@ def main() -> None:
     sub = parser.add_subparsers(dest="command", required=True)
     create = sub.add_parser("prepare")
     create.add_argument("--source", required=True, type=Path)
-    create.add_argument("--failure-evidence", required=True, type=Path)
+    evidence_args = create.add_mutually_exclusive_group(required=False)
+    evidence_args.add_argument("--failure-evidence", dest="failure_evidence", type=Path)
+    evidence_args.add_argument("--source-review", dest="failure_evidence", type=Path,
+                               help="Source-bound Agent review for white-first preparation; no model required")
     create.add_argument("--output", required=True, type=Path)
     approve = sub.add_parser("promote")
     approve.add_argument("--review", required=True, type=Path)
@@ -200,7 +232,8 @@ def main() -> None:
         print(correction_template(args.candidate, args.output) if args.command == "correction-template"
               else correct_regions(args.candidate, args.decisions, args.output))
     else:
-        print(prepare(args.source, args.failure_evidence, args.output) if args.command == "prepare"
+        print((prepare(args.source, args.failure_evidence, args.output) if args.failure_evidence
+               else prepare_automatic(args.source, args.output)) if args.command == "prepare"
               else promote(args.review))
 
 

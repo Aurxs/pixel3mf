@@ -1,8 +1,21 @@
 # Stage 3 — Semantic Cutout and Pixel Refinement
 
-Do not read this file until the source has passed the Stage 2 preflight or the user has explicitly accepted a reported limitation.
+Read once the source exists. Run processing first; Agent visual review begins only after a refined candidate and preview exist.
 
-## Build the semantic mask
+## Default route — connected white exterior, then Agent hand cutout
+
+For a readable opaque near-white source, use white-first preparation below. Do not run IS-Net first or manufacture a failed mask. For useful binary transparency, use `preserve` and skip background removal. For a non-white, shadowed, or unsuitable source, do not apply global white deletion: attempt an Agent-reviewed mask route rather than rejecting on appearance alone. Semantic segmentation is optional only when explicitly requested, not a required fallback.
+
+1. Run the applicable processing route directly; do not first inspect the image or write `source-review.json`. For an opaque white source, run `tools/white_fallback.py prepare --source /absolute/source.png --output /absolute/new-candidate`. The tool checks technical input properties, removes connected near-white exterior, and refines pixels before any Agent review. Existing binary alpha uses `preserve`. Actual tool errors require rework; do not silently override them.
+2. The command produces the candidate, enlarged preview and numbered residual-white regions. Its automatic provenance files are not Agent assessments; do not create a separate source acceptance or diagnostics report. Neither a segmentation model nor preliminary visual approval is required.
+
+3. The Agent must view the original, candidate, enlarged preview, numbered whites and outline. Judge every remaining white region from the image: preserve eyes, hair, costume and highlights; identify actual background holes between hair/body or inside ornaments. A threshold, region size, or model probability alone is not a decision. Check for exterior-connected subject whites accidentally removed through an open outline as well.
+4. Hand-remove confirmed background regions with the source-bound `correct` workflow below: explicitly classify each region, record reasons, preserve RGB, and modify only its alpha. This is an Agent visual decision, not a request that the user manually edit pixels. The user has authorized Agent cutout work. If a region contains both subject and background, do not delete it wholesale. Create a separate source-size binary mask with the specifically reviewed cells/pixels changed, record source hash, coordinates, before/after alpha and reasons, and process via the existing `mask_override` route. Restore an accidentally removed subject region from the unchanged source in this same reviewed mask, not by painting RGB or filling guessed shapes. Keep the unmodified candidate and the mask/change record. Do not relabel a manually corrected mask as automatic white extraction.
+5. Reinspect the corrected result and differences, especially eye whites, pale hair, clothing, black outline and internal holes. Use the existing per-region review and `promote` gate for numbered-region corrections. For a manual mask override, complete the usual source-grid, binary-alpha and main visual gates and retain the mask provenance. Uncertain subject/background decisions block final acceptance; do not approve them just to continue. Do not invoke segmentation as a mandatory step.
+
+The next two sections document optional semantic processing and the legacy model-failure route. Skip them on the normal white-first route and continue with the numbered-region correction and Pixel Fine instructions as needed. Existing conversion review guards remain required; this route does not authorize bypassing them.
+
+## Optional semantic mask route (only when requested)
 
 Create `02_semantic_mask.png` and `02_bg_removed.png` while preserving the source RGB.
 
@@ -16,7 +29,7 @@ Keep the model probability in alpha through Pixel Fine. Do not alpha-matte or so
 
 ## Explicit white-background fallback after model failure
 
-Semantic `auto` remains the default. Only after an accepted opaque, near-white source has an unusable IS-Net mask, explicitly prepare a **review-only** white candidate. Do not retry export with bare `--background-method white`; the export entry points now require a source-bound main-conversation review. A runtime error without a retained mask is not sufficient evidence. Do not use this route to bypass source acceptance, change the source grid, loosen alpha/color thresholds, or remove white regions by fixed area.
+White-first is the default for suitable opaque white sources. If the optional semantic route was explicitly requested and produced an unusable mask, the legacy failure-evidence entrypoint can also prepare a **review-only** white candidate. Do not retry export with bare `--background-method white`; the export entry points now require a source-bound main-conversation review. A runtime error without a retained mask is not sufficient evidence. Do not use this route to bypass source acceptance, change the source grid, loosen alpha/color thresholds, or remove white regions by fixed area.
 
 1. Preserve the failed run and its original source/model masks. In a separate folder, write `failure.json` with this schema (mask paths are relative to that JSON):
 
@@ -68,8 +81,8 @@ The main-conversation assistant must review the corrected image, mask, changes, 
 
 Create `03_working_grid.png`, `04_pixel_perfect.png`, and `05_pixel_preview_8x.png`.
 
-- Auto-detect the untouched source grid before semantic masking and require `45–80` cells per axis there only.
-- Run Pixel Fine again with semantic confidence in alpha and require the detected grid to match the source preflight exactly.
+- Let the tools detect the source grid with density validation disabled. Continue on out-of-range counts without a separate Agent report or visual intervention. Do not turn the historical range into a pre-refinement rejection.
+- Run Pixel Fine with `validate_source_density=False` and the appropriate source alpha or reviewed mask. Preserve the detected source grid when available; an actual sampling/grid-consistency error is a refinement failure, not an error to suppress.
 - Preserve the rectangular grid and never force a fixed fallback grid.
 - Add two complete transparent logical rows and columns on every side as temporary working padding. The configured value may change explicitly, but percentage padding is not used by the pipeline.
 - For fully opaque sources, resolve background-colored logical components with foreground confidence `>= 0.80` and background confidence `<= 0.20`. In automatic mode, let the general model adjudicate every enclosed background-colored component that the anime model did not confidently reject; this includes high-confidence color/semantic conflicts such as a white gap called foreground by the anime model. A component whose adjudicating samples all remain below `0.50` is background; a component whose median is at least `0.80` is semantic foreground. Treat the unresolved interval as ambiguous.
@@ -85,7 +98,7 @@ Create `03_working_grid.png`, `04_pixel_perfect.png`, and `05_pixel_preview_8x.p
 - Treat the tight `04_pixel_perfect.png` dimensions as `export_grid`, the only downstream sizing source.
 - Enlarge the preview with nearest-neighbor sampling only.
 
-Minor source blur, antialiasing, gradients, and near-identical colors pass when the final grid is stable, readable, binary-alpha, and free of unapproved ambiguous background components.
+Source blur, antialiasing, gradients, and near-identical colors are assessed only after refinement; accept when the final grid is stable, readable, binary-alpha, and free of unapproved ambiguous background components.
 
 The main-conversation assistant must inspect `04_pixel_perfect.png` and `05_pixel_preview_8x.png` before final acceptance. Judge the whole face for natural eye structure and coherent gaze. Allow differences caused by perspective, slight tilt, and natural partial occlusion; do not impose shared pixel rows, equal iris/pupil row counts, or numerical near/far-eye limits. If a generated result still has obvious misalignment, broken eye shapes, or unexplained distortions, reject it and return to a fresh Stage 1 generation. Preserve a user-provided source unless a creative edit is authorized.
 

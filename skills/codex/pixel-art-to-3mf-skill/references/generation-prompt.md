@@ -2,6 +2,16 @@
 
 Read this file only while constructing an image-generation or explicitly requested image-editing call. Do not read post-generation references during this stage.
 
+## Generation backend
+
+- Default to the built-in imagegen tool. If the user requests an external image API or names a specific API model (for example `gpt-image-2.6-sunburst` or `gpt-image-2.6-flare`), use that API route instead. Do not silently substitute a different model or fall back to built-in generation after an API error.
+- For OpenAI, use the official Image API and load `OPENAI_API_KEY` from the user's configured environment or explicitly provided local configuration file. Never place credentials in prompts, logs, manifests, committed files or chat. Use a different provider/base URL only when explicitly supplied or authorized by the user; never forward an OpenAI credential to an unapproved endpoint.
+- Use the available imagegen skill's supported API/CLI route when installed; otherwise use the user's configured API client. Verify the current provider schema when needed. Generation with reference images uses the provider's reference-capable image/edit endpoint; it remains a new generation, not an edit of a previous generated result.
+- Select `model`, `quality`, `size`, `background`, and output format as API request parameters, not as extra workflow text inside the visual prompt. Honor user settings. For the normal white-background workflow, request opaque PNG explicitly where supported. The built-in tool may not expose equivalent settings: do not claim to set unavailable parameters.
+- Pass the Stage 1 visual prompt and the same allowed original reference images in their documented order. Prefer disabling automatic prompt augmentation when the client supports it, unless the user requests augmentation; retain the exact effective prompt actually sent. Do not assume external APIs can read a local filename: upload or encode image bytes using the supported request format.
+- Save the returned image as `01_source.png`. Keep a non-secret record of backend, requested model, effective prompt, reference paths, request parameters and attempt number. Do not embed image base64 or credentials in this record. A backend not returning its actual model identity must be described as such.
+- An authentication, quota, network, or unavailable-model error is a transport failure, not an image-quality rejection. Resolve the execution issue or report it; do not spend image retries repeatedly on the same transport error. Once an image is returned, follow the ordinary refinement and final-review stages.
+
 ## Allowed inputs
 
 When the user supplies no stronger style reference, load:
@@ -18,6 +28,7 @@ Treat user-provided images as references unless the user explicitly asks to edit
 Before every generation or creative edit of a named or recognizable character:
 
 1. Search first-party sources for canonical identity, appearance, clothing, palette, props, and signature motifs. Prefer collecting and using multiple clear, reliable official reference images of the same character and costume/version, together covering the face, hairstyle, and key clothing details. Cross-check distinctive identity features across the references to avoid a generic likeness. Do not mix different characters, skins, costumes, or mechanical/human forms, or force a fixed image count.
+   Check coverage rather than a fixed image count: the references should clearly show the face/eyes, hairstyle and head accessories, and upper-body costume. Two complementary clear official images can be sufficient; duplicate crops or reposts of the same artwork do not count as independent coverage. If a feature is obscured or references disagree, seek another official close-up, view, or clear frame from the same costume/form before generating. Prefer a small complementary set (often 3–4 images when needed), not many redundant images. Do not mix forms to increase the count. Record any remaining gaps instead of inventing details.
 2. Save `00_official_character_research.md` with the canonical name/version, the actual official source URLs and reference images used, verified visual facts, and clearly separated inferences. Record gaps in reference coverage; if only one official image is available, state that explicitly rather than claiming multiple references.
 3. Use the brief as the identity authority without copying logos, readable marks, slogans, or long source text.
 4. Record original/non-character subjects as `official_character_research_status=not_applicable`.
@@ -25,9 +36,10 @@ Before every generation or creative edit of a named or recognizable character:
 
 ## New-generation payload
 
-Send only the text inside this block after replacing placeholders. Do not append any text from another skill file.
+For the first attempt, render the template below. For retries, follow the retry rule at the end of this file.
 
 - Replace `<character>` with the requested character name and costume/version.
+- Replace `<pose-plan>` and `<expression-plan>` with concrete visual directions selected before each generation. Save them with the rendered prompt and attempt number. These are creative choices, not diagnostics.
 - Replace `<verified-character-appearance-summary>` with a concise, self-contained summary of verified visual facts from the saved research. For original subjects, use the user's appearance description and identify it as an original design.
 - Inline the actual appearance facts; a local file path or instruction to read a Markdown file is not a substitute. The image model cannot read local research files.
 - Keep workflow instructions, source-validation thresholds, diagnostics, conversion details, and previous results out of these placeholders. Preserve the artistic grid target already written in the template; do not derive or adjust it from later-stage checks.
@@ -37,11 +49,14 @@ Use case: stylized-concept
 Asset type: coarse pixel-art portrait
 Primary request: Create one recognizable <character> as coarse pixel art.
 
-Priority 1 — pixel language: Internally design on a 48 × 48 logical canvas and enlarge with nearest-neighbor only. Use Images 1–3 as examples of uniform pixel cells, readable detail density, stair-stepped contours, and simplified character features. Follow the 48 × 48 logical canvas target specified above rather than copying a reference image’s exact dimensions. Keep all boundaries on one grid. Use flat colors without a fixed palette-size limit.
+Priority 1 — pixel language: Internally design on a 24 × 24 logical canvas and enlarge with nearest-neighbor only. Use Images 1–3 as examples of uniform pixel cells, readable detail density, stair-stepped contours, and simplified character features. Follow the 24 × 24 logical canvas target specified above rather than copying a reference image’s exact dimensions. Keep all boundaries on one grid. Use flat colors without a fixed palette-size limit.
 
 Pixel-block constraint: Do not use extra shading, gradients, or clusters of near-identical colors to simulate detail. When a detail cannot be expressed with a few clear logical cells, symbolize and simplify it into fewer cells. Keep detailed regions at the same cell scale as the rest of the image; never magnify them locally or use continuous tonal steps.
 
 Priority 2 — character and pose: Draw one natural upper-body portrait ending at the upper chest. Default to a natural three-quarter upper-body view, with the head, chest, and shoulders facing broadly the same direction. Show the angle through the shoulder line and torso perspective, not an isolated head turn. Allow a small natural head adjustment, but avoid a pronounced neck twist, looking back over the shoulder, or a forced head tilt. Follow an explicitly requested pose when provided. Avoid a flat, straight-on ID-photo composition. Keep the head and hair dominant, center the subject horizontally, and shift it upward by about 1–2 logical rows.
+Pose for this image: <pose-plan>
+Expression for this image: <expression-plan>
+Create a fresh portrait composition following these directions while preserving the character identity and pixel-art constraints.
 
 Priority 3 — eyes and anatomy: Draw natural, readable eyes with a coherent gaze. Let eye height, width, placement, and visible iris/pupil shapes follow the overall viewing angle and natural occlusion by hair, glasses, or props. Keep the eye structures clear and visually consistent with the face; avoid obvious misalignment, broken shapes, or unexplained distortions. Keep the head-to-shoulder relationship compact and natural. Show only the small amount of neck needed between the jaw and the collar or shoulders; do not connect the head and body with an elongated vertical column of skin. Let the neck merge naturally into the shoulder line. Preserve the character’s costume and accessories without lengthening the neck to display a necklace, collar, or ornament.
 
@@ -65,4 +80,8 @@ Use this block only when the user explicitly asks to edit their supplied source.
 Edit the supplied source with the minimum possible change. Preserve its composition, crop, pixel scale, palette, silhouette, head turn, face and jaw shape, hair mass, neck width, shoulder line, hand/prop placement, expression, and exterior outline. Correct only <user-requested defect>. Do not redesign or redraw unrelated areas.
 ```
 
-For every retry, start from the original request, identity brief, approved user references, and bundled references. Never attach the rejected generated image.
+## Retry rule
+
+On retry, write a fresh image-generation prompt following this skill’s Stage 1 generation guidelines and the original user request. Do not merely patch the previous prompt or change its placeholders. Natural expressions may repeat; do not exaggerate them to force variation.
+
+Reuse the original official character references and style references, but never use images generated in previous attempts as input. Do not include downstream validation results or processing details. Save the exact prompt used for each attempt.

@@ -65,6 +65,62 @@ class WhiteFallbackTests(unittest.TestCase):
         fallback.write_json(path, review)
         return path, review
 
+    def test_automatic_prepare_needs_no_agent_record_or_model(self):
+        with patch.object(fallback, "detect_source_grid", return_value=GRID), patch.object(
+            fallback, "refine_pixel", side_effect=fake_refine
+        ), patch("remove_background.run_segmentation_model") as model:
+            fallback.prepare_automatic(self.source, self.output)
+        model.assert_not_called()
+        evidence = json.loads((self.output / "failure_evidence.json").read_text())
+        self.assertEqual(evidence["reviewer_role"], "not-reviewed")
+        self.assertNotIn("source_accepted", evidence)
+        self.assertTrue((self.output / "candidate.png").exists())
+        with self.assertRaises(ValueError):
+            fallback.promote(self.output / "review.template.json")
+
+    def test_white_first_needs_no_model_and_keeps_internal_whites_for_review(self):
+        data = {"schema": "white-first-source-review/v1", "reviewer_role": "main-conversation",
+                "source_sha256": fallback.sha256(self.source), "source_ready_for_processing": True,
+                "white_background_suitable": True, "reason": "Reviewed clean white exterior and closed outline"}
+        fallback.write_json(self.evidence, data)
+        manifest = json.loads(self.prepare().read_text())
+        self.assertEqual(manifest["preparation_route"], "white-first")
+        cutout = np.array(Image.open(self.output / "02_white_cutout.png").convert("RGBA"))
+        self.assertEqual(int(cutout[0, 0, 3]), 0)
+        self.assertEqual(int(cutout[4, 4, 3]), 255)
+        self.assertEqual(int(cutout[8, 6, 3]), 255)
+        self.assertEqual(len(json.loads((self.output / "white_regions.json").read_text())), 2)
+        with self.assertRaises(ValueError):
+            fallback.promote(self.output / "review.template.json")
+        review, _ = self.review()
+        self.assertEqual(fallback.promote(review).read_bytes(), (self.output / "candidate.png").read_bytes())
+
+    def test_white_first_out_of_range_grid_reaches_refinement(self):
+        fallback.write_json(self.evidence, {
+            "schema": "white-first-source-review/v1", "reviewer_role": "main-conversation",
+            "source_sha256": fallback.sha256(self.source), "source_ready_for_processing": True,
+            "white_background_suitable": True, "reason": "Readable white source; defer quality to final image"})
+        with patch.object(fallback, "detect_source_grid", return_value={"width": 81, "height": 79}) as detect, patch.object(
+            fallback, "refine_pixel", side_effect=fake_refine
+        ) as refine:
+            fallback.prepare(self.source, self.evidence, self.output)
+        self.assertFalse(detect.call_args.kwargs["validate_density"])
+        self.assertFalse(refine.call_args.kwargs["validate_source_density"])
+        self.assertTrue((self.output / "candidate.png").exists())
+        self.assertFalse((self.output / "04_pixel_perfect.png").exists())
+
+    def test_white_first_rejects_unreviewed_or_wrong_source(self):
+        data = {"schema": "white-first-source-review/v1", "reviewer_role": "main-conversation",
+                "source_sha256": fallback.sha256(self.source), "source_ready_for_processing": True,
+                "white_background_suitable": True, "reason": "Reviewed source"}
+        for key, value in [("source_sha256", "wrong"), ("reviewer_role", "automatic"),
+                           ("source_ready_for_processing", False), ("white_background_suitable", False)]:
+            with self.subTest(key=key):
+                fallback.write_json(self.evidence, {**data, key: value})
+                with self.assertRaises(ValueError):
+                    fallback.prepare(self.source, self.evidence, self.output)
+                self.assertFalse(self.output.exists())
+
     def test_prepare_retains_source_and_requires_review_without_exporting(self):
         manifest = json.loads(self.prepare().read_text())
         self.assertEqual(self.source.read_bytes(), (self.output / "01_source.png").read_bytes())

@@ -206,8 +206,8 @@ def refine_mask_to_grid(
     }
 
 
-def detect_source_grid(input_path: str | Path) -> dict[str, object]:
-    """Auto-detect and validate density on the untouched source canvas."""
+def detect_source_grid(input_path: str | Path, *, validate_density: bool = True) -> dict[str, object]:
+    """Detect the source grid; diagnostic callers may defer density judgment."""
     rgba = np.asarray(Image.open(input_path).convert("RGBA"))
     grid_w, grid_h, refined = _auto_detect_grid(rgba)
     if grid_w is None or grid_h is None:
@@ -215,7 +215,8 @@ def detect_source_grid(input_path: str | Path) -> dict[str, object]:
             "Perfect Pixel could not detect the source logical grid; regenerate "
             "a clearer low-resolution pixel-art source"
         )
-    validate_detected_grid(int(grid_w), int(grid_h))
+    if validate_density:
+        validate_detected_grid(int(grid_w), int(grid_h))
     refined = np.asarray(refined, dtype=np.uint8)
     reconstructed = np.asarray(
         Image.fromarray(refined, "RGBA").resize(
@@ -242,6 +243,9 @@ def detect_source_grid(input_path: str | Path) -> dict[str, object]:
         np.unique(refined[:, :, :3].reshape(-1, 3), axis=0).shape[0]
     )
     warnings: list[str] = []
+    if not (MIN_ACCEPTED_GRID <= int(grid_w) <= MAX_ACCEPTED_GRID
+            and MIN_ACCEPTED_GRID <= int(grid_h) <= MAX_ACCEPTED_GRID):
+        warnings.append("source_density_outside_reference_range")
     if changed_fraction > 0.01:
         warnings.append("minor_blur_antialiasing_or_whole_cell_tone_variation")
     if palette_size > 64:
@@ -254,6 +258,7 @@ def detect_source_grid(input_path: str | Path) -> dict[str, object]:
             "rgb_pixels_over_delta_8_fraction": round(changed_fraction, 6),
             "logical_palette_size": palette_size,
         },
+        "density_gate_applied": validate_density,
         "accepted_range": {
             "minimum_per_axis": MIN_ACCEPTED_GRID,
             "maximum_per_axis": MAX_ACCEPTED_GRID,
