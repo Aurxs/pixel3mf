@@ -100,7 +100,19 @@ Create `03_working_grid.png`, `04_pixel_perfect.png`, and `05_pixel_preview_8x.p
 
 Source blur, antialiasing, gradients, and near-identical colors are assessed only after refinement; accept when the final grid is stable, readable, binary-alpha, and free of unapproved ambiguous background components.
 
-The main-conversation assistant must inspect `04_pixel_perfect.png` and `05_pixel_preview_8x.png` before final acceptance. Judge the whole face for natural eye structure and coherent gaze. Allow differences caused by perspective, slight tilt, and natural partial occlusion; do not impose shared pixel rows, equal iris/pupil row counts, or numerical near/far-eye limits. If a generated result still has obvious misalignment, broken eye shapes, or unexplained distortions, reject it and return to a fresh Stage 1 generation. Preserve a user-provided source unless a creative edit is authorized.
+## Eye repair — required after refinement and background correction
+
+Once the logical grid and background corrections are ready, always read [eye-repair.md](eye-repair.md) and run its inspection, local repair and candidate-selection process. Do not add an external defect-detection gate before loading it. Natural eyes may remain unchanged. For user-supplied sources without creative-edit authorization, inspect and preserve the input; record any observed defects for final acceptance.
+
+Keep the pre-repair grid and all upstream review bundles unchanged. Save eye candidates, comparisons and the actual pixel-change record in a separate `eye-repair/` directory. Select one exact image for final acceptance, including the unchanged input when no candidate improves it. Do not rerun Pixel Fine, resample, reduce the palette or change Alpha after eye repair. This step does not approve Stage 3, trigger fresh generation, or require user-specified pixel instructions.
+
+## Final Stage 3 acceptance
+
+The main-conversation assistant must inspect the selected image, its nearest-neighbor full preview, and the eye before/after comparisons. Check the whole result: background and silhouette, stable grid and binary Alpha, face and natural eye structure, coherent gaze, and changes outside the eye regions. Allow perspective, tilt and occlusion; do not require identical eye rows, iris/pupil counts or numerical near/far-eye ratios.
+
+Candidate selection is not final acceptance. Decide here whether the result passes. If a generated image still has obvious broken eye shapes, misalignment or other unacceptable defects, retain the evidence and return to a fresh Stage 1 generation. Preserve a user-provided source unless creative editing is authorized. Actual tool failures still require rework; do not suppress errors to reach this review.
+
+Record the exact selected image path and hash with the final review. An unchanged image may retain its applicable upstream promotion; changed RGB cannot inherit an old approval. Conversion must use the exact newly reviewed image through a compatible reviewed export route. Do not overwrite an upstream promoted bundle, relabel an eye candidate as the original source, or bypass replay/equality guards. The legacy RGB export route below imposes extra palette and white-region restrictions; it is not the default eye-repair route. Do not reduce colors or undo eye repairs just to satisfy it. If no supported export route can preserve the selected image, retain the accepted image and report the conversion handoff limitation rather than silently exporting the pre-repair grid.
 
 Do not read Lumina settings until the export artifact and preview pass this final gate.
 
