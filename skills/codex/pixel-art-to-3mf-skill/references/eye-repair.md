@@ -1,6 +1,6 @@
 # Pixel Eye Inspection and Repair
 
-Based on the trialed v2.1: repair the eye shape and lower contour first, then the gaze center, and finally the highlights.
+Repair the eye shape and lower contour first, then the gaze center, and finally the highlights.
 
 ## When to use
 
@@ -112,7 +112,7 @@ Try at most two local candidates. If neither improves the image, select the orig
 
 ## Avoid copying a single successful example
 
-These rules prescribe no fixed pupil length, highlight cell count, mouth shape, color values or edit coordinates.
+These rules prescribe no fixed pupil length, highlight cell count, color values or edit coordinates.
 A few successful edits in one example do not mean every image should receive the same changes.
 Do not select a candidate merely because it is described as "more lively": check whether structure, lower contours, gaze, highlights and the complete portrait improve together.
 

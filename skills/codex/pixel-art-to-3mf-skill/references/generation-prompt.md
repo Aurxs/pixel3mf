@@ -15,7 +15,7 @@ When the user supplies no stronger style reference, load:
 - `../assets/reference-kafka-style.png` as Image 1
 - `../assets/reference-xiaowanzhou-style.png` as Image 2
 - `../assets/reference-yoimiya-style.png` as Image 3
-- Use only these three bundled style references. Do not search for or load retired style references from other skill copies, archives, or prior runs.
+- Use these three bundled style references.
 
 Treat user-provided images as references unless the user explicitly asks to edit the supplied image.
 
@@ -54,14 +54,14 @@ Pose for this image: <pose-plan>
 Expression for this image: <expression-plan>
 Create a fresh portrait composition following these directions while preserving the character identity and pixel-art constraints.
 
-Priority 3 — eyes and anatomy: Draw natural, readable eyes with a coherent gaze. Let eye height, width, placement, and visible iris/pupil shapes follow the overall viewing angle and natural occlusion by hair, glasses, or props. Keep the eye structures clear and visually consistent with the face; avoid obvious misalignment, broken shapes, or unexplained distortions. Keep the head-to-shoulder relationship compact and natural. Show only the small amount of neck needed between the jaw and the collar or shoulders; do not connect the head and body with an elongated vertical column of skin. Let the neck merge naturally into the shoulder line. Preserve the character’s costume and accessories without lengthening the neck to display a necklace, collar, or ornament.
+Priority 3 — eyes and anatomy: Draw natural, readable eyes with a coherent gaze. Let eye height, width, placement, and visible iris/pupil shapes follow the overall viewing angle and natural occlusion by hair, glasses, or props. Keep the eye structures clear and visually consistent with the face; avoid obvious misalignment, broken shapes, or unexplained distortions. Keep the head-to-shoulder relationship compact and natural. Keep the neck short, with a compact gap between the jaw and collar and a natural connection to the shoulders. Preserve the character’s costume and accessories.
 
 Priority 4 — silhouette: Use a one-logical-pixel pure-black outline around the complete subject. Make the lowest occupied subject row a continuous black baseline, with at least one clean background row below it. Use a completely uniform pure-white background. The generated PNG must be fully opaque: every background pixel and every subject pixel has alpha 255. Do not generate transparency, partial transparency, a checkerboard, shadows, gradients, or background texture.
 
 Verified character appearance: <verified-character-appearance-summary>
 Use this inline summary and the official character images for identity, hairstyle, costume, palette, and signature motifs. Do not copy logos, readable marks, slogans, or text from official sources.
 
-Reference rule: Images 1–3 guide only pixel structure, detail density, outline weight, and simplification. Image 1 demonstrates clear hair masses and readable contours; Image 2 demonstrates flat color blocks and simplified small details; Image 3 demonstrates how to organize complex hair ornaments, rope knots, and costume details on a uniform pixel grid while keeping a natural, readable expression. Learn its detail selection and expression clarity without copying its specific mouth shape. Do not copy their identity, palette, pose, clothing, or accessories. In particular, do not copy Image 2’s hair covering one eye; eye visibility follows the requested character and pose. Follow the user's requested character and action.
+Reference rule: Images 1–3 guide only pixel structure, detail density, outline weight, and simplification. Image 1 demonstrates clear hair masses and readable contours; Image 2 demonstrates flat color blocks and simplified small details; Image 3 demonstrates how to organize complex hair ornaments, rope knots, and costume details on a uniform pixel grid while keeping a natural, readable expression. Learn its detail selection and expression clarity. Do not copy their identity, palette, pose, clothing, or accessories. Eye visibility follows the requested character and pose. Follow the user's requested character and action.
 
 Character-reference rule: Use official character images only for identity, hairstyle, clothing, palette, and other appearance features. Do not use them as references for action, pose, or composition.
 
