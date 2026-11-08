@@ -38,7 +38,7 @@ This is the only stage allowed to call image generation or image editing. Use th
 4. Send the rendered template for the first attempt, or the independently rewritten Stage 1 visual prompt for a retry, as specified in that reference.
 5. Save the returned image as `01_source.png`.
 
-For a generated result rejected at the final Stage 3 acceptance, start a brand-new generation. The eye-repair step selects a candidate; it does not decide regeneration. Do not pass any result image generated in an earlier attempt as an edit target, attached reference, or recent-image context. Reuse of the original official character references, approved user-supplied references, and bundled style references is allowed. Edit a user-provided source only when the user explicitly asks for a local correction.
+When Stage 3's retry rules require regeneration, start a brand-new generation. The eye-repair step selects a candidate; it does not decide regeneration. Do not pass any result image generated in an earlier attempt as an edit target, attached reference, or recent-image context. Reuse of the original official character references, approved user-supplied references, and bundled style references is allowed. Edit a user-provided source only when the user explicitly asks for a local correction.
 
 ### Gate 1
 
@@ -54,7 +54,7 @@ Once the source exists, attempt Stage 3 directly. The Agent first reviews the co
 
 ## Stage 3 — Prepare and refine pixels
 
-Only after Gate 2, read [pixel-refinement.md](references/pixel-refinement.md). Follow its preparation and refinement requirements, complete background corrections, then always run its eye-repair step before final visual acceptance. Eye-repair instructions are loaded only at that point. Local pixel edits do not call an image model. Preserve user-supplied sources when creative editing is not authorized.
+Only after Gate 2, read [pixel-refinement.md](references/pixel-refinement.md). Prepare and refine the image, clean up the background and outline, then repair the eyes and perform the final visual review. Read the eye-repair instructions only when you reach that step. Local pixel edits do not call an image model. Preserve user-supplied sources when creative editing is not authorized.
 
 ### Gate 3
 

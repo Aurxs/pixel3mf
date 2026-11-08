@@ -82,7 +82,7 @@ The main-conversation assistant must review the corrected image, mask, changes, 
 Create `03_working_grid.png`, `04_pixel_perfect.png`, and `05_pixel_preview_8x.png`.
 
 - Let the tools detect the source grid with density validation disabled. Continue on out-of-range counts without a separate Agent report or visual intervention. Do not turn the historical range into a pre-refinement rejection.
-- Run Pixel Fine with `validate_source_density=False` and the appropriate source alpha or reviewed mask. Preserve the detected source grid when available; an actual sampling/grid-consistency error is a refinement failure, not an error to suppress.
+- Run Pixel Fine with `validate_source_density=False` and the appropriate source alpha or reviewed mask. Preserve the detected grid. Resolve execution faults first; for generated sources, restart Stage 1 if sampling/grid-consistency failure prevents a usable logical grid. Nonblocking density/palette warnings are not failures.
 - Preserve the rectangular grid and never force a fixed fallback grid.
 - Add two complete transparent logical rows and columns on every side as temporary working padding. The configured value may change explicitly, but percentage padding is not used by the pipeline.
 - For fully opaque sources, resolve background-colored logical components with foreground confidence `>= 0.80` and background confidence `<= 0.20`. In automatic mode, let the general model adjudicate every enclosed background-colored component that the anime model did not confidently reject; this includes high-confidence color/semantic conflicts such as a white gap called foreground by the anime model. A component whose adjudicating samples all remain below `0.50` is background; a component whose median is at least `0.80` is semantic foreground. Treat the unresolved interval as ambiguous.
@@ -90,7 +90,9 @@ Create `03_working_grid.png`, `04_pixel_perfect.png`, and `05_pixel_preview_8x.p
 - If the two-model route leaves an ambiguous component, save `02_mask_review_overlay.png` and `02_mask_components.json` and stop before Lumina unless the user explicitly accepts it or supplies a corrected binary mask.
 - Convert final alpha to exactly `0` or `255`. Isolated one-cell cleanup applies only to the fully opaque semantic route. Preserve semantic foreground whites such as eyes, hair, clothing, and highlights.
 
-## Produce the export grid
+## Finish the outline and export grid
+
+On the detected logical grid, make the exterior outline pure black and one logical pixel thick. Remove doubled edges and stray blocks, close gaps, and preserve the silhouette and sharp tips. Check actual line width in the nearest-neighbor preview; recoloring alone is not sufficient.
 
 - Tight-crop complete transparent rows and columns after cleanup. Preserve internal transparent holes.
 - Remove all temporary working padding before physical-size calculation.
@@ -98,21 +100,19 @@ Create `03_working_grid.png`, `04_pixel_perfect.png`, and `05_pixel_preview_8x.p
 - Treat the tight `04_pixel_perfect.png` dimensions as `export_grid`, the only downstream sizing source.
 - Enlarge the preview with nearest-neighbor sampling only.
 
-Source blur, antialiasing, gradients, and near-identical colors are assessed only after refinement; accept when the final grid is stable, readable, binary-alpha, and free of unapproved ambiguous background components.
+Keep outline corrections and their pixel-change record separate from upstream approved artifacts.
 
-## Eye repair — required after refinement and background correction
+## Eye repair — required after outline repair
 
-Once the logical grid and background corrections are ready, always read [eye-repair.md](eye-repair.md) and run its inspection, local repair and candidate-selection process. Do not add an external defect-detection gate before loading it. Natural eyes may remain unchanged. For user-supplied sources without creative-edit authorization, inspect and preserve the input; record any observed defects for final acceptance.
+After background and outline cleanup, read [eye-repair.md](eye-repair.md) and follow its process for inspection, local repair, and candidate selection. Do not add an external defect-detection gate before loading it. Natural eyes may remain unchanged. For user-supplied sources without creative-edit authorization, inspect and preserve the input; record any observed defects for final acceptance.
 
 Keep the pre-repair grid and all upstream review bundles unchanged. Save eye candidates, comparisons and the actual pixel-change record in a separate `eye-repair/` directory. Select one exact image for final acceptance, including the unchanged input when no candidate improves it. Do not rerun Pixel Fine, resample, reduce the palette or change Alpha after eye repair. This step does not approve Stage 3, trigger fresh generation, or require user-specified pixel instructions.
 
 ## Final Stage 3 acceptance
 
-The main-conversation assistant must inspect the selected image, its nearest-neighbor full preview, and the eye before/after comparisons. Check the whole result: background and silhouette, stable grid and binary Alpha, face and natural eye structure, coherent gaze, and changes outside the eye regions. Allow perspective, tilt and occlusion; do not require identical eye rows, iris/pupil counts or numerical near/far-eye ratios.
+After background cleanup, outline repair, and eye repair, the main-conversation assistant autonomously reviews the selected image, its full nearest-neighbor preview, and the eye comparisons. Check resolved background, silhouette, binary Alpha, natural face and eye structure, coherent gaze, and changes outside the eyes. Allow natural perspective, tilt, and occlusion; do not require numerical eye symmetry.
 
-Candidate selection is not final acceptance. Decide here whether the result passes. If a generated image still has obvious broken eye shapes, misalignment or other unacceptable defects, retain the evidence and return to a fresh Stage 1 generation. Preserve a user-provided source unless creative editing is authorized. Actual tool failures still require rework; do not suppress errors to reach this review.
-
-Record the exact selected image path and hash with the final review. An unchanged image may retain its applicable upstream promotion; changed RGB cannot inherit an old approval. Conversion must use the exact newly reviewed image through a compatible reviewed export route. Do not overwrite an upstream promoted bundle, relabel an eye candidate as the original source, or bypass replay/equality guards. The legacy RGB export route below imposes extra palette and white-region restrictions; it is not the default eye-repair route. Do not reduce colors or undo eye repairs just to satisfy it. If no supported export route can preserve the selected image, retain the accepted image and report the conversion handoff limitation rather than silently exporting the pre-repair grid.
+For generated sources with a usable grid, repair recoverable defects in Stage 3. Regenerate only if final review finds a remaining source defect that cannot be corrected locally without redesigning the character or composition. Preserve user-provided sources unless creative editing is authorized.
 
 Do not read Lumina settings until the export artifact and preview pass this final gate.
 
