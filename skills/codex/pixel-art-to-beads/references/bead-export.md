@@ -63,6 +63,8 @@ When both the original logical grid and a newly accepted 52-cell result already 
 
 ## Lower-level renderer
 
+Character covers are a separate post-export step; see [cover.md](cover.md). Keep the required two/four chart files and `expected_primary_products` unchanged. Save the additional `封面.png` and internal cover layers under `covers/`, outside `delivery/`, using saved cells and the matching original character reference retained during generation.
+
 Use the project tool paths and a compatible interpreter. The source must be a logical grid (one actual pixel = one bead), not its enlarged preview. Default maximum grid is 256 cells per axis.
 
 ```bash
