@@ -12,8 +12,8 @@ The model profile controls transport parameters only; never copy it into the vis
 
 When the user supplies no stronger style reference, load:
 
-- `../assets/reference-kafka-style.png` as Image 1
-- `../assets/reference-xiaowanzhou-style.png` as Image 2
+- `../assets/reference-nijika-style.png` as Image 1
+- `../assets/reference-airi-style.png` as Image 2
 - `../assets/reference-yoimiya-style.png` as Image 3
 - Use these three bundled style references.
 
@@ -35,7 +35,7 @@ Before every generation or creative edit of a named or recognizable character:
 For the first attempt, render the template below. For retries, follow the retry rule at the end of this file.
 
 - Replace `<character>` with the requested character name and costume/version.
-- Replace `<pose-plan>` and `<expression-plan>` with concrete visual directions selected before each generation. Save them with the rendered prompt and attempt number. These are creative choices, not diagnostics.
+- Replace `<pose-plan>` and `<expression-plan>` with concrete visual directions selected before each generation. Save them with the rendered prompt and attempt number. These are creative choices, not diagnostics. Choose the pose independently of the style references while keeping the default natural three-quarter view. Allow variation in facing direction, degree of turn, shoulder angle, and gaze. For a series, avoid repeatedly using the same pose; a quality retry need not change an otherwise suitable pose.
 - Replace `<verified-character-appearance-summary>` with a concise, self-contained summary of verified visual facts from the saved research. For original subjects, use the user's appearance description and identify it as an original design.
 - Inline the actual appearance facts; a local file path or instruction to read a Markdown file is not a substitute. The image model cannot read local research files.
 - Keep workflow instructions, source-validation thresholds, diagnostics, conversion details, and previous results out of these placeholders. Preserve the artistic grid target already written in the template; do not derive or adjust it from later-stage checks.
@@ -47,21 +47,23 @@ Primary request: Create one recognizable <character> as coarse pixel art.
 
 Priority 1 — pixel language: Internally design on a 24 × 24 logical canvas and enlarge with nearest-neighbor only. Use Images 1–3 as examples of uniform pixel cells, readable detail density, stair-stepped contours, and simplified character features. Follow the 24 × 24 logical canvas target specified above rather than copying a reference image’s exact dimensions. Keep all boundaries on one grid. Use flat colors without a fixed palette-size limit.
 
-Pixel-block constraint: Do not use extra shading, gradients, or clusters of near-identical colors to simulate detail. When a detail cannot be expressed with a few clear logical cells, symbolize and simplify it into fewer cells. Keep detailed regions at the same cell scale as the rest of the image; never magnify them locally or use continuous tonal steps.
+Pixel-block constraint: Do not use extra shading, gradients, or clusters of near-identical colors to simulate detail. Express details as coherent pixel clusters, simplifying redundant texture while preserving facial expression and distinctive character features. Keep detailed regions at the same cell scale as the rest of the image; never magnify them locally or use continuous tonal steps.
 
 Priority 2 — character and pose: Draw one natural upper-body portrait ending at the upper chest. Default to a natural three-quarter upper-body view, with the head, chest, and shoulders facing broadly the same direction. Show the angle through the shoulder line and torso perspective, not an isolated head turn. Allow a small natural head adjustment, but avoid a pronounced neck twist, looking back over the shoulder, or a forced head tilt. Follow an explicitly requested pose when provided. Avoid a flat, straight-on ID-photo composition. Keep the head and hair dominant, center the subject horizontally, and shift it upward by about 1–2 logical rows.
 Pose for this image: <pose-plan>
 Expression for this image: <expression-plan>
 Create a fresh portrait composition following these directions while preserving the character identity and pixel-art constraints.
 
-Priority 3 — eyes and anatomy: Draw natural, readable eyes with a coherent gaze. Let eye height, width, placement, and visible iris/pupil shapes follow the overall viewing angle and natural occlusion by hair, glasses, or props. Keep the eye structures clear and visually consistent with the face; avoid obvious misalignment, broken shapes, or unexplained distortions. Keep the head-to-shoulder relationship compact and natural. Keep the neck short, with a compact gap between the jaw and collar and a natural connection to the shoulders. Preserve the character’s costume and accessories.
+Priority 3 — eyes, mouth, and anatomy: Draw natural, readable eyes with a coherent gaze. Let eye height, width, placement, and visible iris/pupil shapes follow the overall viewing angle and natural occlusion by hair, glasses, or props. Keep the eye structures clear and visually consistent with the face; avoid obvious misalignment, broken shapes, or unexplained distortions. Keep the head-to-shoulder relationship compact and natural. Keep the neck short, with a compact gap between the jaw and collar and a natural connection to the shoulders. Preserve the character’s costume and accessories.
+
+Where the character's mouth is visible, draw a clearly readable mouth using shaped pixel blocks that match the expression and the face's pixel scale. Give it a recognizable shape rather than a lone line or dot, and do not omit it. Both open and closed mouths are valid.
 
 Priority 4 — silhouette: Use a one-logical-pixel pure-black outline around the complete subject. Make the lowest occupied subject row a continuous black baseline, with at least one clean background row below it. Use a completely uniform pure-white background. The generated PNG must be fully opaque: every background pixel and every subject pixel has alpha 255. Do not generate transparency, partial transparency, a checkerboard, shadows, gradients, or background texture.
 
 Verified character appearance: <verified-character-appearance-summary>
 Use this inline summary and the official character images for identity, hairstyle, costume, palette, and signature motifs. Do not copy logos, readable marks, slogans, or text from official sources.
 
-Reference rule: Images 1–3 guide only pixel structure, detail density, outline weight, and simplification. Image 1 demonstrates clear hair masses and readable contours; Image 2 demonstrates flat color blocks and simplified small details; Image 3 demonstrates how to organize complex hair ornaments, rope knots, and costume details on a uniform pixel grid while keeping a natural, readable expression. Learn its detail selection and expression clarity. Do not copy their identity, palette, pose, clothing, or accessories. Eye visibility follows the requested character and pose. Follow the user's requested character and action.
+Reference rule: Images 1–3 guide only pixel structure, detail density, outline weight, and simplification. Image 1 demonstrates clear hair masses and a readable block-shaped mouth; Image 2 demonstrates flat color blocks and simplified small details; Image 3 demonstrates how to organize complex hair ornaments, rope knots, and costume details on a uniform pixel grid while keeping a natural, readable expression. Learn its detail selection and expression clarity. Do not copy their identity, palette, pose, clothing, or accessories. Eye visibility follows the requested character and pose. Follow the user's requested character and action.
 
 Character-reference rule: Use official character images only for identity, hairstyle, clothing, palette, and other appearance features. Do not use them as references for action, pose, or composition.
 
@@ -79,5 +81,7 @@ Edit the supplied source with the minimum possible change. Preserve its composit
 ## Retry rule
 
 On retry, write a fresh image-generation prompt following this skill’s Stage 1 generation guidelines and the original user request. Do not merely patch the previous prompt or change its placeholders. Natural expressions may repeat; do not exaggerate them to force variation.
+
+On quality retries, preserve the initial logical-grid target and intended detail density unless the user requests a change. For scattered results, improve pixel grouping, spacing, and contour continuity rather than requesting lower resolution, coarser pixels, or reduced character detail.
 
 Reuse the original official character references and style references, but never use images generated in previous attempts as input. Do not include downstream validation results or processing details. Save the exact prompt used for each attempt.
