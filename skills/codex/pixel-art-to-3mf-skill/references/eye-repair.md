@@ -1,103 +1,126 @@
-# 像素画眼睛检查与修复
+# Pixel Eye Inspection and Repair
 
-基于已试用的 v2.1：先修眼形与下缘收口，再处理视线中心，最后处理高光。
+Based on the trialed v2.1: repair the eye shape and lower contour first, then the gaze center, and finally the highlights.
 
-## 使用时机
-在像素精修和背景修正完成、已经得到实际逻辑像素图后，每次都进入本流程。这里只选择供最终验收的图像，不决定重新生图或整个 Stage 3 是否通过。用户提供的图片未授权改画时，检查后保留输入图，将发现的问题交给最终验收。
-先检查眼睛是否需要修复。自然、清晰的眼睛直接保留，不要为了展示修复效果而制造改动。
-整个过程由 Agent 自行检查、修复和复核，不要求用户指定像素坐标。
+## When to use
 
-## 输入
-- 必需：精修后的逻辑像素图。
-- 可选：对应的原始生成图，用于判断哪些细节在采样中丢失。
-- 可选：用户认可的像素眼睛参考，用于理解眼形、明暗和高光表达。
-- 可选：角色外观参考，用于确认眼睛颜色和特殊设计。
-没有原始生成图或额外参考时，直接根据当前图检查，不强制补充资料。
-参考图只指导表现方式，不直接复制眼形、颜色或像素排列。原始生成图也可能存在问题，不把它当作必须逐格恢复的标准。
+Always enter this process after pixel refinement and background correction have produced the actual logical pixel image. This step selects an image for final acceptance; it does not decide regeneration or whether Stage 3 passes. When creative editing of a user-provided image is not authorized, inspect and preserve the input, and pass any observed issues to final acceptance.
+First check whether the eyes need repair. Preserve natural, clear eyes; do not create changes merely to demonstrate a repair.
+The Agent performs inspection, repair and review without requiring the user to specify pixel coordinates.
 
-## 一、检查精修后的眼睛
-同时查看完整头像和最近邻放大的面部。
-分别识别左右眼的上下眼睑或眼线、眼白、虹膜、瞳孔或较深的视线中心、高光。
-低分辨率画法可能合并其中一些结构，不要求每只眼睛都具备独立可分辨的五个部分。
-检查以下问题：
-1. 虹膜或瞳孔是否出现无法由眼睑、头发遮挡解释的缺角、断裂或错位。
-2. 左右眼的形状和大小是否与脸部角度协调，是否存在明显失衡。
-3. 两眼是否看向一致的方向，是否出现无意的斜视或视线发散。
-4. 眼白是否挤占虹膜，或与高光连成一片，造成眼睛破洞的感觉。
-5. 深浅层次是否清楚，眼睛是否变成没有视线中心的均匀色块。
-6. 虹膜下缘是否有无法解释的悬垂色块、断续尾巴，或颜色延伸到脸部、像泪痕一样的突出。
-7. 高光是否缺失、位置冲突、过大，或使眼睛显得破碎。
-左右眼不必完全相同。保留透视、遮挡、表情和角色设计造成的合理差异。
-不要用像素数量相等代替视觉判断，也不要把所有缺角都解释为透视。
+## Inputs
 
-## 二、确定修复目标
-只针对实际观察到的问题制定局部方案：
-- 原图正常、精修损坏：优先恢复原有眼形、视线与关键细节。
-- 原图也不自然：允许重新组织眼睛内部的少量色块。
-- 眼睛结构正常、只是无神：先判断是否缺少明暗对比或高光，不立即重画整个眼睛。
-- 没有明确问题：保持原样。
-不以左右完全相同或每只眼都增加白点作为修复目标。
+- Required: the refined logical pixel image.
+- Optional: the corresponding original generated image, to identify details lost during sampling.
+- Optional: user-approved pixel-eye references, to understand eye shapes, shading and highlights.
+- Optional: character appearance references, to confirm eye colors and distinctive designs.
 
-## 三、修复眼形与内部结构
-先处理眼形、虹膜和视线，再处理高光。
-- 保持眼线清楚，避免无意义的断口和过厚的黑框。
-- 让虹膜形成可读的整体，修正不自然的缺角、碎块或突起。连接虹膜不等于向四周扩张或填满眼内区域；同时检查虹膜宽度、眼白留白和眼睑轮廓，避免把虹膜修成宽厚的色块。合理的收尖、台阶和眼白间隔可以保留，不必补齐。
-- 单独检查虹膜下缘的收口：用连贯的弧形或阶梯轮廓结束眼内色块。对没有眼形、透视或遮挡依据的悬垂格子，不因其颜色像虹膜就默认保留。
-- 可以移除不必要的下缘突出，也可以调整相邻虹膜色块使其衔接自然；不默认全部涂肤色。修改仍局限于眼部区域，并保持全部 Alpha 不变。
-- 允许合理的圆弧、收尖和不对称，不要求两眼底部齐平，也不把眼睛削成矩形。
-- 保留足够的眼白以表达眼形和朝向，但不强制露出整圈眼白。
-- 在需要时恢复较深的视线中心，不强制所有画风都增加黑色瞳孔。深色可以使用与原画协调的深蓝、深紫或其他暗色；比较其与虹膜的对比，避免为了强调注视感把柔和眼睛改成过重黑块。
-- 通过局部色块表达明暗，不添加连续渐变或细碎噪点。
-以最小必要改动解决完整的局部问题。不要坚持只补一格，也不要扩大为整张脸的重画。
+Without the original generated image or additional references, inspect the current image directly; do not require more material.
+References guide the rendering approach, not direct copying of eye shapes, colors or pixel arrangements. The original generated image may also have defects; do not treat it as a mandatory pixel-by-pixel restoration target.
 
-## 四、检查并修复高光
-高光用于表达反光和提升眼睛的可读性，不是强制装饰。
-- 优先保留原图中合理的高光方向和角色眼睛风格。
-- 需要补充时，将高光安排在虹膜或瞳孔附近的合理位置，保留足够的有色区域和视线中心。
-- 优先延续当前图中明确且合理的光源方向。没有可判断的照明线索时，采用观看者／屏幕方向的柔和正面光作为风格化默认，不声称能据此精确计算反光坐标。
-- 综合人物转头、眼球朝向和光源安排高光，使两眼体现同一照明关系；不要固定为左上或右上，也不要机械镜像。
-- 瞳孔位置表达视线，高光位置表达反光。不要用移动高光代替调整视线，也不要规定高光必须跟着瞳孔平移。人物朝向改变时允许自然调整，但不能使用“朝左就必定左侧高光”的硬规则。
-- 两眼的高光应在各自虹膜内部的相应受光位置；不强求它们在画布同一行、同一列。
-- 远侧眼或被遮挡的眼睛可以使用更小、更简化的高光。
-- 高光使用与周围明显区分的亮色，不必一律纯白。
-- 区分眼白、虹膜亮部和镜面高光，不把所有亮色都改成白色。
-- 高光大小随实际眼睛尺寸决定，不规定固定格数。
-- 极小、闭合或明显被遮挡的眼睛，不强行添加独立高光。
-添加后重新检查：高光是否像反光，而不是眼白缺口、破洞或漂浮的亮点。
+## 1. Inspect the refined eyes
 
-## 五、修改范围与文件保护
-- 保留原版，另存修复候选。
-- 只修改明确划定的左右眼小区域。
-- 保持逻辑网格、图像尺寸和所有 Alpha 值不变。
-- 不修改嘴巴、脸型、头发、衣服及其他区域。
-- 不重新采样整图，不调用生图模型重画。
-- 优先复用局部已有颜色；必要时可从原图取色，或加入有明确作用的少量眼部颜色。
-- 此阶段不降色、不进行全图调色板压缩。
-- 记录实际修改的坐标、修改前后颜色和原因。
-用程序确认改动只发生在眼部区域，其他像素完全保持原样。程序检查只证明范围正确，不代表修复效果合格。
+View both the complete portrait and a nearest-neighbor enlarged face.
+Identify each eye's upper and lower lids or outlines, sclera, iris, pupil or darker gaze center, and highlights.
+Low-resolution styles may combine some structures; do not require five separately distinguishable parts in every eye.
+Check for:
 
-## 六、比较并选择候选
-输出相同尺度的完整头像修前／修后对比、面部放大修前／修后对比。
-Agent 必须同时查看两种对比，判断：
-- 眼形是否完整、自然，没有无法解释的缺角；虹膜下缘是否收口清楚，没有悬垂尾巴。
-- 左右眼的大小关系和视线是否协调。
-- 虹膜、眼白和高光是否能清楚区分。
-- 高光是否提升神态，而不是破坏眼睛结构。
-- 是否保留原来的角色辨识度和表情。
-- 完整头像是否比修前更自然。
-不能仅因两边更对称、增加了高光或修改像素很少就判定成功。
-第一候选完成后，查看完整头像与面部放大图，找出仍影响观感的具体问题。做第二候选前，先看第一候选放回完整头像后是否自然。如果虹膜填得太满、眼白变少，就回退这些改动。只保留看起来确实更好的部分，再处理剩下的问题。例如高光与眼白混连时，先尝试调整颜色，不同时改变高光位置、瞳孔和眼形。两个候选均从未修改的原图应用各自完整的修改方案；第二候选可以复用已经有效的修改，不必重新设计整只眼睛。比较原图与候选后，选择效果更自然的一版。
-如果候选没有明确改善，保留原版；不要在连续修补的结果上无限叠加修改。
-最多尝试两个局部候选。仍未改善时，选用原版，保留候选并说明尚未解决的问题，然后交给 Stage 3 最终验收。本步骤不重新生图，也不宣布整体验收通过。
+1. Missing corners, breaks or displaced iris/pupil pixels that cannot be explained by eyelids or hair occlusion.
+2. Eye shapes and sizes that do not fit the face angle, or an obvious imbalance.
+3. Inconsistent gaze, unintended crossed eyes or diverging sight lines.
+4. Sclera crowding the iris or merging with highlights so the eye appears to have a hole.
+5. Unclear light/dark structure, leaving a uniform color block without a gaze center.
+6. Unexplained dangling blocks or broken tails along the lower iris, or color extending onto the face like a tear streak.
+7. Missing, conflicting or oversized highlights, or highlights that fragment the eye.
 
-## 避免套用单个成功案例
-本规则不指定固定瞳孔长度、高光格数、嘴形、颜色值或修改坐标。
-案例中的少量改动不代表任何图片都应同样修改。
-不要仅凭“更有神”的主观描述选择候选：检查结构、下缘、视线、高光与完整头像是否共同改善。
+The eyes need not be identical. Preserve reasonable differences caused by perspective, occlusion, expression and character design.
+Do not substitute equal pixel counts for visual judgment, or explain every missing corner as perspective.
 
-## 输出
-- 未修改的原版。
-- 选定的候选图及其路径；没有改善则选用未修改的原版。
-- 完整头像与面部放大的前后对比。
-- 简短的修改记录、选择理由及尚未解决的问题，交给 Stage 3 最终验收。
-如果后续进行降色或 3MF 转换，应再次确认眼睛的关键结构和高光没有被合并或丢失。
+## 2. Set the repair goal
+
+Plan local changes only for observed problems:
+
+- Original looks natural but refinement damaged it: prioritize restoring the original eye shape, gaze and key details.
+- Original is also unnatural: allow rearranging a few color blocks inside the eyes.
+- Structure is sound but the eyes look lifeless: first check for missing tonal contrast or highlights, rather than immediately redrawing the whole eye.
+- No clear problem: leave it unchanged.
+
+Do not aim for identical eyes or a white dot in every eye.
+
+## 3. Repair eye shape and internal structure
+
+Address eye shape, iris and gaze before highlights.
+
+- Keep the eye outline clear, avoiding meaningless gaps and overly thick black frames.
+- Make the iris read as a coherent whole by correcting unnatural missing corners, fragments or protrusions. Connecting the iris does not mean expanding it in every direction or filling the eye interior. Check iris width, sclera space and eyelid contours together to avoid a broad, heavy iris block. Keep reasonable tapers, steps and sclera gaps; they need not be filled.
+- Inspect the lower iris contour separately: end the eye's color blocks with a coherent curve or stepped edge. Do not retain dangling cells merely because their color resembles the iris when eye shape, perspective or occlusion does not justify them.
+- Remove unnecessary lower protrusions or adjust adjacent iris blocks to join naturally; do not default to painting everything skin-colored. Keep edits within the eye regions and preserve every Alpha value.
+- Allow reasonable curves, tapers and asymmetry. Do not align both lower edges or cut the eyes into rectangles.
+- Retain enough sclera to convey eye shape and direction, without requiring a complete white ring.
+- Restore a darker gaze center when needed, without imposing black pupils on every style. Use deep blue, purple or another dark color compatible with the image. Assess its contrast with the iris; do not turn soft eyes into heavy black blocks merely to emphasize gaze.
+- Express shading with local color blocks, not continuous gradients or fine noise.
+
+Use the smallest changes that solve the complete local problem. Do not insist on changing only one cell or expand the task into redrawing the whole face.
+
+## 4. Inspect and repair highlights
+
+Highlights convey reflections and improve eye readability; they are not mandatory decoration.
+
+- Prefer preserving a reasonable original highlight direction and the character's eye style.
+- When adding highlights, place them appropriately in or near the iris/pupil while retaining enough colored area and a gaze center.
+- Follow a clear, reasonable existing light direction. Without usable lighting cues, use soft frontal light from the viewer/screen direction as a stylized default; do not claim this determines exact reflection coordinates.
+- Consider head turn, eye orientation and light together so both eyes reflect the same lighting relationship. Do not fix highlights to the upper left or upper right, or mirror them mechanically.
+- Pupil position conveys gaze; highlight position conveys reflection. Do not move highlights as a substitute for adjusting gaze or require highlights to translate with the pupils. Allow natural adjustments when the character's orientation changes, but do not use a rule such as "facing left always means a left-side highlight."
+- Place both highlights at corresponding lit positions within their respective irises; they need not share a canvas row or column.
+- The farther or occluded eye may use a smaller, simpler highlight.
+- Use a bright color clearly distinguishable from its surroundings, not necessarily pure white.
+- Distinguish sclera, bright iris areas and specular highlights; do not turn every light color white.
+- Scale highlights to the actual eye size, without a fixed cell count.
+- Do not force an independent highlight into extremely small, closed or substantially occluded eyes.
+
+After adding highlights, check that they read as reflections rather than sclera gaps, holes or floating bright dots.
+
+## 5. Edit scope and file preservation
+
+- Preserve the original and save repair candidates separately.
+- Edit only explicitly bounded small regions around the two eyes.
+- Preserve the logical grid, image dimensions and every Alpha value.
+- Do not change the mouth, face shape, hair, clothing or other regions.
+- Do not resample the whole image or call an image-generation model to redraw it.
+- Prefer existing local colors. When needed, sample the original or add a few eye colors with a clear purpose.
+- Do not reduce colors or compress the whole-image palette at this stage.
+- Record actual changed coordinates, before/after colors and reasons.
+
+Programmatically confirm that changes occur only within the eye regions and all other pixels remain identical. This verifies edit scope, not visual quality.
+
+## 6. Compare and select candidates
+
+Produce before/after comparisons at matching scales for both the complete portrait and the enlarged face.
+The Agent must view both comparisons and assess:
+
+- Whether eye shapes are complete and natural, without unexplained missing corners; whether lower iris contours end clearly without dangling tails.
+- Whether eye size relationships and gaze are coherent.
+- Whether iris, sclera and highlights remain distinguishable.
+- Whether highlights improve expression rather than damage eye structure.
+- Whether character identity and expression are preserved.
+- Whether the complete portrait looks more natural than before.
+
+Do not judge success solely by increased symmetry, added highlights or a small edit count.
+After the first candidate, view the complete portrait and enlarged face to identify specific remaining visual problems. Before making a second candidate, check whether the first looks natural within the complete portrait. If the iris is overfilled or sclera has been reduced, roll back those changes. Keep only the parts that actually look better, then address the remaining problems. For example, when highlights merge with sclera, first try adjusting their color without simultaneously changing highlight position, pupils and eye shape. Build both candidates by applying each complete edit plan to the untouched original. The second may reuse effective edits; it need not redesign the whole eye. Compare the original and candidates, then choose the more natural result.
+If no candidate clearly improves the image, retain the original; do not accumulate endless edits on successive repairs.
+Try at most two local candidates. If neither improves the image, select the original, retain the candidates and describe unresolved issues, then hand off to Stage 3 final acceptance. This step does not regenerate images or declare overall acceptance.
+
+## Avoid copying a single successful example
+
+These rules prescribe no fixed pupil length, highlight cell count, mouth shape, color values or edit coordinates.
+A few successful edits in one example do not mean every image should receive the same changes.
+Do not select a candidate merely because it is described as "more lively": check whether structure, lower contours, gaze, highlights and the complete portrait improve together.
+
+## Outputs
+
+- The untouched original.
+- The selected candidate and its path; select the untouched original if there is no improvement.
+- Before/after comparisons of the complete portrait and enlarged face.
+- A brief change record, selection rationale and unresolved issues for Stage 3 final acceptance.
+
+If color reduction or 3MF conversion follows, check again that key eye structures and highlights have not merged or disappeared.
