@@ -1,0 +1,79 @@
+{
+  "schema": "pixel3mf-image-model-profile/v1",
+  "family": "gpt-image-2.6",
+  "models": [
+    "gpt-image-2.6-sunburst",
+    "gpt-image-2.6-flare"
+  ],
+  "base_url": "https://api.openai.com/v1",
+  "api_key_env": "OPENAI_API_KEY",
+  "endpoints": {
+    "without_references": "/images/generations",
+    "with_references": "/images/edits"
+  },
+  "defaults": {
+    "model": "gpt-image-2.6-sunburst",
+    "quality": "high",
+    "complexity": "high",
+    "size": "1024x1024",
+    "background": "opaque",
+    "output_format": "png",
+    "n": 1
+  },
+  "supported_workflow_options": {
+    "quality": [
+      "low",
+      "medium",
+      "high",
+      "auto"
+    ],
+    "complexity": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "size": [
+      "1024x1024",
+      "1536x1024",
+      "1024x1536",
+      "auto"
+    ],
+    "background": [
+      "opaque",
+      "transparent",
+      "auto"
+    ],
+    "output_format": [
+      "png"
+    ],
+    "n": [
+      1
+    ]
+  },
+  "limits": {
+    "prompt_characters": 32000,
+    "reference_images": 16
+  },
+  "prompt_augmentation": {
+    "enabled_by_default": true,
+    "default_wrapper": "Primary request: {prompt}",
+    "extra_fields_by_default": false,
+    "disable_only_when_user_requests": true
+  },
+  "unsupported_or_unverified_for_this_workflow": [
+    "other model families",
+    "xhigh/max quality on 2.6",
+    "custom size bounds on 2.6",
+    "input_fidelity",
+    "seed",
+    "steps",
+    "cfg",
+    "response_format",
+    "style"
+  ],
+  "sources": [
+    "https://developers.openai.com/api/docs/guides/image-generation#gpt-image-26",
+    "https://developers.openai.com/api/reference/resources/images/methods/edit",
+    "https://developers.openai.com/api/reference/resources/images/methods/generate"
+  ]
+}

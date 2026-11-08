@@ -15,7 +15,7 @@ Use the current Pixel3MF project root. Command examples use POSIX syntax; on Win
 
 - Read this `SKILL.md` completely, but do not preload any file in `references/`.
 - Read a reference only when its stage explicitly authorizes it and its prerequisite artifact already exists.
-- Before the first image-generation or image-editing result exists, read only [generation-prompt.md](references/generation-prompt.md). Do not open or search any later-stage reference, pipeline script, conversion source, README, manifest from a prior run, or configuration file.
+- Before the first image-generation or image-editing result exists, read [generation-prompt.md](references/generation-prompt.md) and, only for the selected external API route, the model profile it explicitly links. Model profiles contain Stage 1 transport parameters only. Do not open or search any later-stage reference, pipeline script, conversion source, README, manifest from a prior run, or configuration file.
 - Build the first image-generation payload from the fenced template in `generation-prompt.md`. On retry, independently rewrite the complete prompt under that file’s Stage 1 rules; do not limit the rewrite to placeholders. Never add instructions, measurements, diagnostics, physical dimensions, conversion settings, or terminology from later stages.
 - The image-generation model receives only the Stage 1 visual prompt (rendered initial template or independently rewritten retry), including the requested subject and verified identity summary, plus the allowed original source/style images. Do not forward the complete workflow request or research document. It never receives this `SKILL.md` or any post-generation reference.
 - For retries, follow the retry rule in `generation-prompt.md`; keep later-stage information out of generation inputs.
@@ -32,7 +32,7 @@ Create a new run folder at `output/<timestamp>_<slug>/` and retain every produce
 
 This is the only stage allowed to call image generation or image editing. Use the backend-selection rules in `generation-prompt.md`: built-in imagegen by default, or the external image API/model explicitly requested by the user. Both routes feed the same subsequent refinement workflow.
 
-1. Read [generation-prompt.md](references/generation-prompt.md). Read no other reference.
+1. Read [generation-prompt.md](references/generation-prompt.md). For a selected external API backend, also load only its linked model profile and configuration; do not read later-stage references.
 2. Complete its official-character research gate when applicable and save `00_official_character_research.md` before the call.
 3. Load only the source/style images authorized by that file.
 4. Send the rendered template for the first attempt, or the independently rewritten Stage 1 visual prompt for a retry, as specified in that reference.

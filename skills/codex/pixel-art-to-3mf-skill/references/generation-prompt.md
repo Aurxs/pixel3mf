@@ -4,13 +4,9 @@ Read this file only while constructing an image-generation or explicitly request
 
 ## Generation backend
 
-- Default to the built-in imagegen tool. If the user requests an external image API or names a specific API model (for example `gpt-image-2.6-sunburst` or `gpt-image-2.6-flare`), use that API route instead. Do not silently substitute a different model or fall back to built-in generation after an API error.
-- For OpenAI, use the official Image API and load `OPENAI_API_KEY` from the user's configured environment or explicitly provided local configuration file. Never place credentials in prompts, logs, manifests, committed files or chat. Use a different provider/base URL only when explicitly supplied or authorized by the user; never forward an OpenAI credential to an unapproved endpoint.
-- Use the available imagegen skill's supported API/CLI route when installed; otherwise use the user's configured API client. Verify the current provider schema when needed. Generation with reference images uses the provider's reference-capable image/edit endpoint; it remains a new generation, not an edit of a previous generated result.
-- Select `model`, `quality`, `size`, `background`, and output format as API request parameters, not as extra workflow text inside the visual prompt. Honor user settings. For the normal white-background workflow, request opaque PNG explicitly where supported. The built-in tool may not expose equivalent settings: do not claim to set unavailable parameters.
-- Pass the Stage 1 visual prompt and the same allowed original reference images in their documented order. Prefer disabling automatic prompt augmentation when the client supports it, unless the user requests augmentation; retain the exact effective prompt actually sent. Do not assume external APIs can read a local filename: upload or encode image bytes using the supported request format.
-- Save the returned image as `01_source.png`. Keep a non-secret record of backend, requested model, effective prompt, reference paths, request parameters and attempt number. Do not embed image base64 or credentials in this record. A backend not returning its actual model identity must be described as such.
-- An authentication, quota, network, or unavailable-model error is a transport failure, not an image-quality rejection. Resolve the execution issue or report it; do not spend image retries repeatedly on the same transport error. Once an image is returned, follow the ordinary refinement and final-review stages.
+Default to built-in imagegen. When the user requests GPT Image 2.6 or the external image API route, load [the GPT Image 2.6 profile](image-models/gpt-image-2.6.md) and its adjacent JSON configuration during this stage. Only Sunburst and Flare are adapted for now; do not substitute other models. If the user says only “external API”, use the profile's Sunburst default.
+
+The model profile controls transport parameters only; never copy it into the visual prompt. Honor user parameter choices. Keep default prompt augmentation enabled (do not pass `--no-augment` unless explicitly requested), and save the raw and effective prompt. Both backends return `01_source.png` to the same refinement workflow. Keep credentials out of all prompts and records. Resolve transport errors separately from image-quality retries.
 
 ## Allowed inputs
 
