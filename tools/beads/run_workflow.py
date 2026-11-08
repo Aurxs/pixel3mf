@@ -162,7 +162,27 @@ def complete(run, candidate=None, *, algorithm_only=False, attempt="attempt-1"):
     return state
 
 
+def cover(run, reference, *, variant="uncompressed", name="cover", **settings):
+    """Add presentation artifacts after publication without rewriting the chart run."""
+    from render_cover import render_cover
+    run = Path(run).resolve()
+    state = json.loads((run/"manifest.json").read_text(encoding="utf-8"))
+    if state.get("schema") not in {"bead-four-chart-workflow/v1", "bead-chart-workflow/v2"}:
+        raise ValueError("Unsupported workflow schema")
+    if not state.get("primary_products") or not (run/"delivery").is_dir():
+        raise ValueError("Finish and review the chart run before creating its cover")
+    if variant not in {"uncompressed", "compressed"} or variant not in state["paths"]:
+        raise ValueError("Requested chart variant is unavailable")
+    if not name or Path(name).name != name or name in {".", ".."}:
+        raise ValueError("Cover name must be a simple directory name")
+    charts = Path(state["paths"][variant])
+    if not charts.is_absolute():
+        charts = run/charts
+    return render_cover(charts/"图纸数据.json", reference, run/"covers"/name, **settings)
+
+
 def main():
+    from render_cover import add_options, options
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
     prep = sub.add_parser("prepare")
@@ -182,9 +202,18 @@ def main():
     choice.add_argument("--candidate")
     choice.add_argument("--algorithm-only", action="store_true")
     done.add_argument("--attempt", default="attempt-1")
+    presentation = sub.add_parser("cover", help="Create a separate text-free cover from published chart cells")
+    presentation.add_argument("run")
+    presentation.add_argument("--variant", choices=["uncompressed", "compressed"], default="uncompressed")
+    presentation.add_argument("--name", default="cover", help="New directory name under RUN/covers")
+    add_options(presentation)
     args = parser.parse_args()
     try:
-        if args.command == "prepare":
+        if args.command == "cover":
+            report = cover(args.run, args.reference, variant=args.variant, name=args.name, **options(args))
+            print(json.dumps({"status": report["status"], "products": report["products"]}, ensure_ascii=False))
+            return
+        elif args.command == "prepare":
             state = prepare(args.source, args.run, args.title, target=args.target,
                             palette=args.palette, max_colors=args.max_colors,
                             outline=args.outline, font=args.font,

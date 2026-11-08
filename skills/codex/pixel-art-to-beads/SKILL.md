@@ -1,6 +1,6 @@
 ---
 name: pixel-art-to-beads
-description: "Generate or read pixel art and deliver two or four MARD bead charts based on logical size: original/mirror, plus board-fitted original/mirror only when oversized. Support outline-preserving 52-cell compression, AI refinement and accurate counts. Use for 拼豆图纸、像素画转拼豆、52格压缩. Uses project tools/beads; no other skill or Lumina required."
+description: "Generate or read pixel art and deliver two or four MARD bead charts based on logical size: original/mirror, plus board-fitted original/mirror only when oversized. Support 52-cell compression, AI refinement, accurate counts and text-free covers with blurred original character reference art. Use for 拼豆图纸、像素画转拼豆、52格压缩、拼豆封面. Uses project tools/beads; no other skill or Lumina required."
 ---
 
 # Pixel Art to Beads
@@ -25,6 +25,7 @@ This directory contains instructions, prompts, style assets and palette data. Ex
 - **Existing logical PNG:** one actual pixel per intended bead, including final grids from previous work -> skip generation and grid detection; enter the size-aware workflow. Do not mistake an enlarged preview for this file.
 - **Enlarged pixel art:** recover its logical grid with the preparation tool, inspect, then map.
 - **Saved pattern JSON:** re-render without image generation, grid detection or recoloring.
+- **Cover / 封面:** use saved chart cells for the crisp foreground and the original artwork retained during character research/generation for the enlarged Gaussian-blurred background. Read [cover.md](references/cover.md). Preserve the character and costume match; no bottom text by default. Covers are separate presentation artifacts, added after the two/four charts, never a reason to regenerate or recolor accepted artwork.
 - **Fit a bead board / compress pixel dimensions:** read [compression.md](references/compression.md). Start from the untouched accepted logical source, not a previously repaired candidate. The user's usual board is 52×52; use that target when they request single-board fitting without another size. The selected workflow is algorithmic sizing followed by AI refinement and automatic Perfect Pixel checks. Preserve black exterior outlines without changing the global palette or interior facial colors. An explicit algorithm-only request skips AI.
 - A photograph is a subject reference for new pixel art. A chart screenshot with printed codes/watermarks is a layout reference, not clean pixel input. Screenshot/OCR reconstruction is outside this version; request the clean pixel source if necessary.
 
@@ -61,3 +62,7 @@ Preserve the pre-mapping source and render a nearest-neighbor preview of the map
 Inspect every required mirror pair at full view and a representative label crop. Check counts, mirrored positions, upright text, cropped uncompressed dimensions, fitted dimensions, outer outline and facial readability. If delivering an optional PDF, inspect its rendering too. The workflow reports `two_charts_ready_for_review` or `four_charts_ready_for_review`; only set `manifest.json` status to `accepted` after visual checks. Record concise checks in `review.json`. Do not rerun unrelated project tests.
 
 Show a compact contact sheet if helpful and link the two or four files in `delivery/`. Give dimensions, color count and bead count for each size. Retain original/AI sources, PDFs, material lists and editable JSON internally; do not present these as extra primary deliverables unless requested. A run with a missing required pair is incomplete; the skipped fitted pair is not missing.
+
+## Stage 5: Cover for character deliveries
+
+For character deliveries, also create one cover when the retained original character reference and saved chart JSON are available; follow [cover.md](references/cover.md). Use a fresh `covers/` directory and show `封面.png` alongside the required charts. A cover-only request reuses existing cells without rerunning the chart workflow. Inspect the reference before blurring: use the same character and costume from the generation research, crop multi-character sheets to the matching character, and keep the original bytes unchanged. Never substitute our pixel art, bead preview, chart screenshot, style asset or unrelated costume as the background. If the reference is missing or its identity is uncertain, deliver the existing charts and report the missing cover input; do not invent a replacement or block the chart delivery. No caption, signature or bottom text in this version. Record cover review separately without changing chart acceptance or primary-product counts.
