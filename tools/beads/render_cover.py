@@ -82,8 +82,8 @@ def background_frame(source, size, *, fit, zoom, focal, blur):
 
 def render_cover(project_path, reference_path, output, *, reference_note,
                  reference_source=None, size=(1080, 1440), reference_crop=None,
-                 focal=(0.5, 0.5), zoom=1.0, blur=0.016, background_fit="contain", brightness=0.78,
-                 saturation=0.88, subject_width=0.70, subject_height=0.62,
+                 focal=(0.5, 0.5), zoom=1.0, blur=0.016, background_fit="contain", brightness=0.86,
+                 saturation=0.88, subject_width=0.60, subject_height=0.52,
                  center=(0.5, 0.49), texture=True):
     project_path, reference_path, output = (Path(p).resolve() for p in
                                            (project_path, reference_path, output))
@@ -193,10 +193,10 @@ def add_options(parser):
                         help="Preserve the reference framing by default; soft same-art fill covers margins")
     parser.add_argument("--zoom", type=float, default=1.0, help="Uniform background scale, 0.5-3")
     parser.add_argument("--blur", type=float, default=0.016, help="Gaussian radius as a fraction of width")
-    parser.add_argument("--brightness", type=float, default=0.78)
+    parser.add_argument("--brightness", type=float, default=0.86)
     parser.add_argument("--saturation", type=float, default=0.88)
-    parser.add_argument("--subject-width", type=float, default=0.70)
-    parser.add_argument("--subject-height", type=float, default=0.62)
+    parser.add_argument("--subject-width", type=float, default=0.60)
+    parser.add_argument("--subject-height", type=float, default=0.52)
     parser.add_argument("--center", nargs=2, type=float, default=(0.5, 0.49), metavar=("X", "Y"))
     parser.add_argument("--flat", action="store_true", help="Omit bead surface relief")
 
