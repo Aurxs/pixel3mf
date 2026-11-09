@@ -62,6 +62,12 @@ class WorkBuddyStateTests(unittest.TestCase):
             self.assertEqual(len(references), 3)
             self.assertTrue(all(path.is_file() for path in references))
             self.assertFalse(any(path.name == "style-sheet.png" for path in references))
+            state["include_action_reference"] = True
+            self.assertEqual(workbuddy.native_reference_files(state)[-1],
+                             workbuddy.WORKBUDDY_SKILL_DIR / "assets/reference-action-interaction.png")
+            prepared = workbuddy.prepare_references(run_dir, state)
+            self.assertEqual([path.name for path in prepared], ["style-sheet.png", "action-reference.png"])
+            self.assertTrue(all(path.is_file() for path in prepared))
 
     def test_local_config_rejects_embedded_credentials(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

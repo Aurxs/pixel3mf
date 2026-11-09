@@ -44,7 +44,6 @@ except ImportError:  # doctor reports the missing runtime dependency.
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-CORE_SKILL_DIR = PROJECT_ROOT / "skills" / "codex" / "pixel-art-to-3mf-skill"
 WORKBUDDY_SKILL_DIR = PROJECT_ROOT / "skills" / "workbuddy" / "pixel-art-to-3mf"
 GENERATION_PROMPT_PATH = WORKBUDDY_SKILL_DIR / "references" / "generation-prompt.md"
 DEFAULT_CONFIG_PATH = PROJECT_ROOT / ".workbuddy.local.json"
@@ -470,13 +469,13 @@ def native_reference_files(state: dict[str, Any]) -> list[Path]:
     """Return the actual original inputs for native generation, without compositing."""
     paths: list[Path] = []
     if state.get("use_bundled_style"):
-        paths.extend(CORE_SKILL_DIR / "assets" / name for name in (
+        paths.extend(WORKBUDDY_SKILL_DIR / "assets" / name for name in (
             "reference-24x24-block-style.png",
             "reference-coarse-density-a.png",
             "reference-coarse-density-b.png",
         ))
     if state.get("include_action_reference"):
-        paths.append(CORE_SKILL_DIR / "assets" / "reference-action-interaction.png")
+        paths.append(WORKBUDDY_SKILL_DIR / "assets" / "reference-action-interaction.png")
     if state.get("route") == "edit" and state.get("source_image"):
         paths.insert(0, Path(state["source_image"]))
     paths.extend(Path(value) for value in state.get("user_references", []))
@@ -524,15 +523,15 @@ def prepare_references(run_dir: Path, state: dict[str, Any]) -> list[Path]:
     prepared: list[Path] = []
     if state.get("use_bundled_style"):
         style_paths = [
-            CORE_SKILL_DIR / "assets" / "reference-24x24-block-style.png",
-            CORE_SKILL_DIR / "assets" / "reference-coarse-density-a.png",
-            CORE_SKILL_DIR / "assets" / "reference-coarse-density-b.png",
+            WORKBUDDY_SKILL_DIR / "assets" / "reference-24x24-block-style.png",
+            WORKBUDDY_SKILL_DIR / "assets" / "reference-coarse-density-a.png",
+            WORKBUDDY_SKILL_DIR / "assets" / "reference-coarse-density-b.png",
         ]
         prepared.append(
             _compose_reference_sheet(style_paths, reference_dir / "style-sheet.png")
         )
     if state.get("include_action_reference"):
-        action = CORE_SKILL_DIR / "assets" / "reference-action-interaction.png"
+        action = WORKBUDDY_SKILL_DIR / "assets" / "reference-action-interaction.png"
         action_output = reference_dir / "action-reference.png"
         shutil.copy2(action, action_output)
         prepared.append(action_output)
