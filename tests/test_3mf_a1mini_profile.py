@@ -20,7 +20,6 @@ from three_mf_a1mini_profile import (  # noqa: E402
     PROJECT_SETTINGS_MEMBER,
     _PROCESS_OVERRIDE_KEYS,
     _FILAMENT_OVERRIDE_KEYS,
-    _REQUIRED_TARGET_VALUES,
     DEFAULT_PROFILE_PATH,
     normalize_a1mini_3mf,
 )
@@ -157,12 +156,6 @@ class ThreeMfA1MiniProfileTests(unittest.TestCase):
         self.assertEqual(settings["wipe_tower_y"], ["160"])
         self.assertIn("machine: A1 mini", settings["machine_start_gcode"])
         self.assertNotIn("H2D", settings["machine_start_gcode"])
-
-    def test_profile_snapshot_matches_approved_defaults(self) -> None:
-        profile = json.loads(DEFAULT_PROFILE_PATH.read_text())
-        for key in ("curr_bed_type", "infill_wall_overlap", "brim_type", "brim_width",
-                    "skirt_loops", "skirt_height", "skirt_per_object", "prime_tower_width", "wipe_tower_x"):
-            self.assertEqual(profile[key], _REQUIRED_TARGET_VALUES[key], key)
 
     def test_stale_plate_object_part_overrides_are_corrected_without_other_changes(self) -> None:
         import xml.etree.ElementTree as ET

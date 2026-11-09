@@ -64,6 +64,7 @@ pixel3mf/
 │   └── reference-action-interaction.png  动漫动作/互动像素参考图
 │
 ├── tests/
+│   ├── README.md                    必要覆盖范围与聚焦验证方法
 │   ├── test_semantic_segment.py     分割子进程、资源限制和执行行为
 │   ├── test_background_cleanup.py   背景处理、Alpha 与孔洞清理
 │   ├── test_pixel_sizing.py         逻辑网格与物理尺寸计算
@@ -90,6 +91,8 @@ pixel3mf/
     ├── setup/                      Windows 安装日志
     ├── launcher/                   Windows 选图转换日志
     ├── windows-delivery/           Action 临时生成的项目 ZIP
+    ├── beads/                      拼豆任务及其交付文件
+    ├── artifacts/                  技能打包等本地产物
     └── <时间戳>_<主体名>/           每次任务的图片、预览、3MF 和 manifest
 ```
 
@@ -219,9 +222,11 @@ skills/workbuddy/pixel-art-to-3mf/
 运行材料统一放在已被 `.gitignore` 排除的 `output/`：
 
 - `output/<timestamp>_<slug>/`：输入图片副本、中间结果、预览、3MF、拼豆图纸和任务日志。
+- `output/beads/<date>_<slug>/`：拼豆任务、封面与发布包。
+- `output/artifacts/`：技能包等本地打包产物。
 - `output/social/<timestamp>_<slug>/`：小红书等平台的文案、上传素材、截图及执行报告。
 - `output/local-archives/<date>-<reason>/`：保留但不上传的历史材料；2026-10-13 的两份小红书任务目录已归档到 `output/local-archives/20261025-git-cleanup/`。
 
-`output/.gitkeep` 是此目录唯一需要提交的占位文件。不要按扩展名全局忽略 PNG、JSON 或 ZIP：技能参考图、色卡、配置等共享资产仍需版本管理。
+项目根目录不另建 `outputs/` 或 `artifacts/`。`output/.gitkeep` 是此目录唯一需要提交的占位文件。不要按扩展名全局忽略 PNG、JSON 或 ZIP：技能参考图、色卡、配置等共享资产仍需版本管理。
 
 虚拟环境、工具和模型缓存、IDE 设置、`Lumina-Layers/` 第三方源码保留在各自原位置，由现有忽略规则排除，无需搬进 `output/`。临时文件可放 `tmp/`；本机凭据使用环境变量或被忽略的 `.env`、`.workbuddy.local.json`，脱敏示例可以提交。

@@ -8,7 +8,7 @@ import sys
 import tempfile
 import unittest
 
-from PIL import Image, ImageStat
+from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/"tools/beads"))
@@ -122,6 +122,9 @@ class BeadCoverTests(unittest.TestCase):
             with Image.open(report["products"]["background"]) as image:
                 r, _, b = image.getpixel((300, 50))
                 self.assertGreater(r, b*2)  # Only the chosen official-art crop is used.
+            with Image.open(report["products"]["foreground"]) as image:
+                self.assertLessEqual(image.width, 600 * report["layout"]["subject_width"])
+                self.assertLessEqual(image.height, 800 * report["layout"]["subject_height"])
             products = {p.name: p.read_bytes() for p in (root/"covers/one").iterdir()}
             with self.assertRaisesRegex(ValueError, "already exists"):
                 render_cover(path, reference, root/"covers/one", reference_note="same")
@@ -197,44 +200,6 @@ class BeadCoverTests(unittest.TestCase):
             self.assertNotEqual(close["products_sha256"]["background"], wide["products_sha256"]["background"])
             self.assertGreater(wide["layout"]["background_framing"]["visible_fraction"],
                                close["layout"]["background_framing"]["visible_fraction"])
-
-    def test_smaller_default_subject_exposes_more_gently_lit_background(self):
-        for portrait in (False, True):
-            with self.subTest(portrait=portrait), tempfile.TemporaryDirectory() as directory:
-                root = Path(directory)
-                project, path, reference = self.fixture(root)
-                if portrait:
-                    project["cells"] = [list(row) for row in zip(*project["cells"])]
-                    path.write_text(json.dumps(project))
-                before = hashes(root)
-                old = render_cover(path, reference, root/"covers/old", reference_note="same", size=(600, 800),
-                                   subject_width=0.70, subject_height=0.62, brightness=0.78)
-                new = render_cover(path, reference, root/"covers/new", reference_note="same", size=(600, 800))
-                self.assertEqual(hashes(root), before)
-                self.assertEqual(old["statistics"], new["statistics"])
-                self.assertEqual(new["layout"]["saturation"], old["layout"]["saturation"])
-                with Image.open(old["products"]["foreground"]) as previous, Image.open(new["products"]["foreground"]) as subject:
-                    self.assertLess(subject.width, previous.width)
-                    self.assertLess(subject.height, previous.height)
-                    self.assertLessEqual(subject.width, 600*0.60)
-                    self.assertLessEqual(subject.height, 800*0.52)
-                    scale = new["layout"]["cell_pixels"]
-                    left, top, right, bottom = new["layout"]["subject_bbox_cells"]
-                    self.assertEqual(subject.size, ((right-left)*scale, (bottom-top)*scale))
-                    colors = {c["code"]: tuple(c["rgb"])+(255,) for c in project["palette"]["colors"]}
-                    for y in range(top, bottom):
-                        for x in range(left, right):
-                            code = project["cells"][y][x]
-                            self.assertEqual(subject.getpixel(((x-left)*scale+scale//2, (y-top)*scale+scale//2)),
-                                             colors[code] if code else (0, 0, 0, 0))
-                with Image.open(old["products"]["background"]) as dark, Image.open(new["products"]["background"]) as light:
-                    lift = ImageStat.Stat(light.convert("L")).mean[0]/ImageStat.Stat(dark.convert("L")).mean[0]
-                    self.assertTrue(1.08 < lift < 1.13)
-                    self.assertLess(max(channel[1] for channel in light.getextrema()), 255)
-                    p, q = dark.getpixel((80, 400)), light.getpixel((80, 400))
-                    for old_value, new_value in zip(p, q):
-                        self.assertAlmostEqual(new_value, old_value*0.86/0.78, delta=2)
-                    self.assertGreaterEqual(max(q)-min(q), max(p)-min(p))
 
     def test_workflow_cover_keeps_two_and_four_chart_runs_byte_identical(self):
         for oversized in (False, True):

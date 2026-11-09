@@ -123,175 +123,74 @@ class PipelineExportTests(unittest.TestCase):
             )
             self.assertIn("44x91", manifest["source_acceptance"]["reason"])
 
-    def test_pipeline_exports_two_by_two_and_three_by_three_3mfs(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp_path = Path(tmp)
-            source = tmp_path / "source.png"
-            Image.new("RGBA", (4, 3), (20, 40, 60, 255)).save(source)
+    def test_pipeline_exports_both_sizes_in_new_or_owned_run_directory(self) -> None:
+        for reuse_run_dir in (False, True):
+            with self.subTest(reuse_run_dir=reuse_run_dir), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                source = root / "source.png"
+                Image.new("RGBA", (4, 3), (20, 40, 60, 255)).save(source)
+                generation = {
+                    "version": 1, "provider": "tokenhub", "model": "hy-image-v3.0",
+                    "attempts": [{"number": 1, "task_id": "job-1"}], "selected_attempt": 1,
+                }
+                provenance = {
+                    "original_path": str(source),
+                    "sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+                }
+                requested = root / "workbuddy-run" if reuse_run_dir else None
+                if requested:
+                    requested.mkdir()
+                    (requested / "workbuddy_state.json").write_text(json.dumps({
+                        "version": 1, "run_id": requested.name, "max_attempts": 3,
+                        "route": "generate", "attempts": [], "pipeline_attempts": [],
+                    }))
+                with (
+                    patch.object(pipeline_module, "detect_source_grid", return_value={"width": 4, "height": 3}),
+                    patch.object(pipeline_module, "remove_background", side_effect=_remove_background),
+                    patch.object(pipeline_module, "refine_pixel", side_effect=_refine_image),
+                    patch.object(pipeline_module, "finalize_pixel_grid", side_effect=_finalize_image),
+                    patch.object(pipeline_module, "convert_with_lumina_batch", side_effect=_convert_variant) as convert,
+                ):
+                    run_dir = pipeline_module.run_pipeline(
+                        source, character_name="test character", output_root=root / "output",
+                        official_character_research_status="not_applicable", run_dir=requested,
+                        generation_metadata=generation if reuse_run_dir else None,
+                        source_provenance=provenance if reuse_run_dir else None,
+                    )
+                self.assertEqual(convert.call_count, 2)
+                manifest = json.loads((run_dir / "manifest.json").read_text())
+                self.assertEqual(set(manifest["final_3mfs"]), {"2x2", "3x3"})
+                self.assertEqual(set(manifest["lumina"]["variants"]), {"2x2", "3x3"})
+                for grid in ("source_grid", "working_grid", "export_grid"):
+                    self.assertEqual(manifest[grid], {"width": 4, "height": 3})
+                for cells in (2, 3):
+                    variant = f"{cells}x{cells}"
+                    self.assertTrue((run_dir / f"08_test-character_{variant}.3mf").is_file())
+                    self.assertEqual(
+                        manifest["perfect_pixel"]["pixel_size_plans"][variant]["expected_lumina_grid"],
+                        {"width": 4 * cells, "height": 3 * cells},
+                    )
+                if requested:
+                    self.assertEqual(run_dir, requested.resolve())
+                    self.assertEqual(manifest["generation"], generation)
+                    self.assertEqual(manifest["source_provenance"], provenance)
 
-            with (
-                patch.object(
-                    pipeline_module,
-                    "detect_source_grid",
-                    return_value={"width": 4, "height": 3},
-                ),
-                patch.object(
-                    pipeline_module,
-                    "remove_background",
-                    side_effect=_remove_background,
-                ),
-                patch.object(pipeline_module, "refine_pixel", side_effect=_refine_image),
-                patch.object(
-                    pipeline_module,
-                    "finalize_pixel_grid",
-                    side_effect=_finalize_image,
-                ),
-                patch.object(
-                    pipeline_module,
-                    "convert_with_lumina_batch",
-                    side_effect=_convert_variant,
-                ) as convert,
-            ):
-                run_dir = pipeline_module.run_pipeline(
-                    source,
-                    character_name="test character",
-                    output_root=tmp_path / "output",
-                    official_character_research_status="not_applicable",
-                )
-
-            self.assertEqual(convert.call_count, 2)
-            self.assertTrue((run_dir / "08_test-character_2x2.3mf").is_file())
-            self.assertTrue((run_dir / "08_test-character_3x3.3mf").is_file())
-
-            manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
-            self.assertEqual(set(manifest["final_3mfs"]), {"2x2", "3x3"})
-            self.assertEqual(set(manifest["lumina"]["variants"]), {"2x2", "3x3"})
-            self.assertEqual(manifest["source_grid"], {"width": 4, "height": 3})
-            self.assertEqual(manifest["working_grid"], {"width": 4, "height": 3})
-            self.assertEqual(manifest["export_grid"], {"width": 4, "height": 3})
-            self.assertEqual(
-                manifest["perfect_pixel"]["pixel_size_plans"]["2x2"][
-                    "expected_lumina_grid"
-                ],
-                {"width": 8, "height": 6},
-            )
-            self.assertEqual(
-                manifest["perfect_pixel"]["pixel_size_plans"]["3x3"][
-                    "expected_lumina_grid"
-                ],
-                {"width": 12, "height": 9},
-            )
-
-    def test_pipeline_reuses_requested_run_dir_and_records_generation(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp_path = Path(tmp)
-            run_dir = tmp_path / "output" / "workbuddy-run"
-            run_dir.mkdir(parents=True)
-            (run_dir / "workbuddy_state.json").write_text(
-                json.dumps(
-                    {
-                        "version": 1,
-                        "run_id": run_dir.name,
-                        "max_attempts": 3,
-                        "route": "generate",
-                        "attempts": [],
-                        "pipeline_attempts": [],
-                    }
-                )
-                + "\n",
-                encoding="utf-8",
-            )
-            source = tmp_path / "source.png"
-            Image.new("RGBA", (4, 3), (20, 40, 60, 255)).save(source)
-            generation = {
-                "version": 1,
-                "provider": "tokenhub",
-                "model": "hy-image-v3.0",
-                "attempts": [{"number": 1, "task_id": "job-1"}],
-                "selected_attempt": 1,
-            }
-            provenance = {
-                "original_path": str(source),
-                "sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
-            }
-
-            with (
-                patch.object(
-                    pipeline_module,
-                    "detect_source_grid",
-                    return_value={"width": 4, "height": 3},
-                ),
-                patch.object(
-                    pipeline_module,
-                    "remove_background",
-                    side_effect=_remove_background,
-                ),
-                patch.object(pipeline_module, "refine_pixel", side_effect=_refine_image),
-                patch.object(
-                    pipeline_module,
-                    "finalize_pixel_grid",
-                    side_effect=_finalize_image,
-                ),
-                patch.object(
-                    pipeline_module,
-                    "convert_with_lumina_batch",
-                    side_effect=_convert_variant,
-                ),
-            ):
-                actual_run_dir = pipeline_module.run_pipeline(
-                    source,
-                    character_name="test character",
-                    output_root=tmp_path / "ignored",
-                    official_character_research_status="not_applicable",
-                    run_dir=run_dir,
-                    generation_metadata=generation,
-                    source_provenance=provenance,
-                )
-
-            self.assertEqual(actual_run_dir, run_dir.resolve())
-            manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
-            self.assertEqual(manifest["generation"], generation)
-            self.assertEqual(manifest["source_provenance"], provenance)
-
-    def test_requested_run_dir_rejects_existing_manifest(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            run_dir = Path(tmp) / "existing"
-            run_dir.mkdir()
-            (run_dir / "manifest.json").write_text("{}\n", encoding="utf-8")
-            with self.assertRaisesRegex(FileExistsError, "already contains"):
-                pipeline_module.run_pipeline(
-                    "/tmp/not-read.png",
-                    official_character_research_status="not_applicable",
-                    run_dir=run_dir,
-                )
-
-    def test_requested_run_dir_rejects_unowned_files(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            run_dir = Path(tmp) / "existing"
-            run_dir.mkdir()
-            (run_dir / "important-user-file.txt").write_text("keep me\n", encoding="utf-8")
-            with self.assertRaisesRegex(FileExistsError, "not owned"):
-                pipeline_module.run_pipeline(
-                    "/tmp/not-read.png",
-                    official_character_research_status="not_applicable",
-                    run_dir=run_dir,
-                )
-            self.assertEqual(
-                (run_dir / "important-user-file.txt").read_text(encoding="utf-8"),
-                "keep me\n",
-            )
-
-    def test_nonempty_requested_run_dir_requires_matching_workbuddy_owner(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            run_dir = Path(tmp) / "existing"
-            run_dir.mkdir()
-            (run_dir / "01_source.png").write_bytes(b"source")
-            with self.assertRaisesRegex(FileExistsError, "not owned"):
-                pipeline_module.run_pipeline(
-                    "/tmp/not-read.png",
-                    official_character_research_status="not_applicable",
-                    run_dir=run_dir,
-                )
+    def test_existing_run_files_are_never_overwritten_without_ownership(self) -> None:
+        for filename, content, error in (
+            ("manifest.json", b"{}\n", "already contains"),
+            ("important-user-file.txt", b"keep me\n", "not owned"),
+            ("01_source.png", b"source", "not owned"),
+        ):
+            with self.subTest(filename=filename), tempfile.TemporaryDirectory() as tmp:
+                run_dir = Path(tmp) / "existing"
+                run_dir.mkdir()
+                (run_dir / filename).write_bytes(content)
+                with self.assertRaisesRegex(FileExistsError, error):
+                    pipeline_module.run_pipeline(
+                        "/tmp/not-read.png", official_character_research_status="not_applicable",
+                        run_dir=run_dir,
+                    )
+                self.assertEqual((run_dir / filename).read_bytes(), content)
 
     def test_source_provenance_rejects_invalid_digest(self) -> None:
         with self.assertRaisesRegex(ValueError, "lowercase SHA-256"):
@@ -304,36 +203,16 @@ class PipelineExportTests(unittest.TestCase):
                 },
             )
 
-    def test_generation_metadata_rejects_sensitive_fields(self) -> None:
-        with self.assertRaisesRegex(ValueError, "sensitive field"):
-            pipeline_module.validate_generation_metadata(
-                {
-                    "version": 1,
-                    "attempts": [],
-                    "selected_attempt": None,
-                    "api_key": "must-not-be-written",
-                }
-            )
-
-    def test_generation_metadata_requires_supported_shape(self) -> None:
-        with self.assertRaisesRegex(ValueError, "attempts must be a list"):
-            pipeline_module.validate_generation_metadata(
-                {
-                    "version": 1,
-                    "attempts": {},
-                    "selected_attempt": None,
-                }
-            )
-
-    def test_generation_metadata_rejects_unknown_camel_case_secret_field(self) -> None:
-        with self.assertRaisesRegex(ValueError, "unsupported fields"):
-            pipeline_module.validate_generation_metadata(
-                {
-                    "version": 1,
-                    "attempts": [{"number": 1, "apiKey": "secret"}],
-                    "selected_attempt": None,
-                }
-            )
+    def test_generation_metadata_rejects_secrets_and_invalid_shapes(self) -> None:
+        for fields, error in (
+            ({"api_key": "must-not-be-written"}, "sensitive field"),
+            ({"attempts": {}}, "attempts must be a list"),
+            ({"attempts": [{"number": 1, "apiKey": "secret"}]}, "unsupported fields"),
+        ):
+            with self.subTest(fields=fields), self.assertRaisesRegex(ValueError, error):
+                pipeline_module.validate_generation_metadata({
+                    "version": 1, "attempts": [], "selected_attempt": None, **fields,
+                })
 
     def test_generation_metadata_redacts_signed_url_queries_and_bearer_values(self) -> None:
         value = pipeline_module.validate_generation_metadata(

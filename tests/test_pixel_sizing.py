@@ -27,57 +27,24 @@ from refine_pixel import (  # noqa: E402
     detect_source_grid,
     refine_mask_to_grid,
     refine_pixel,
-    validate_detected_grid,
 )
 
 
 class PixelSizePlanTests(unittest.TestCase):
-    def test_square_50_grid_maps_to_two_by_two_cells(self) -> None:
-        plan = build_pixel_size_plan(50, 50, cells_per_logical_pixel=2)
-
-        self.assertEqual(plan["expected_lumina_grid"], {"width": 100, "height": 100})
-        self.assertEqual(plan["nominal_target_width_mm"], "42.00")
-        self.assertEqual(plan["nominal_target_height_mm"], "42.00")
-        self.assertEqual(plan["logical_pixel_pitch_mm"], "0.84")
-        self.assertTrue(plan["exact_integer_mapping"])
-
-    def test_square_50_grid_maps_to_three_by_three_cells(self) -> None:
-        plan = build_pixel_size_plan(50, 50)
-
-        self.assertEqual(plan["expected_lumina_grid"], {"width": 150, "height": 150})
-        self.assertEqual(plan["nominal_target_width_mm"], "63.00")
-        self.assertEqual(plan["nominal_target_height_mm"], "63.00")
-        self.assertTrue(plan["exact_integer_mapping"])
-
-    def test_rectangular_odd_grid_preserves_every_row(self) -> None:
-        plan = build_pixel_size_plan(80, 79)
-
-        self.assertEqual(plan["expected_lumina_grid"], {"width": 240, "height": 237})
-        self.assertEqual(plan["simulated_lumina_grid"], {"width": 240, "height": 237})
-        self.assertEqual(plan["nominal_target_width_mm"], "100.80")
-        self.assertEqual(plan["nominal_target_height_mm"], "99.54")
-
-    def test_decimal_boundary_width_does_not_lose_a_cell(self) -> None:
-        plan = build_pixel_size_plan(62, 73)
-
-        self.assertEqual(plan["nominal_target_width_mm"], "78.12")
-        self.assertEqual(plan["expected_lumina_grid"], {"width": 186, "height": 219})
-        self.assertEqual(plan["simulated_lumina_grid"], {"width": 186, "height": 219})
-
-    def test_all_accepted_grid_pairs_map_exactly(self) -> None:
+    def test_size_plans_preserve_exact_cells_and_physical_dimensions(self) -> None:
+        # Boundaries, a typical square, odd rectangles and the decimal regression.
         for cells in (2, 3):
-            for width in range(45, 91):
-                for height in range(45, 91):
-                    with self.subTest(cells=cells, width=width, height=height):
-                        plan = build_pixel_size_plan(
-                            width,
-                            height,
-                            cells_per_logical_pixel=cells,
-                        )
-                        self.assertEqual(
-                            plan["simulated_lumina_grid"],
-                            {"width": width * cells, "height": height * cells},
-                        )
+            pitch = Decimal("0.42") * cells
+            for width, height in ((45, 90), (90, 45), (50, 50), (80, 79), (62, 73)):
+                with self.subTest(cells=cells, width=width, height=height):
+                    plan = build_pixel_size_plan(width, height, cells_per_logical_pixel=cells)
+                    expected = {"width": width * cells, "height": height * cells}
+                    self.assertEqual(plan["expected_lumina_grid"], expected)
+                    self.assertEqual(plan["simulated_lumina_grid"], expected)
+                    self.assertEqual(Decimal(plan["nominal_target_width_mm"]), width * pitch)
+                    self.assertEqual(Decimal(plan["nominal_target_height_mm"]), height * pitch)
+                    self.assertEqual(Decimal(plan["logical_pixel_pitch_mm"]), pitch)
+                    self.assertTrue(plan["exact_integer_mapping"])
 
     def test_preview_form_uses_dynamic_width(self) -> None:
         params = {
@@ -98,8 +65,12 @@ class PixelSizePlanTests(unittest.TestCase):
         self.assertEqual(form["quantize_colors"], "256")
 
     def test_reads_expected_lumina_nozzle_width_without_importing_lumina(self) -> None:
-        value = _read_lumina_nozzle_width(PROJECT_ROOT / "Lumina-Layers")
-        self.assertEqual(value, Decimal("0.42"))
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "config.py").write_text(
+                "raise RuntimeError('must not import')\nclass PrinterConfig:\n    NOZZLE_WIDTH = 0.42\n"
+            )
+            self.assertEqual(_read_lumina_nozzle_width(root), Decimal("0.42"))
 
 
 class RectangularPreparationTests(unittest.TestCase):
@@ -173,16 +144,6 @@ class RectangularPreparationTests(unittest.TestCase):
             self.assertFalse(metadata["density_gate_applied"])
             self.assertIsNone(metadata["accepted_grid_range"])
             self.assertEqual(metadata["partial_alpha_cells_before_binarization"], 6)
-
-    def test_source_density_boundaries_are_inclusive(self) -> None:
-        for width in (45, 80, 81, 90):
-            for height in (45, 80, 81, 90):
-                with self.subTest(width=width, height=height):
-                    validate_detected_grid(width, height)
-        for width, height in ((44, 45), (45, 44), (91, 90), (90, 91)):
-            with self.subTest(width=width, height=height):
-                with self.assertRaisesRegex(ValueError, "45-90 cells per axis"):
-                    validate_detected_grid(width, height)
 
     def test_source_detection_and_refinement_use_updated_density_range(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

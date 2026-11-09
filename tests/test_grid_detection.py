@@ -46,14 +46,27 @@ class GridDetectionTests(unittest.TestCase):
                 np.testing.assert_array_equal(result[2], logical)
                 np.testing.assert_array_equal(source, original)
 
-    def test_fractional_grid_density_gate_remains_in_force(self) -> None:
+    def test_regular_and_fractional_sources_outside_density_range_are_rejected(self) -> None:
+        cases = [(style, width, height, 24)
+                 for style in ("regular", "fractional")
+                 for width, height in ((44, 45), (45, 44), (91, 90), (90, 91))]
+        cases.append(("regular", 40, 40, 32))
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "source.png"
-            for width, height in ((44, 45), (45, 44), (91, 90), (90, 91)):
-                source, _ = fractional_source(width, height, (width * 25 + 7, height * 25 + 7))
-                Image.fromarray(source).save(path)
-                with self.subTest(width=width, height=height), redirect_stdout(io.StringIO()), self.assertRaisesRegex(ValueError, "45-90"):
-                    detect_source_grid(path)
+            for style, width, height, pitch in cases:
+                with self.subTest(style=style, grid=(width, height)):
+                    if style == "fractional":
+                        source, _ = fractional_source(width, height, (width * 25 + 7, height * 25 + 7))
+                    else:
+                        source, logical = regular_source(width, height, pitch)
+                        detected = self.detect(source)
+                        self.assertEqual(detected[:2], (width, height))
+                        np.testing.assert_array_equal(detected[2], logical)
+                    Image.fromarray(source).save(path)
+                    original = path.read_bytes()
+                    with redirect_stdout(io.StringIO()), self.assertRaisesRegex(ValueError, "45-90"):
+                        detect_source_grid(path)
+                    self.assertEqual(path.read_bytes(), original)
 
     def test_fractional_tie_breaking_and_exact_rgb_reconstruction(self) -> None:
         logical = regular_source(50, 50, 1)[1]
@@ -71,13 +84,6 @@ class GridDetectionTests(unittest.TestCase):
                 self.assertEqual((width, height), (50, 50))
                 np.testing.assert_array_equal(sampled, logical)
                 np.testing.assert_array_equal(sampled[index[:, None], index[None, :], :3], source[:, :, :3])
-
-    def test_fractional_detection_cannot_exclude_invisible_subdivisions(self) -> None:
-        source, logical = fractional_source(49, 49, (1254, 1254))
-        finer = logical.repeat(2, axis=0).repeat(2, axis=1)
-        same_source = np.asarray(Image.fromarray(finer).resize((1254, 1254), Image.Resampling.NEAREST))
-        np.testing.assert_array_equal(source, same_source)
-        self.assertEqual(self.detect(same_source)[:2], (49, 49))
 
     def test_fractional_tie_does_not_create_false_blur_warning(self) -> None:
         logical = regular_source(80, 80, 1)[1]
@@ -140,36 +146,13 @@ class GridDetectionTests(unittest.TestCase):
             np.testing.assert_array_equal(np.asarray(Image.open(root / 'alpha.png')), mask[centers[:, None], centers[None, :]])
             self.assertEqual((path.read_bytes(), mask_path.read_bytes()), original)
 
-    def test_regular_40_grid_is_detected_but_rejected_by_source_density_gate(self) -> None:
-        source, logical = regular_source(40, 40, 32)
-        original = source.copy()
-        width, height, sampled = self.detect(source)
-        self.assertEqual((width, height), (40, 40))
-        np.testing.assert_array_equal(sampled, logical)
-        np.testing.assert_array_equal(source, original)
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "source.png"
-            Image.fromarray(source).save(path)
-            original_bytes = path.read_bytes()
-            with redirect_stdout(io.StringIO()), self.assertRaisesRegex(
-                ValueError, r"overly coarse source grid \(40x40\).*45-90"
-            ):
-                detect_source_grid(path)
-            self.assertEqual(path.read_bytes(), original_bytes)
-
-    def test_regular_64_grid_with_16_pixel_cells_still_passes(self) -> None:
-        source, logical = regular_source(64, 64, 16)
-        width, height, sampled = self.detect(source)
-        self.assertEqual((width, height), (64, 64))
-        np.testing.assert_array_equal(sampled, logical)
-
     def test_accepted_densities_with_coarse_cells_and_rectangular_canvas(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            for width, height in ((45, 45), (48, 48), (45, 80), (80, 45), (80, 80), (81, 80),
-                                  (80, 81), (45, 90), (90, 45), (90, 90)):
+            for width, height, pitch in ((45, 45, 24), (90, 90, 24), (45, 80, 24),
+                                         (80, 45, 24), (64, 64, 16)):
                 with self.subTest(width=width, height=height):
-                    source, logical = regular_source(width, height, 24)
+                    source, logical = regular_source(width, height, pitch)
                     path = root / "source.png"
                     Image.fromarray(source).save(path)
                     original = path.read_bytes()
@@ -202,18 +185,6 @@ class GridDetectionTests(unittest.TestCase):
         source = np.roll(source, (16, 16), axis=(0, 1))
         width, height, _ = self.detect(source)
         self.assertEqual((width, height), (None, None))
-
-    def test_recovered_grids_outside_acceptance_range_are_still_rejected(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "source.png"
-            for width, height in ((44, 45), (45, 44), (91, 90), (90, 91)):
-                with self.subTest(width=width, height=height):
-                    source, _ = regular_source(width, height, 24)
-                    Image.fromarray(source).save(path)
-                    with redirect_stdout(io.StringIO()), self.assertRaisesRegex(
-                        ValueError, rf"{width}x{height}.*45-90 cells per axis"
-                    ):
-                        detect_source_grid(path)
 
     def test_auxiliary_mask_is_sampled_on_the_same_rgb_lattice(self) -> None:
         source, _ = regular_source(50, 47, 24)

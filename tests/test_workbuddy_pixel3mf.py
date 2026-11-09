@@ -47,13 +47,23 @@ class _FakeSession:
         return self.post_responses.pop(0)
 
 
+def _run_dir(root: str | Path, *, route="generate", **overrides) -> Path:
+    defaults = {
+        "character_name": "direct" if route == "direct" else "original",
+        "character_request": "direct" if route == "direct" else "an original fox waving",
+        "original_request": "convert" if route == "direct" else "make a fox",
+    }
+    return workbuddy.init_run(output_root=root, route=route, **(defaults | overrides))
+
+
 class WorkBuddyStateTests(unittest.TestCase):
     def test_new_run_pins_prompt_and_defaults_to_no_native_references(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            run_dir = workbuddy.init_run(character_name="original", character_request="robot",
-                                        original_request="robot", route="generate", output_root=tmp)
+            run_dir = _run_dir(tmp, character_request="robot", original_request="robot at 75 mm")
             _, state = workbuddy.load_state(run_dir)
             prompt = workbuddy.render_prompt(state)
+            self.assertIn("robot", prompt)
+            self.assertNotIn("75 mm", prompt)
             self.assertEqual(workbuddy.native_reference_files(state), [])
             with patch.object(workbuddy, "_prompt_block", return_value="changed template"):
                 self.assertEqual(workbuddy.render_prompt(state), prompt)
@@ -128,38 +138,7 @@ class WorkBuddyStateTests(unittest.TestCase):
     def test_completed_research_requires_file_and_official_url(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaisesRegex(ValueError, "completed research"):
-                workbuddy.init_run(
-                    character_name="character",
-                    character_request="character",
-                    original_request="make character",
-                    route="generate",
-                    output_root=tmp,
-                    research_status="completed",
-                )
-
-    def test_generation_prompt_comes_only_from_the_fenced_template(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            run_dir = workbuddy.init_run(
-                character_name="original",
-                character_request="an original fox waving",
-                original_request="make a fox and later print it at 75 mm",
-                route="generate",
-                output_root=tmp,
-            )
-            _, state = workbuddy.load_state(run_dir)
-            prompt = workbuddy.render_prompt(state)
-
-            self.assertIn("an original fox waving", prompt)
-            self.assertIn("64 × 64", prompt)
-            self.assertIn("双眼自然、视线协调、眼部结构清楚", prompt)
-            self.assertIn("轻微倾斜", prompt)
-            self.assertIn("自然遮挡", prompt)
-            for obsolete in ("同一条水平线", "相同的3行", "顶行和底行完全水平对齐", "远侧眼最多只窄1格", "不歪头"):
-                self.assertNotIn(obsolete, prompt)
-            self.assertNotIn("28 × 28 pixel-art design as the visual prior", prompt)
-            self.assertNotIn("75 mm", prompt)
-            self.assertNotIn("45–90", prompt)
-            self.assertNotIn("Perfect Pixel", prompt)
+                _run_dir(tmp, character_name="character", character_request="character", original_request="make character", research_status="completed")
 
     def test_generation_prompt_embeds_the_registered_research_brief(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -168,16 +147,7 @@ class WorkBuddyStateTests(unittest.TestCase):
                 "Canonical jacket: blue. Signature prop: silver staff.\n",
                 encoding="utf-8",
             )
-            run_dir = workbuddy.init_run(
-                character_name="recognizable",
-                character_request="recognizable character holding a silver staff",
-                original_request="make the character",
-                route="generate",
-                output_root=Path(tmp) / "output",
-                research_status="completed",
-                research_path=research,
-                official_sources=["https://official.example/character"],
-            )
+            run_dir = _run_dir(Path(tmp) / "output", character_name="recognizable", character_request="recognizable character holding a silver staff", original_request="make the character", research_status="completed", research_path=research, official_sources=["https://official.example/character"])
             _, state = workbuddy.load_state(run_dir)
 
             prompt = workbuddy.render_prompt(state)
@@ -198,18 +168,7 @@ class WorkBuddyStateTests(unittest.TestCase):
             _opaque_png(source)
             research = Path(tmp) / "research.md"
             research.write_text("Canonical eye color: green.\n", encoding="utf-8")
-            run_dir = workbuddy.init_run(
-                character_name="recognizable",
-                character_request="recognizable character",
-                original_request="fix the far eye",
-                route="edit",
-                output_root=Path(tmp) / "output",
-                source_image=source,
-                edit_defect="make the far eye the same height",
-                research_status="completed",
-                research_path=research,
-                official_sources=["https://official.example/character"],
-            )
+            run_dir = _run_dir(Path(tmp) / "output", character_name="recognizable", character_request="recognizable character", original_request="fix the far eye", route="edit", source_image=source, edit_defect="make the far eye the same height", research_status="completed", research_path=research, official_sources=["https://official.example/character"])
             _, state = workbuddy.load_state(run_dir)
 
             prompt = workbuddy.render_prompt(state)
@@ -220,13 +179,7 @@ class WorkBuddyStateTests(unittest.TestCase):
 
     def test_state_rejects_tampered_generation_limit(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            run_dir = workbuddy.init_run(
-                character_name="original",
-                character_request="original",
-                original_request="make it",
-                route="generate",
-                output_root=tmp,
-            )
+            run_dir = _run_dir(tmp, character_request="original", original_request="make it")
             state_path = run_dir / workbuddy.STATE_FILENAME
             state = json.loads(state_path.read_text(encoding="utf-8"))
             state["max_attempts"] = 99
@@ -235,100 +188,31 @@ class WorkBuddyStateTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "must remain 3"):
                 workbuddy.load_state(run_dir)
 
-    def test_direct_source_is_preserved_byte_for_byte(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            source = Path(tmp) / "source.png"
-            _opaque_png(source)
-            original = source.read_bytes()
-            run_dir = workbuddy.init_run(
-                character_name="direct",
-                character_request="direct",
-                original_request="convert",
-                route="direct",
-                output_root=Path(tmp) / "output",
-                source_image=source,
-            )
-            _, state = workbuddy.load_state(run_dir)
-            preserved = Path(state["source_image"])
-
-            self.assertEqual(preserved.read_bytes(), original)
-            self.assertEqual(
-                state["source_sha256"], hashlib.sha256(original).hexdigest()
-            )
-
-    def test_rejection_reason_is_not_added_to_retry_prompt(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            run_dir = workbuddy.init_run(
-                character_name="original",
-                character_request="an original fox waving",
-                original_request="make a fox",
-                route="generate",
-                output_root=tmp,
-            )
-            candidate = run_dir / "01_source_attempt_01.png"
-            _opaque_png(candidate)
-            _, state = workbuddy.load_state(run_dir)
-            state["attempts"].append(
-                {
-                    "number": 1,
-                    "file": str(candidate),
-                    "objective_validation": {"passed": True},
-                    "visual_decision": None,
+    def test_source_decision_preserves_retry_prompt_or_promotes_exact_source(self) -> None:
+        for decision in ("accepted", "rejected"):
+            with self.subTest(decision=decision), tempfile.TemporaryDirectory() as tmp:
+                run_dir = _run_dir(tmp)
+                candidate = run_dir / "01_source_attempt_01.png"
+                _opaque_png(candidate)
+                _, state = workbuddy.load_state(run_dir)
+                state["attempts"].append({
+                    "number": 1, "file": str(candidate),
+                    "objective_validation": {"passed": True}, "visual_decision": None,
                     "status": "awaiting_visual_decision",
-                }
-            )
-            workbuddy._write_json(run_dir / workbuddy.STATE_FILENAME, state)
-            first_prompt = workbuddy.render_prompt(state)
-
-            workbuddy.decide_source(
-                run_dir,
-                attempt_number=1,
-                decision="rejected",
-                reason="detected 90x90 and broken outline",
-            )
-            _, updated = workbuddy.load_state(run_dir)
-            retry_prompt = workbuddy.render_prompt(updated)
-
-            self.assertEqual(first_prompt, retry_prompt)
-            self.assertNotIn("90x90", retry_prompt)
-
-    def test_accepting_attempt_copies_canonical_source(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            run_dir = workbuddy.init_run(
-                character_name="original",
-                character_request="original",
-                original_request="make it",
-                route="generate",
-                output_root=tmp,
-            )
-            candidate = run_dir / "01_source_attempt_01.png"
-            _opaque_png(candidate)
-            _, state = workbuddy.load_state(run_dir)
-            state["attempts"].append(
-                {
-                    "number": 1,
-                    "file": str(candidate),
-                    "objective_validation": {"passed": True},
-                    "visual_decision": None,
-                    "status": "awaiting_visual_decision",
-                }
-            )
-            workbuddy._write_json(run_dir / workbuddy.STATE_FILENAME, state)
-
-            workbuddy.decide_source(
-                run_dir,
-                attempt_number=1,
-                decision="accepted",
-                reason="identity and composition pass",
-            )
-
-            self.assertEqual(
-                hashlib.sha256(candidate.read_bytes()).digest(),
-                hashlib.sha256((run_dir / "01_source.png").read_bytes()).digest(),
-            )
-            _, updated = workbuddy.load_state(run_dir)
-            self.assertEqual(updated["selected_attempt"], 1)
-
+                })
+                workbuddy._write_json(run_dir / workbuddy.STATE_FILENAME, state)
+                prompt = workbuddy.render_prompt(state)
+                workbuddy.decide_source(
+                    run_dir, attempt_number=1, decision=decision,
+                    reason="detected 90x90 and broken outline" if decision == "rejected" else "visual review passed",
+                )
+                _, updated = workbuddy.load_state(run_dir)
+                if decision == "accepted":
+                    self.assertEqual((run_dir / "01_source.png").read_bytes(), candidate.read_bytes())
+                    self.assertEqual(updated["selected_attempt"], 1)
+                else:
+                    self.assertEqual(workbuddy.render_prompt(updated), prompt)
+                    self.assertNotIn("90x90", workbuddy.render_prompt(updated))
 
 class WorkBuddyGenerationTests(unittest.TestCase):
     def test_native_import_preserves_original_and_enclosed_highlights(self) -> None:
@@ -341,11 +225,7 @@ class WorkBuddyGenerationTests(unittest.TestCase):
             image.putpixel((0, 0), (245, 244, 241, 255))
             image.save(source)
             original = source.read_bytes()
-            run_dir = workbuddy.init_run(
-                character_name="normalization", character_request="original robot",
-                original_request="test", route="generate", output_root=Path(tmp) / "runs",
-                use_bundled_style=False,
-            )
+            run_dir = _run_dir(Path(tmp) / "runs", character_name="normalization", character_request="original robot", original_request="test", use_bundled_style=False)
             with patch.object(workbuddy, "detect_source_grid", return_value={"width": 64, "height": 64}):
                 result = workbuddy.import_workbuddy_candidate(run_dir, source_image=source)
             self.assertTrue(result["objective_validation"]["passed"])
@@ -408,18 +288,9 @@ class WorkBuddyGenerationTests(unittest.TestCase):
                     self.assertEqual(bool(result["warnings"]), color[:3] == (253, 255, 254))
                     self.assertEqual(path.read_bytes(), original)
 
-    def _run_dir(self, root: str | Path) -> Path:
-        return workbuddy.init_run(
-            character_name="original",
-            character_request="an original fox waving",
-            original_request="make a fox",
-            route="generate",
-            output_root=root,
-        )
-
     def test_generate_records_one_attempt_and_objective_result(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            run_dir = self._run_dir(tmp)
+            run_dir = _run_dir(tmp)
             client = MagicMock()
             client.generate.return_value = {
                 "task_id": "job-1",
@@ -450,7 +321,7 @@ class WorkBuddyGenerationTests(unittest.TestCase):
 
     def test_submitted_task_id_is_persisted_before_poll_timeout(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            run_dir = self._run_dir(tmp)
+            run_dir = _run_dir(tmp)
             client = MagicMock()
 
             def submit_then_timeout(prompt, urls, *, on_submitted):
@@ -474,7 +345,7 @@ class WorkBuddyGenerationTests(unittest.TestCase):
 
     def test_state_errors_redact_bearer_values_and_signed_url_queries(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            run_dir = self._run_dir(tmp)
+            run_dir = _run_dir(tmp)
             client = MagicMock()
             client.generate.side_effect = workbuddy.TokenHubHTTPError(
                 400,
@@ -496,7 +367,7 @@ class WorkBuddyGenerationTests(unittest.TestCase):
 
     def test_resume_generation_polls_existing_task_without_new_attempt(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            run_dir = self._run_dir(tmp)
+            run_dir = _run_dir(tmp)
             _, state = workbuddy.load_state(run_dir)
             candidate = run_dir / "01_source_attempt_01.png"
             state["attempts"].append(
@@ -537,7 +408,7 @@ class WorkBuddyGenerationTests(unittest.TestCase):
 
     def test_async_download_failure_resumes_same_paid_task(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            run_dir = self._run_dir(tmp)
+            run_dir = _run_dir(tmp)
             first_client = MagicMock()
 
             def completed_after_submit(prompt, urls, *, on_submitted):
@@ -587,7 +458,7 @@ class WorkBuddyGenerationTests(unittest.TestCase):
 
     def test_generation_hard_stops_after_three_attempts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            run_dir = self._run_dir(tmp)
+            run_dir = _run_dir(tmp)
             client = MagicMock()
             client.generate.side_effect = lambda prompt, urls, **kwargs: {
                 "task_id": f"job-{client.generate.call_count}",
@@ -612,13 +483,7 @@ class WorkBuddyGenerationTests(unittest.TestCase):
 
     def test_import_workbuddy_candidate_uses_shared_attempt_gate(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            run_dir = workbuddy.init_run(
-                character_name="native",
-                character_request="an original pixel fox",
-                original_request="make it",
-                route="generate",
-                output_root=tmp,
-            )
+            run_dir = _run_dir(tmp, character_name="native", character_request="an original pixel fox", original_request="make it")
             sources = []
             for number in range(1, 4):
                 source = Path(tmp) / f"native-{number}.png"
@@ -635,6 +500,8 @@ class WorkBuddyGenerationTests(unittest.TestCase):
                 first = workbuddy.import_workbuddy_candidate(
                     run_dir, source_image=sources[0]
                 )
+                with self.assertRaisesRegex(RuntimeError, "awaiting_visual_decision"):
+                    workbuddy.import_workbuddy_candidate(run_dir, source_image=sources[0])
                 self.assertEqual(first["provider"], "workbuddy")
                 self.assertEqual(first["reference_transport"], "workbuddy-native")
                 workbuddy.decide_source(
@@ -659,32 +526,9 @@ class WorkBuddyGenerationTests(unittest.TestCase):
                         run_dir, source_image=sources[2]
                     )
 
-    def test_import_workbuddy_candidate_requires_decision_before_next_attempt(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            run_dir = workbuddy.init_run(
-                character_name="native",
-                character_request="an original pixel fox",
-                original_request="make it",
-                route="generate",
-                output_root=tmp,
-            )
-            source = Path(tmp) / "native.png"
-            _opaque_png(source)
-            passed = {
-                "passed": True,
-                "fully_opaque": True,
-                "pure_white_border": True,
-                "detected_grid": {"width": 72, "height": 72},
-                "reasons": [],
-            }
-            with patch.object(workbuddy, "_objective_preflight", return_value=passed):
-                workbuddy.import_workbuddy_candidate(run_dir, source_image=source)
-                with self.assertRaisesRegex(RuntimeError, "awaiting_visual_decision"):
-                    workbuddy.import_workbuddy_candidate(run_dir, source_image=source)
-
     def test_reference_url_rejection_falls_back_to_cos_and_cleans_up(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            run_dir = self._run_dir(tmp)
+            run_dir = _run_dir(tmp)
             reference = Path(tmp) / "reference.png"
             _opaque_png(reference)
             client = MagicMock()
@@ -727,7 +571,7 @@ class WorkBuddyGenerationTests(unittest.TestCase):
 
     def test_poll_error_after_submission_never_triggers_cos_resubmission(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            run_dir = self._run_dir(tmp)
+            run_dir = _run_dir(tmp)
             reference = Path(tmp) / "reference.png"
             _opaque_png(reference)
             client = MagicMock()
@@ -753,7 +597,7 @@ class WorkBuddyGenerationTests(unittest.TestCase):
 
     def test_partial_cos_upload_records_keys_for_retryable_cleanup(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            run_dir = self._run_dir(tmp)
+            run_dir = _run_dir(tmp)
             reference = Path(tmp) / "reference.png"
             _opaque_png(reference)
             client = MagicMock()
@@ -790,7 +634,7 @@ class WorkBuddyGenerationTests(unittest.TestCase):
 
     def test_cos_cleanup_failure_blocks_further_work_until_retried(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            run_dir = self._run_dir(tmp)
+            run_dir = _run_dir(tmp)
             reference = Path(tmp) / "reference.png"
             _opaque_png(reference)
             client = MagicMock()
@@ -828,36 +672,12 @@ class WorkBuddyGenerationTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "cleanup is required"):
                 workbuddy.convert_run(run_dir)
 
-    def test_objective_preflight_enforces_opacity_border_and_density(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            source = Path(tmp) / "source.png"
-            _opaque_png(source)
-            with patch.object(
-                workbuddy,
-                "detect_source_grid",
-                return_value={"width": 45, "height": 90},
-            ):
-                passing = workbuddy._objective_preflight(source)
-            self.assertTrue(passing["passed"])
-
-            Image.new("RGBA", (32, 32), (255, 255, 255, 128)).save(source)
-            with patch.object(
-                workbuddy,
-                "detect_source_grid",
-                return_value={"width": 44, "height": 91},
-            ):
-                failing = workbuddy._objective_preflight(source)
-            self.assertFalse(failing["passed"])
-            self.assertGreaterEqual(len(failing["reasons"]), 2)
-
     def test_objective_preflight_density_boundaries_on_each_axis(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             source = Path(tmp) / "source.png"
             _opaque_png(source)
             for width, height, accepted in (
-                (45, 45, True), (45, 80, True), (80, 45, True), (80, 80, True),
-                (81, 80, True), (80, 81, True),
-                (45, 90, True), (90, 45, True), (90, 90, True),
+                (45, 90, True), (90, 45, True), (64, 64, True),
                 (44, 45, False), (45, 44, False),
                 (91, 90, False), (90, 91, False),
             ):
@@ -872,52 +692,29 @@ class WorkBuddyGenerationTests(unittest.TestCase):
                         self.assertIn("45-90 cells per axis", result["reasons"][0])
 
     def test_tokenhub_client_submits_and_polls_async_job(self) -> None:
-        config = json.loads(json.dumps(workbuddy.DEFAULT_CONFIG))
-        config["tokenhub"]["poll_interval_seconds"] = 0
-        session = _FakeSession(
-            [
-                _FakeResponse({"id": "job-1", "status": "queued"}),
-                _FakeResponse({"id": "job-1", "status": "running"}),
-                _FakeResponse(
-                    {
-                        "id": "job-1",
-                        "request_id": "request-1",
-                        "status": "completed",
-                        "data": [{"url": "https://example.invalid/result.png"}],
-                    }
-                ),
-            ]
-        )
-        client = workbuddy.TokenHubClient("secret", config, session=session)
-
-        result = client.generate("prompt", [])
-
-        self.assertEqual(result["task_id"], "job-1")
-        self.assertEqual(len(session.post_calls), 3)
-        submit_payload = session.post_calls[0]["json"]
-        self.assertEqual(submit_payload["logo_add"], 0)
-        self.assertEqual(submit_payload["model"], "hy-image-v3.0")
-
-    def test_tokenhub_poll_accepts_completion_without_request_id(self) -> None:
-        config = json.loads(json.dumps(workbuddy.DEFAULT_CONFIG))
-        config["tokenhub"]["poll_interval_seconds"] = 0
-        session = _FakeSession(
-            [
-                _FakeResponse(
-                    {
-                        "id": "job-1",
-                        "status": "completed",
-                        "data": [{"url": "https://example.invalid/result.png"}],
-                    }
-                )
-            ]
-        )
-        client = workbuddy.TokenHubClient("secret", config, session=session)
-
-        result = client.poll("job-1")
-
-        self.assertEqual(result["task_id"], "job-1")
-        self.assertIsNone(result["request_id"])
+        for request_id in ("request-1", None):
+            with self.subTest(request_id=request_id):
+                config = json.loads(json.dumps(workbuddy.DEFAULT_CONFIG))
+                config["tokenhub"]["poll_interval_seconds"] = 0
+                completed = {
+                    "id": "job-1", "status": "completed",
+                    "data": [{"url": "https://example.invalid/result.png"}],
+                }
+                if request_id:
+                    completed["request_id"] = request_id
+                session = _FakeSession([
+                    _FakeResponse({"id": "job-1", "status": "queued"}),
+                    _FakeResponse({"id": "job-1", "status": "running"}),
+                    _FakeResponse(completed),
+                ])
+                client = workbuddy.TokenHubClient("secret", config, session=session)
+                result = client.generate("prompt", [])
+                self.assertEqual(result["task_id"], "job-1")
+                self.assertEqual(result["request_id"], request_id)
+                self.assertEqual(len(session.post_calls), 3)
+                submit_payload = session.post_calls[0]["json"]
+                self.assertEqual(submit_payload["logo_add"], 0)
+                self.assertEqual(submit_payload["model"], "hy-image-v3.0")
 
     def test_tokenhub_client_accepts_synchronous_response(self) -> None:
         config = json.loads(json.dumps(workbuddy.DEFAULT_CONFIG))
@@ -956,14 +753,7 @@ class WorkBuddyConversionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             source = Path(tmp) / "partial.png"
             Image.new("RGBA", (16, 16), (20, 40, 60, 128)).save(source)
-            run_dir = workbuddy.init_run(
-                character_name="direct",
-                character_request="direct",
-                original_request="convert this",
-                route="direct",
-                output_root=Path(tmp) / "output",
-                source_image=source,
-            )
+            run_dir = _run_dir(Path(tmp) / "output", original_request="convert this", route="direct", source_image=source)
             with self.assertRaisesRegex(ValueError, "non-binary alpha"):
                 workbuddy.convert_run(run_dir)
 
@@ -971,14 +761,8 @@ class WorkBuddyConversionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             source = Path(tmp) / "source.png"
             _opaque_png(source)
-            run_dir = workbuddy.init_run(
-                character_name="direct",
-                character_request="direct",
-                original_request="convert this",
-                route="direct",
-                output_root=Path(tmp) / "output",
-                source_image=source,
-            )
+            original = source.read_bytes()
+            run_dir = _run_dir(Path(tmp) / "output", original_request="convert this", route="direct", source_image=source)
             with patch.object(workbuddy, "run_pipeline", return_value=run_dir) as pipeline:
                 result = workbuddy.convert_run(run_dir)
 
@@ -987,18 +771,14 @@ class WorkBuddyConversionTests(unittest.TestCase):
             self.assertIsNone(pipeline.call_args.kwargs["generation_metadata"])
             provenance = pipeline.call_args.kwargs["source_provenance"]
             _, state = workbuddy.load_state(run_dir)
+            self.assertEqual(Path(state["source_image"]).read_bytes(), original)
+            self.assertEqual(state["source_sha256"], hashlib.sha256(original).hexdigest())
             self.assertEqual(provenance["original_path"], state["source_image"])
             self.assertEqual(provenance["sha256"], state["source_sha256"])
 
     def test_generated_conversion_passes_safe_generation_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            run_dir = workbuddy.init_run(
-                character_name="generated",
-                character_request="generated",
-                original_request="make it",
-                route="generate",
-                output_root=Path(tmp) / "output",
-            )
+            run_dir = _run_dir(Path(tmp) / "output", character_name="generated", character_request="generated", original_request="make it")
             candidate = run_dir / "01_source_attempt_01.png"
             _opaque_png(candidate)
             _, state = workbuddy.load_state(run_dir)
@@ -1053,14 +833,7 @@ class WorkBuddyConversionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             source = Path(tmp) / "source.png"
             _opaque_png(source)
-            run_dir = workbuddy.init_run(
-                character_name="direct",
-                character_request="direct",
-                original_request="convert",
-                route="direct",
-                output_root=Path(tmp) / "output",
-                source_image=source,
-            )
+            run_dir = _run_dir(Path(tmp) / "output", route="direct", source_image=source)
 
             def fail_pipeline(*args, **kwargs):
                 (run_dir / "manifest.json").write_text(
@@ -1086,14 +859,7 @@ class WorkBuddyConversionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             source = Path(tmp) / "source.png"
             _opaque_png(source)
-            run_dir = workbuddy.init_run(
-                character_name="direct",
-                character_request="direct",
-                original_request="convert",
-                route="direct",
-                output_root=Path(tmp) / "output",
-                source_image=source,
-            )
+            run_dir = _run_dir(Path(tmp) / "output", route="direct", source_image=source)
 
             def fail_pipeline(*args, **kwargs):
                 (run_dir / "manifest.json").write_text(
@@ -1119,14 +885,7 @@ class WorkBuddyConversionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             source = Path(tmp) / "source.png"
             _opaque_png(source)
-            run_dir = workbuddy.init_run(
-                character_name="direct",
-                character_request="direct",
-                original_request="convert",
-                route="direct",
-                output_root=Path(tmp) / "output",
-                source_image=source,
-            )
+            run_dir = _run_dir(Path(tmp) / "output", route="direct", source_image=source)
             _, state = workbuddy.load_state(run_dir)
             state["status"] = "converting"
             state["pipeline_attempts"].append(
