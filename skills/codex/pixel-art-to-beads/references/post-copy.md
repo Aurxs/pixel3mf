@@ -26,7 +26,6 @@ For an original/mirror pair:
 ```text
 “{经核实的时装文案、角色短句或获取语音}”
 
-角色：{中文角色名}
 尺寸：{宽}×{高}格
 色数：{实际色数}色
 豆数：{实际豆数}颗
@@ -39,24 +38,25 @@ When the delivery also includes a 52-board version:
 ```text
 “{经核实的时装文案、角色短句或获取语音}”
 
-角色：{中文角色名}
-原尺寸：{原向宽}×{原向高}格｜{原向色数}色｜{原向豆数}颗
-52板：{该版实际宽}×{该版实际高}格｜{该版色数}色｜{该版豆数}颗
+尺寸：{原向宽}×{原向高}格｜{原向色数}色｜{原向豆数}颗
+52板压缩版：{该版实际宽}×{该版实际高}格｜{该版色数}色｜{该版豆数}颗
 图序：{按本次实际上传顺序填写}
 色卡：{实际使用色卡名称；不同版本使用不同色卡时分别注明}
 ```
 
-For a verified non-default outfit, add `时装：时装名` below the character line; omit it if unverified. Keep the fixed post-title formula unchanged.
+Do not add separate character or outfit metadata to the body (no `角色：…` or `时装：…` lines). Keep the character in the fixed post title and retain the verified official line above; do not rewrite a genuine quotation to remove names. Use `尺寸`, never `原尺寸`, as the original chart dimensions label. Use `52板压缩版` for the compressed version in labels and image-order descriptions.
 
-Read the current `manifest.json` and each delivered variant's saved `图纸数据.json` statistics and palette record; verify against the exported charts. Use the trimmed original dimensions and each 52-board chart's actual grid dimensions. “52板” describes that version; do not assume its dimensions, colors or bead total equal the original. Count only colors actually used and occupied bead cells. Each mirror shares its corresponding original's counts; do not double the total. Do not include a withdrawn or unaccepted variant. If statistics are missing, inspect the saved cells and derive them or report the missing field instead of guessing.
+Read the current `manifest.json` and each delivered variant's saved `图纸数据.json` statistics and palette record; verify against the exported charts. Use the trimmed original dimensions and each 52-board chart's actual grid dimensions. “52板压缩版” describes that version; do not assume its dimensions, colors or bead total equal the original. Count only colors actually used and occupied bead cells. Each mirror shares its corresponding original's counts; do not double the total. Do not include a withdrawn or unaccepted variant. If statistics are missing, inspect the saved cells and derive them or report the missing field instead of guessing.
 
-Match `图序` to the exact images being delivered: include the cover only if present, then identify every original and mirror shown. For example, a five-image upload may read `1封面，2原尺寸，3原尺寸镜像，4五十二板，5五十二板镜像`; a two-image upload has only its original and mirror. Never assume a fixed image count when a cover or variant is absent. Preserve the palette's verified name/model identifier instead of inventing a Chinese brand name; factual identifiers do not justify foreign-language prose.
+Match `图序` to the exact images being delivered: include the cover only if present, then identify every original and mirror shown. For example, a five-image upload may read `1：封面，2：原版，3：原版镜像，4：52板压缩版，5：52板压缩版镜像`; a two-image upload has only its original and mirror. Never assume a fixed image count when a cover or variant is absent. Preserve the palette's verified name/model identifier instead of inventing a Chinese brand name; factual identifiers do not justify foreign-language prose.
 
-Only an image is available: omit statistics that cannot be verified instead of estimating them from enlarged display pixels. Do not invent production time, difficulty, physical materials, personal experience, originality, price or collection instructions. Never describe a chart or render as a physical finished piece.
+Only an image is available: omit statistics that cannot be verified instead of estimating them from enlarged display pixels. Do not invent production time, difficulty, physical materials, personal experience, originality, price or unverified collection names. Never describe a chart or render as a physical finished piece.
 
 ## Topics and delivery
 
-Deliver one formula title, the concise body and, if useful, five to eight relevant Chinese topic suggestions in a separate `话题建议（正文外）` block. Do not append hashtags inside the body. Put the compact line reference in `短句出处（正文外）`. These labels and sources are outside the text intended for posting.
+Deliver one formula title and the concise body, followed by a separate line of six distinct relevant topic tags: five ordinary tags plus `#小红书拼豆图纸库`. Do not print a `话题建议：` or `话题建议（正文外）` heading. Keep tags outside the body for manual selection in the platform; do not claim they have been selected. Put the compact line reference in `短句出处（正文外）`, outside the copyable body.
+
+At the very bottom of the complete copy deliverable, after tags, source notes and any publishing reminders, write `建议加入合集：{已核实的所属游戏或动画合集}`. Verify the character's game/series and use the user's existing matching collection name when known. If only the game/series is verified, recommend its corresponding collection without claiming a collection with that exact name already exists. If the affiliation cannot be verified, write `建议加入合集：待核实角色所属作品后确定` rather than guessing. This is a manual publishing suggestion, not a statement that the work has been added and not authorization to create or modify a collection.
 
 An explicit tutorial or collection request may add the necessary verified steps or existing-work details, while retaining the formula title and selected line. Do not expand to a target word count, multiple copy versions, slogan suggestions or engagement forecasts by default. Do not place the quotation on the artwork or on the character-name-only cover without a request to edit that image.
 
