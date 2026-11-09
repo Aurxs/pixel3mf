@@ -46,8 +46,8 @@ Useful controls (all optional):
 - `--size 1080 1440`: output dimensions; at most 12 megapixels and 4096 per side.
 - `--flat`: flat palette blocks instead of the default subtle bead relief.
 - `--name-text '中文角色名'`: reviewed character name; defaults to saved project title. The default style adds `「」` exactly once; already quoted input also works. Never translate or invent a name. `--no-name` explicitly restores text-free covers.
-- `--name-style pingfang_light`: default, plain white PingFang SC Light. At 1080×1440 use initial size 40 pixels, tracking 5 pixels and ink center (540, 1138); scale proportionally with the canvas. Text must remain below the subject, with no overlap.
-- `--name-size 0.037037037`: optional font size / canvas width (default 40/1080 for PingFang), automatically reduced for a long name. Clipping and unsupported glyphs fail before publishing outputs.
+- `--name-style pingfang_light`: default, plain white PingFang SC Light. At 1080×1440 use initial size 48 pixels, tracking 6 pixels and ink center (540, 1138); scale proportionally with the canvas. Text must remain below the subject, with at least 2.5% of canvas height as clear gap and no overlap. The name is 20% larger than the earlier 40-pixel sample; retain the subject and background layout.
+- `--name-size 0.044444444`: optional font size / canvas width (default 48/1080 for PingFang), automatically reduced for a long name. Clipping and unsupported glyphs fail before publishing outputs.
 - `--name-font /absolute/existing-font.ttc`: existing authorized TTF/OTF/TTC path. For the default style the file must contain the exact PostScript face `PingFangSC-Light`; the renderer locates its collection index instead of assuming face zero. Without a path, inspect local macOS PingFang locations or fontconfig and verify the actual face. A fontconfig fallback never counts as PingFang.
 - `--glow 0.40`: subtle diffuse light outside the character silhouette. Use `--glow 0` to disable it; it never changes the saved foreground or chart cells.
 

@@ -234,7 +234,7 @@ def add_options(parser):
     parser.add_argument("--name-style", choices=NAME_STYLES, default="pingfang_light",
                         help="Default: white PingFang SC Light with corner quotes; no font substitution")
     parser.add_argument("--name-font", help="Existing licensed TTF/OTF/TTC; PingFang style requires PingFangSC-Light")
-    parser.add_argument("--name-size", type=float, help="Name font size / cover width; default 40/1080 for PingFang")
+    parser.add_argument("--name-size", type=float, help="Name font size / cover width; default 48/1080 for PingFang")
 
 
 def options(args):
