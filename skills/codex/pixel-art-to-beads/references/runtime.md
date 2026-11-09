@@ -13,6 +13,8 @@ Base packages for existing logical PNGs: Pillow, NumPy, ReportLab. `tools/beads/
 
 The renderer requires a CJK TrueType font readable by both Pillow and ReportLab. macOS automatically finds Arial Unicode; supply `--font /absolute/path/to/font.ttf` on other systems if automatic discovery fails. Do not copy a proprietary system font into the skill. Font coverage is checked before export.
 
+Cover-name lettering independently defaults to the bundled unmodified `assets/fonts/LXGWWenKaiLite-Regular.ttf`, with its complete SIL OFL 1.1 license and pinned source record. It works without a system-font lookup or runtime download. This TrueType file may also be supplied explicitly as a chart `--font` override when needed; the existing chart font resolver is unchanged. See [cover.md](cover.md) for lettering, glyph checks and rim-light controls.
+
 Optional segmentation is CPU-only: supported IS-Net models, one worker at a time, six OMP threads, 300-second timeout, 8 GiB RSS limit. `U2NET_HOME` overrides the normal `~/.u2net` model cache. It never searches another skill or a Lumina checkout. Existing usable alpha skips segmentation entirely.
 
 All executable paths resolve under `TOOLS_DIR`. The default palette resolves under the project’s `skills/codex/pixel-art-to-beads/assets/palettes/`. Generation uses the host image-generation tool, not a bundled credential or another skill. If no generation tool is available, existing-art conversion still works; disclose that new-art generation is unavailable.

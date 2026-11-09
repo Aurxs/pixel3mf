@@ -202,7 +202,7 @@ def main():
     choice.add_argument("--candidate")
     choice.add_argument("--algorithm-only", action="store_true")
     done.add_argument("--attempt", default="attempt-1")
-    presentation = sub.add_parser("cover", help="Create a separate text-free cover from published chart cells")
+    presentation = sub.add_parser("cover", help="Create a separate named cover from published chart cells")
     presentation.add_argument("run")
     presentation.add_argument("--variant", choices=["uncompressed", "compressed"], default="uncompressed")
     presentation.add_argument("--name", default="cover", help="New directory name under RUN/covers")
