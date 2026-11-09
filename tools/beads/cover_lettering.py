@@ -135,7 +135,7 @@ def render_name(cover, text, subject_bottom, *, font_path=None, size_fraction=No
         raise ValueError("Unknown name style")
     thin = style == "pingfang_light"
     if size_fraction is None:
-        size_fraction = 40/1080 if thin else 0.078
+        size_fraction = 48/1080 if thin else 0.078
     if not math.isfinite(size_fraction) or not 0.025 <= size_fraction <= 0.12:
         raise ValueError("Name size must be 0.025-0.12 of canvas width")
     text = text.strip()
