@@ -10,8 +10,8 @@ Inspect the completed image before accepting it:
 - Inspect the original preserved by `import-candidate` as well as the candidate and its `background_normalization` audit record. Existing native normalization is preparation, not proof of visual acceptance; it must not conceal shadows, gradients, or outline contamination. Do not manually recolor the subject or modify its scale.
 - Judge the WorkBuddy source against its explicit 64 × 64 canvas design and stable, simplified pixel shapes. Bundled references are optional style cues; do not require their literal coarse cell size or add them to a text-only run.
 - Run Perfect Pixel auto-detection as a diagnostic.
-- Require `45–80` detected cells per axis, inclusive. Rectangular detection such as `63 × 64` passes this density gate; differing axis counts alone do not imply instability. Do not require an exact `64 × 64` result.
-- Reject when either axis is below `45` or above `80`.
+- Require `45–90` detected cells per axis, inclusive. Rectangular detection such as `63 × 64` passes this density gate; differing axis counts alone do not imply instability. Do not require an exact `64 × 64` result.
+- Reject when either axis is below `45` or above `90`.
 - Never resize, resample, sharpen, add detail, or force a grid to enter the accepted range.
 
 The WorkBuddy prompt explicitly targets a `64 × 64` canvas while simplifying the character design. Perfect Pixel detection on the original-size candidate is the authoritative measurable density gate; it does not use the prompt's nominal count as evidence.

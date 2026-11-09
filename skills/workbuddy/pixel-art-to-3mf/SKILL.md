@@ -56,7 +56,7 @@ After a registered `01_source_attempt_NN.png` (generated) or registered `00_user
 
 ### Gate 2
 
-Record the original-size source grid after the permitted native background normalization and preliminary acceptance before opening the refinement instructions. Apply the `45–80` density gate only here, never after semantic masking or temporary padding.
+Record the original-size source grid after the permitted native background normalization and preliminary acceptance before opening the refinement instructions. Apply the `45–90` density gate only here, never after semantic masking or temporary padding.
 
 ## Stage 3 — Prepare and refine pixels
 

@@ -49,10 +49,10 @@ class GridDetectionTests(unittest.TestCase):
     def test_fractional_grid_density_gate_remains_in_force(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "source.png"
-            for width, height in ((44, 45), (45, 44), (81, 80), (80, 81)):
+            for width, height in ((44, 45), (45, 44), (91, 90), (90, 91)):
                 source, _ = fractional_source(width, height, (width * 25 + 7, height * 25 + 7))
                 Image.fromarray(source).save(path)
-                with self.subTest(width=width, height=height), redirect_stdout(io.StringIO()), self.assertRaisesRegex(ValueError, "45-80"):
+                with self.subTest(width=width, height=height), redirect_stdout(io.StringIO()), self.assertRaisesRegex(ValueError, "45-90"):
                     detect_source_grid(path)
 
     def test_fractional_tie_breaking_and_exact_rgb_reconstruction(self) -> None:
@@ -152,7 +152,7 @@ class GridDetectionTests(unittest.TestCase):
             Image.fromarray(source).save(path)
             original_bytes = path.read_bytes()
             with redirect_stdout(io.StringIO()), self.assertRaisesRegex(
-                ValueError, r"overly coarse source grid \(40x40\).*45-80"
+                ValueError, r"overly coarse source grid \(40x40\).*45-90"
             ):
                 detect_source_grid(path)
             self.assertEqual(path.read_bytes(), original_bytes)
@@ -166,7 +166,8 @@ class GridDetectionTests(unittest.TestCase):
     def test_accepted_densities_with_coarse_cells_and_rectangular_canvas(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            for width, height in ((45, 45), (48, 48), (45, 80), (80, 45), (80, 80)):
+            for width, height in ((45, 45), (48, 48), (45, 80), (80, 45), (80, 80), (81, 80),
+                                  (80, 81), (45, 90), (90, 45), (90, 90)):
                 with self.subTest(width=width, height=height):
                     source, logical = regular_source(width, height, 24)
                     path = root / "source.png"
@@ -205,12 +206,12 @@ class GridDetectionTests(unittest.TestCase):
     def test_recovered_grids_outside_acceptance_range_are_still_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "source.png"
-            for width, height in ((44, 45), (45, 44), (81, 80), (80, 81)):
+            for width, height in ((44, 45), (45, 44), (91, 90), (90, 91)):
                 with self.subTest(width=width, height=height):
                     source, _ = regular_source(width, height, 24)
                     Image.fromarray(source).save(path)
                     with redirect_stdout(io.StringIO()), self.assertRaisesRegex(
-                        ValueError, rf"{width}x{height}.*45-80 cells per axis"
+                        ValueError, rf"{width}x{height}.*45-90 cells per axis"
                     ):
                         detect_source_grid(path)
 

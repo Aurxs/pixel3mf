@@ -32,7 +32,7 @@ Python 脚本不直接调用 Codex image generation。先在 Codex 中生成图�
 
 双击转换入口沿用 `tools/run_pipeline.py`，适用于符合原流水线要求的已有像素画。优先用轮廓清晰的 PNG，也支持 JPG、JPEG、WebP。它不会调用 AI 生图，也不会自动将普通照片画成像素画。
 
-选图后输入 `1` 或直接回车使用动漫主体模型，输入 `2` 使用通用主体模型。这里仅切换背景分割模型，**不会切换成通用 Skill 流程，也不会取消原总入口每轴 45–80 格的源图检查**。其他网格的通用像素图、文字生图、照片重绘与高保真任务，按下方对应 Skill 执行。
+选图后输入 `1` 或直接回车使用动漫主体模型，输入 `2` 使用通用主体模型。这里仅切换背景分割模型，**不会切换成通用 Skill 流程，也不会取消原总入口每轴 45–90 格的源图检查**。其他网格的通用像素图、文字生图、照片重绘与高保真任务，按下方对应 Skill 执行。
 
 - `08_*_2x2.3mf`：每逻辑像素 0.84 mm。
 - `08_*_3x3.3mf`：已完成 XY 补偿，每逻辑像素 1.29 mm；导入切片器保持 100% 缩放，不再重复补偿。
@@ -114,7 +114,7 @@ uv pip install -r requirements-pixel3mf.txt
 | [high-fidelity-image-to-3mf](skills/codex/high-fidelity-image-to-3mf/SKILL.md) | 保留照片、插画的连续色调和高精细节，使用非像素转换流程 |
 | [pixel-art-to-beads](skills/codex/pixel-art-to-beads/SKILL.md) | 独立生成或读取像素画，逻辑宽高均 ≤52 时交付原向/镜像两张，超限时加适配 52×52 版本共四张；约18色、自然效果优先 |
 
-通用版示例：“使用 `$general-pixel-art-to-3mf`，参考这张我家猫的照片做粗像素画，保留花纹和眼睛颜色，再转成 3MF。”多图可分别指定主体、构图和风格；只要求成品像素 PNG 时，也先执行 Perfect Pixel，再验收整理后的逻辑图和放大预览；明确只要生图原件时才跳过整理。照片辅助生成会产生新的像素画；要求原照片直接转换且不重画时，应使用高保真流程。通用版先用 `tools/refine_pixel.py --png-only --binarize-alpha` 整理透明源图，再正式验收；需要抠图时显式使用 `isnet-general-use`。验收通过的网格直接交给 `tools/lumina_batch.py` 导出两个尺寸，不套用动漫版原图的 45–80 网格门槛，也不强制缩放到 28×28。动漫动作类任务的案例参考图位于 `examples/reference-action-interaction.png`。
+通用版示例：“使用 `$general-pixel-art-to-3mf`，参考这张我家猫的照片做粗像素画，保留花纹和眼睛颜色，再转成 3MF。”多图可分别指定主体、构图和风格；只要求成品像素 PNG 时，也先执行 Perfect Pixel，再验收整理后的逻辑图和放大预览；明确只要生图原件时才跳过整理。照片辅助生成会产生新的像素画；要求原照片直接转换且不重画时，应使用高保真流程。通用版先用 `tools/refine_pixel.py --png-only --binarize-alpha` 整理透明源图，再正式验收；需要抠图时显式使用 `isnet-general-use`。验收通过的网格直接交给 `tools/lumina_batch.py` 导出两个尺寸，不套用动漫版原图的 45–90 网格门槛，也不强制缩放到 28×28。动漫动作类任务的案例参考图位于 `examples/reference-action-interaction.png`。
 
 ## 各技能使用指南
 
@@ -195,7 +195,7 @@ UV_CACHE_DIR=.uv-cache uv pip install -r requirements-pixel3mf.txt
 - 尺寸使用十进制定点数生成，并在调用前分别模拟 Lumina 的取整公式；任一版本无法证明精确整数映射时直接失败
 - 运行时核对本地 Lumina 的 `PrinterConfig.NOZZLE_WIDTH`；不是 `0.42 mm` 时停止转换
 - 不能直接把 `1.29 mm` 对应的总宽度传给 Lumina，否则 `int(target_width_mm / 0.42)` 会改变栅格列数；XY 补偿只发生在 Lumina 已完成颜色堆叠和 3MF 生成之后
-- 生图提示词默认要求 `48×48` 逻辑像素风格；`45–80` 仅约束未处理源图的自动检测结果，不对临时 padding 或紧裁后的导出网格重复应用
+- 生图提示词默认要求 `48×48` 逻辑像素风格；`45–90` 仅约束未处理源图的自动检测结果，不对临时 padding 或紧裁后的导出网格重复应用
 
 动态尺寸通过 Lumina 已有的浮点 API/Core 参数传入，不修改 Lumina-Layers 源码。其 GUI 宽高滑块的整数步长不影响本项目的自动流水线。
 
@@ -252,7 +252,7 @@ output/<timestamp>_<slug>/
 - `tools/semantic_segment.py`：在受超时和 RSS 约束的独立 CPU 子进程中串行运行两个 IS-Net。
 - `tools/remove_background.py`：按 Alpha 策略生成语义置信度，或安全保留/修补已有二值 Alpha；始终保留原始 RGB。
 - `tools/prepare_square_canvas.py`：仅保留旧版比例 padding 的独立工具兼容接口；总流水线不再调用。
-- `tools/refine_pixel.py`：先预检原图 `45–80` 网格，再验证语义遮罩后的同网格采样，并产生带临时逻辑边距的工作网格。
+- `tools/refine_pixel.py`：先预检原图 `45–90` 网格，再验证语义遮罩后的同网格采样，并产生带临时逻辑边距的工作网格。
 - `tools/cleanup_pixel.py`：按输入路由清理封闭背景组件；透明源图禁用 RGB 颜色键和孤立像素删除，并保护原 Alpha 轮廓；最后将 Alpha 二值化、保存歧义诊断并紧裁出唯一导出网格。
 - `tools/lumina_batch.py`：按指定的每逻辑像素单元数生成并校验精确动态尺寸；总流程会分别用 `2` 和 `3` 调用它，生成两套 2D 预览、原始 ZIP 与已规范化的成品 3MF。API 不能启动，或当前 checkout 的 batch worker 因核心返回值版本差异失败时，会使用对应版本的相同动态尺寸调用 Lumina 核心、自行打包 ZIP，并在 manifest 记录 `batch_error`。
 - `tools/three_mf_xy_scale.py`：对已有 `3×3` 3MF 进行幂等的 XY `43/42` 补偿；统一缩放所有颜色零件、保持中心和 Z，不依赖切片器手动缩放。

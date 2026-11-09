@@ -152,7 +152,7 @@ class WorkBuddyStateTests(unittest.TestCase):
                 self.assertNotIn(obsolete, prompt)
             self.assertNotIn("28 × 28 pixel-art design as the visual prior", prompt)
             self.assertNotIn("75 mm", prompt)
-            self.assertNotIn("45–80", prompt)
+            self.assertNotIn("45–90", prompt)
             self.assertNotIn("Perfect Pixel", prompt)
 
     def test_generation_prompt_embeds_the_registered_research_brief(self) -> None:
@@ -388,7 +388,7 @@ class WorkBuddyGenerationTests(unittest.TestCase):
                 ((240, 240, 240, 255), (64, 64), False),
                 ((0, 0, 0, 255), (64, 64), False),
                 ((253, 255, 254, 255), (44, 64), False),
-                ((253, 255, 254, 255), (64, 81), False),
+                ((253, 255, 254, 255), (64, 91), False),
             ]:
                 with self.subTest(color=color, grid=grid):
                     Image.new("RGBA", (16, 16), color).save(path)
@@ -829,7 +829,7 @@ class WorkBuddyGenerationTests(unittest.TestCase):
             with patch.object(
                 workbuddy,
                 "detect_source_grid",
-                return_value={"width": 45, "height": 80},
+                return_value={"width": 45, "height": 90},
             ):
                 passing = workbuddy._objective_preflight(source)
             self.assertTrue(passing["passed"])
@@ -838,7 +838,7 @@ class WorkBuddyGenerationTests(unittest.TestCase):
             with patch.object(
                 workbuddy,
                 "detect_source_grid",
-                return_value={"width": 44, "height": 81},
+                return_value={"width": 44, "height": 91},
             ):
                 failing = workbuddy._objective_preflight(source)
             self.assertFalse(failing["passed"])
@@ -850,8 +850,10 @@ class WorkBuddyGenerationTests(unittest.TestCase):
             _opaque_png(source)
             for width, height, accepted in (
                 (45, 45, True), (45, 80, True), (80, 45, True), (80, 80, True),
+                (81, 80, True), (80, 81, True),
+                (45, 90, True), (90, 45, True), (90, 90, True),
                 (44, 45, False), (45, 44, False),
-                (81, 80, False), (80, 81, False),
+                (91, 90, False), (90, 91, False),
             ):
                 with self.subTest(width=width, height=height):
                     with patch.object(
@@ -861,7 +863,7 @@ class WorkBuddyGenerationTests(unittest.TestCase):
                         result = workbuddy._objective_preflight(source)
                     self.assertEqual(result["passed"], accepted)
                     if not accepted:
-                        self.assertIn("45-80 cells per axis", result["reasons"][0])
+                        self.assertIn("45-90 cells per axis", result["reasons"][0])
 
     def test_tokenhub_client_submits_and_polls_async_job(self) -> None:
         config = json.loads(json.dumps(workbuddy.DEFAULT_CONFIG))

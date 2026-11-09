@@ -13,7 +13,7 @@ from perfect_pixel import get_perfect_pixel
 
 
 MIN_ACCEPTED_GRID = 45
-MAX_ACCEPTED_GRID = 80
+MAX_ACCEPTED_GRID = 90
 
 
 def _exact_fractional_grid(rgba: np.ndarray) -> tuple[int, int, np.ndarray] | None:

@@ -47,7 +47,7 @@ White-first is the default for suitable opaque white sources. If the optional se
 }
 ```
 
-Set the acceptance/suitability fields only after reviewing the source: plain near-white background, readable closed subject outline, no unresolved source defect. Include both allowed model masks if both were run. The tool additionally checks opaque alpha, near-white border at the unchanged threshold 245, evidence hashes, and the original 45–80 source grid.
+Set the acceptance/suitability fields only after reviewing the source: plain near-white background, readable closed subject outline, no unresolved source defect. Include both allowed model masks if both were run. The tool additionally checks opaque alpha, near-white border at the unchanged threshold 245, evidence hashes, and the original 45–90 source grid.
 
 2. Using the project's Python environment, run `tools/white_fallback.py prepare --source /absolute/accepted-source.png --failure-evidence /absolute/failure.json --output /absolute/new-candidate-directory`. This command copies the source byte-for-byte, preserves the detected grid, produces a candidate plus enlarged preview, and saves **every** surviving background-colored region in `white_regions.json` / `white_regions_review.png` and the contour in `outline_review.png`. It does not invoke Lumina or produce the accepted Stage 3 filenames.
 3. The **main-conversation assistant** must inspect the source, `candidate.png`, `candidate_8x.png`, both review images, and every numbered white region. Check outline, white clothing, eye whites, natural eye structure/gaze, and enclosed background holes. Candidate alpha=255 is a color/topology result, not semantic confidence; zero ambiguous semantic components is not approval. A suspected hole, uncertain white region, or broken outline blocks this candidate. Do not auto-fill or auto-delete holes. Preserve the rejected candidate; obtain a separately reviewed corrected binary mask or a new source through the existing authorized routes.
@@ -175,7 +175,7 @@ pipeline's equality check.
 ```
 
 `prepare` preserves exact input PNG bytes, replays the original source detection
-and 45–80 gate using the retained failure masks (no inference), reconstructs the
+and 45–90 gate using the retained failure masks (no inference), reconstructs the
 original white candidate, replays a formal correction when present, and checks
 the existing review and promotion hashes and pixels. Without a correction, the
 upstream snapshot must exactly match the replayed original candidate, including
