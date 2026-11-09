@@ -11,7 +11,7 @@ from pathlib import Path
 from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageOps
 
 from bead_pattern import statistics, validate_project
-from cover_lettering import render_name
+from cover_lettering import NAME_STYLES, render_name
 
 
 def digest(path):
@@ -105,7 +105,7 @@ def render_cover(project_path, reference_path, output, *, reference_note,
                  focal=(0.5, 0.5), zoom=1.0, blur=0.016, background_fit="contain", brightness=0.86,
                  saturation=0.88, subject_width=0.60, subject_height=0.52,
                  center=(0.5, 0.49), texture=True, glow=0.40, show_name=True,
-                 name_text=None, name_font=None, name_size=0.078):
+                 name_text=None, name_font=None, name_size=None, name_style="pingfang_light"):
     project_path, reference_path, output = (Path(p).resolve() for p in
                                            (project_path, reference_path, output))
     if output.exists():
@@ -178,7 +178,8 @@ def render_cover(project_path, reference_path, output, *, reference_note,
     name_info = None
     if show_name:
         cover, name_info = render_name(cover, project.get("title", "") if name_text is None else name_text,
-                                      position[1]+subject.height, font_path=name_font, size_fraction=name_size)
+                                      position[1]+subject.height, font_path=name_font, size_fraction=name_size,
+                                      style=name_style)
     counts = statistics(rows)
     report = {
         "schema": "bead-cover/v1", "status": "cover_ready_for_review", "title": project.get("title"),
@@ -230,14 +231,16 @@ def add_options(parser):
     parser.add_argument("--glow", type=float, default=0.40, help="Soft external rim light strength, 0-1")
     parser.add_argument("--no-name", action="store_true", help="Explicitly omit character-name lettering")
     parser.add_argument("--name-text", help="Reviewed Chinese character name; defaults to saved project title")
-    parser.add_argument("--name-font", help="Optional licensed TrueType font; defaults to bundled WenKai Lite")
-    parser.add_argument("--name-size", type=float, default=0.078, help="Name font size / cover width")
+    parser.add_argument("--name-style", choices=NAME_STYLES, default="pingfang_light",
+                        help="Default: white PingFang SC Light with corner quotes; no font substitution")
+    parser.add_argument("--name-font", help="Existing licensed TTF/OTF/TTC; PingFang style requires PingFangSC-Light")
+    parser.add_argument("--name-size", type=float, help="Name font size / cover width; default 40/1080 for PingFang")
 
 
 def options(args):
     names = ("reference_note", "reference_source", "reference_crop", "size", "focal", "zoom", "blur", "background_fit",
              "brightness", "saturation", "subject_width", "subject_height", "center", "glow",
-             "name_text", "name_font", "name_size")
+             "name_text", "name_font", "name_size", "name_style")
     return {**{name: getattr(args, name) for name in names}, "texture": not args.flat, "show_name": not args.no_name}
 
 

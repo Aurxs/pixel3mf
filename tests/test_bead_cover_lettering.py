@@ -1,4 +1,5 @@
 import hashlib
+from functools import partial
 import json
 from pathlib import Path
 import subprocess
@@ -10,8 +11,11 @@ from PIL import Image, ImageChops
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/"tools/beads"))
-from cover_lettering import DEFAULT_NAME_FONT, FONT_ROOT, render_name  # noqa: E402
-from render_cover import foreground, render_cover, rim_highlight  # noqa: E402
+from cover_lettering import DEFAULT_NAME_FONT, FONT_ROOT, render_name as compose_name  # noqa: E402
+from render_cover import foreground, render_cover as compose_cover, rim_highlight  # noqa: E402
+
+render_name = partial(compose_name, style="warm_calligraphic")
+render_cover = partial(compose_cover, name_style="warm_calligraphic")
 
 
 class CoverLetteringTests(unittest.TestCase):

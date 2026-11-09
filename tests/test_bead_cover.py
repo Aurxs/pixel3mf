@@ -1,4 +1,5 @@
 import copy
+from functools import partial
 import hashlib
 import json
 from pathlib import Path
@@ -11,8 +12,12 @@ from PIL import Image, ImageStat
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/"tools/beads"))
-from render_cover import background_frame, foreground, render_cover  # noqa: E402
+from render_cover import background_frame, foreground, render_cover as compose_cover  # noqa: E402
 from run_workflow import cover  # noqa: E402
+
+# Background/workflow fixtures use the explicit portable legacy style.
+# PingFang defaults and collection selection have independent font fixtures.
+render_cover = partial(compose_cover, name_style="warm_calligraphic")
 
 
 def hashes(root):
@@ -225,7 +230,7 @@ class BeadCoverTests(unittest.TestCase):
                 before = hashes(root)
                 for variant in variants:
                     report = cover(run, reference, reference_note="same character/costume",
-                                   variant=variant, name=variant, size=(600, 800))
+                                   variant=variant, name=variant, size=(600, 800), name_style="warm_calligraphic")
                     self.assertEqual(report["project"]["path"],
                                      str(Path(json.loads((run/"manifest.json").read_text())["paths"][variant])/"图纸数据.json"))
                     self.assertEqual(hashes(root), before)
@@ -238,7 +243,7 @@ class BeadCoverTests(unittest.TestCase):
                 result = subprocess.run([sys.executable, str(ROOT/"tools/beads/run_workflow.py"),
                                          "cover", str(run), "--reference", str(reference),
                                          "--reference-note", "same character/costume", "--name", "cli",
-                                         "--size", "600", "800"], capture_output=True, text=True,
+                                         "--size", "600", "800", "--name-style", "warm_calligraphic"], capture_output=True, text=True,
                                         cwd=root)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual(json.loads(result.stdout)["status"], "cover_ready_for_review")
@@ -257,7 +262,8 @@ class BeadCoverTests(unittest.TestCase):
                                      str(path), str(root/"covers/cli"), "--reference", str(root/"rotated.jpg"),
                                      "--reference-note", "same character/costume", "--size", "600", "800",
                                      "--reference-crop", "0", "0", "700", "900", "--flat",
-                                     "--background-fit", "contain", "--zoom", "0.85"],
+                                     "--background-fit", "contain", "--zoom", "0.85",
+                                     "--name-style", "warm_calligraphic"],
                                     capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(json.loads(result.stdout)["status"], "cover_ready_for_review")
