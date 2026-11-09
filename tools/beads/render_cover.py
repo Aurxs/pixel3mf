@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compose a named bead cover with subtle rim light from saved cells and original art."""
+"""Compose a cover from unchanged pixel artwork and a separate scene illustration."""
 from __future__ import annotations
 
 import argparse
@@ -18,7 +18,7 @@ def digest(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
-def foreground(project, cell, *, texture=True):
+def foreground(project, cell, *, texture=False):
     """Render fused square beads without resampling, recoloring or filling holes."""
     rows = project["cells"]
     occupied = [(x, y) for y, row in enumerate(rows)
@@ -101,10 +101,10 @@ def rim_highlight(subject, size, position, cell, strength):
 
 
 def render_cover(project_path, reference_path, output, *, reference_note,
-                 reference_source=None, size=(1080, 1440), reference_crop=None,
+                 reference_source=None, foreground_path=None, size=(1080, 1440), reference_crop=None,
                  focal=(0.5, 0.5), zoom=1.0, blur=0.016, background_fit="contain", brightness=0.86,
                  saturation=0.88, subject_width=0.60, subject_height=0.52,
-                 center=(0.5, 0.49), texture=True, glow=0.40, show_name=True,
+                 center=(0.5, 0.49), texture=False, glow=0.40, show_name=True,
                  name_text=None, name_font=None, name_size=None, name_style="pingfang_light"):
     project_path, reference_path, output = (Path(p).resolve() for p in
                                            (project_path, reference_path, output))
@@ -128,6 +128,33 @@ def render_cover(project_path, reference_path, output, *, reference_note,
     if project_hash == reference_hash:
         raise ValueError("Background must be separate original character reference art")
     project = validate_project(json.loads(project_path.read_text(encoding="utf-8")))
+    rows = project["cells"]
+    points = [(x, y) for y, row in enumerate(rows) for x, code in enumerate(row) if code is not None]
+    bbox = (min(x for x, _ in points), min(y for _, y in points),
+            max(x for x, _ in points)+1, max(y for _, y in points)+1)
+    logical_size = (bbox[2]-bbox[0], bbox[3]-bbox[1])
+    pixels = None
+    foreground_info = {"kind": "saved_chart_cells"}
+    if foreground_path is not None:
+        if texture:
+            raise ValueError("Original pixel foreground cannot have bead texture")
+        foreground_path = Path(foreground_path).resolve()
+        foreground_hash = digest(foreground_path)
+        with Image.open(foreground_path) as original:
+            pixels = ImageOps.exif_transpose(original).convert("RGBA")
+        original_size = pixels.size
+        source_bbox = pixels.getchannel("A").getbbox()
+        if source_bbox is None:
+            raise ValueError("Original pixel foreground is empty")
+        pixels = pixels.crop(source_bbox)
+        expected_alpha = bytes(255 if code is not None else 0
+                               for row in rows[bbox[1]:bbox[3]] for code in row[bbox[0]:bbox[2]])
+        if pixels.size != logical_size or pixels.getchannel("A").tobytes() != expected_alpha:
+            raise ValueError("Original pixel foreground dimensions/occupancy do not match this chart variant")
+        foreground_info = {"kind": "original_pixels", "path": str(foreground_path),
+                           "sha256": foreground_hash, "original_size": original_size,
+                           "crop": source_bbox, "logical_size": logical_size,
+                           "resampling": "nearest_neighbor_integer", "recolored": False}
     with Image.open(reference_path) as source:
         source = ImageOps.exif_transpose(source).convert("RGBA")
     reference_size = source.size
@@ -150,15 +177,14 @@ def render_cover(project_path, reference_path, output, *, reference_note,
     falloff = Image.radial_gradient("L").resize(size, Image.Resampling.BILINEAR)
     falloff = falloff.point(lambda v: round(v*0.16))
     background = Image.composite(Image.new("RGB", size, "black"), background, falloff)
-    rows = project["cells"]
-    points = [(x, y) for y, row in enumerate(rows) for x, code in enumerate(row) if code is not None]
-    logical_size = (max(x for x, _ in points)-min(x for x, _ in points)+1,
-                    max(y for _, y in points)-min(y for _, y in points)+1)
     cell = math.floor(min(size[0]*subject_width/logical_size[0],
                           size[1]*subject_height/logical_size[1]))
     if cell < 1:
         raise ValueError("Canvas is too small to show every bead; increase dimensions")
-    subject, bbox = foreground(project, cell, texture=texture)
+    if pixels is None:
+        subject, bbox = foreground(project, cell, texture=texture)
+    else:
+        subject = pixels.resize((pixels.width*cell, pixels.height*cell), Image.Resampling.NEAREST)
     position = (round(size[0]*center[0]-subject.width/2),
                 round(size[1]*center[1]-subject.height/2))
     if (position[0] < 0 or position[1] < 0 or position[0]+subject.width > size[0]
@@ -184,6 +210,7 @@ def render_cover(project_path, reference_path, output, *, reference_note,
     report = {
         "schema": "bead-cover/v1", "status": "cover_ready_for_review", "title": project.get("title"),
         "project": {"path": str(project_path), "sha256": project_hash},
+        "foreground_input": foreground_info,
         "reference": {"path": str(reference_path), "sha256": reference_hash,
                       "source": reference_source, "identity_and_costume_check": reference_note,
                       "original_size": reference_size, "crop": reference_crop},
@@ -192,7 +219,8 @@ def render_cover(project_path, reference_path, output, *, reference_note,
                    "blur_pixels": size[0]*blur, "brightness": brightness, "saturation": saturation,
                    "subject_width": subject_width, "subject_height": subject_height,
                    "center": center, "cell_pixels": cell, "subject_position": position,
-                   "subject_bbox_cells": bbox, "texture": "fused_square" if texture else "flat",
+                   "subject_bbox_cells": bbox,
+                   "texture": "source_pixels" if pixels is not None else "fused_square" if texture else "flat",
                    "text": bool(show_name), "name": name_info, "glow": halo_info, "mirrored": False},
         "statistics": {"width": len(rows[0]), "height": len(rows), "counts": counts,
                        "total_beads": sum(counts.values()), "colors": len(counts)},
@@ -202,6 +230,8 @@ def render_cover(project_path, reference_path, output, *, reference_note,
     # Check inputs again before publishing separate artifacts. Never export or rewrite charts.
     if digest(project_path) != project_hash or digest(reference_path) != reference_hash:
         raise ValueError("An input changed during rendering; retry from stable inputs")
+    if foreground_path is not None and digest(foreground_path) != foreground_hash:
+        raise ValueError("Original pixel foreground changed during rendering")
     output.mkdir(parents=True, exist_ok=False)
     subject.save(output/"前景.png")
     background.save(output/"背景.png")
@@ -213,6 +243,8 @@ def render_cover(project_path, reference_path, output, *, reference_note,
 
 def add_options(parser):
     parser.add_argument("--reference", required=True, help="Original art used in character generation")
+    parser.add_argument("--foreground", dest="foreground_path",
+                        help="Accepted original logical PNG; preserve its pixels without palette repainting")
     parser.add_argument("--reference-note", required=True, help="Checked character and matching costume")
     parser.add_argument("--reference-source", help="Retained source URL or research record")
     parser.add_argument("--reference-crop", nargs=4, type=int, metavar=("LEFT", "TOP", "RIGHT", "BOTTOM"))
@@ -227,7 +259,10 @@ def add_options(parser):
     parser.add_argument("--subject-width", type=float, default=0.60)
     parser.add_argument("--subject-height", type=float, default=0.52)
     parser.add_argument("--center", nargs=2, type=float, default=(0.5, 0.49), metavar=("X", "Y"))
-    parser.add_argument("--flat", action="store_true", help="Omit bead surface relief")
+    surface = parser.add_mutually_exclusive_group()
+    surface.add_argument("--bead-texture", action="store_true", help="Explicitly render bead surface relief from saved cells")
+    surface.add_argument("--flat", dest="bead_texture", action="store_false", help="Flat pixels (the default)")
+    parser.set_defaults(bead_texture=False)
     parser.add_argument("--glow", type=float, default=0.40, help="Soft external rim light strength, 0-1")
     parser.add_argument("--no-name", action="store_true", help="Explicitly omit character-name lettering")
     parser.add_argument("--name-text", help="Reviewed Chinese character name; defaults to saved project title")
@@ -238,10 +273,10 @@ def add_options(parser):
 
 
 def options(args):
-    names = ("reference_note", "reference_source", "reference_crop", "size", "focal", "zoom", "blur", "background_fit",
+    names = ("reference_note", "reference_source", "foreground_path", "reference_crop", "size", "focal", "zoom", "blur", "background_fit",
              "brightness", "saturation", "subject_width", "subject_height", "center", "glow",
              "name_text", "name_font", "name_size", "name_style")
-    return {**{name: getattr(args, name) for name in names}, "texture": not args.flat, "show_name": not args.no_name}
+    return {**{name: getattr(args, name) for name in names}, "texture": args.bead_texture, "show_name": not args.no_name}
 
 
 def main():

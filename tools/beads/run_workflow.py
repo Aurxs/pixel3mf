@@ -163,7 +163,7 @@ def complete(run, candidate=None, *, algorithm_only=False, attempt="attempt-1"):
 
 
 def cover(run, reference, *, variant="uncompressed", name="cover", **settings):
-    """Add presentation artifacts after publication without rewriting the chart run."""
+    """Compose a cover with original uncompressed pixels, without rewriting charts."""
     from render_cover import render_cover
     run = Path(run).resolve()
     state = json.loads((run/"manifest.json").read_text(encoding="utf-8"))
@@ -178,6 +178,16 @@ def cover(run, reference, *, variant="uncompressed", name="cover", **settings):
     charts = Path(state["paths"][variant])
     if not charts.is_absolute():
         charts = run/charts
+    if variant == "uncompressed" and not settings.get("texture", False) and settings.get("foreground_path") is None:
+        original = run/"work"/"00_source.png"
+        if not original.is_file():
+            source = state.get("source", {}).get("path")
+            original = Path(source) if source else original
+            if not original.is_absolute():
+                original = run/original
+        if not original.is_file():
+            raise ValueError("Uncompressed cover needs the original logical PNG; supply --foreground")
+        settings["foreground_path"] = original
     return render_cover(charts/"图纸数据.json", reference, run/"covers"/name, **settings)
 
 
@@ -202,7 +212,7 @@ def main():
     choice.add_argument("--candidate")
     choice.add_argument("--algorithm-only", action="store_true")
     done.add_argument("--attempt", default="attempt-1")
-    presentation = sub.add_parser("cover", help="Create a separate named cover from published chart cells")
+    presentation = sub.add_parser("cover", help="Create a separate named cover using the original pixel artwork")
     presentation.add_argument("run")
     presentation.add_argument("--variant", choices=["uncompressed", "compressed"], default="uncompressed")
     presentation.add_argument("--name", default="cover", help="New directory name under RUN/covers")

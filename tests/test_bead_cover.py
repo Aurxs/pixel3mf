@@ -127,6 +127,40 @@ class BeadCoverTests(unittest.TestCase):
                 render_cover(path, reference, root/"covers/one", reference_note="same")
             self.assertEqual(products, {p.name: p.read_bytes() for p in (root/"covers/one").iterdir()})
 
+    def test_original_foreground_preserves_every_rgba_pixel_without_palette_repainting(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project, path, reference = self.fixture(root)
+            pixels = Image.new("RGBA", (7, 5), (17, 19, 23, 0))
+            colors = {"BLACK": (7, 9, 11, 255), "WHITE": (255, 255, 255, 255),
+                      "RED": (237, 39, 71, 255)}
+            for y, row in enumerate(project["cells"]):
+                for x, code in enumerate(row):
+                    if code is not None:
+                        pixels.putpixel((x, y), colors[code])
+            original = root/"original.png"
+            pixels.save(original)
+            before = hashes(root)
+            report = render_cover(path, reference, root/"covers/raw", reference_note="same",
+                                  foreground_path=original, size=(600, 800))
+            self.assertEqual(hashes(root), before)
+            self.assertEqual(report["foreground_input"]["kind"], "original_pixels")
+            self.assertEqual(report["foreground_input"]["sha256"], before["original.png"])
+            self.assertEqual(report["layout"]["texture"], "source_pixels")
+            scale = report["layout"]["cell_pixels"]
+            expected = pixels.crop((1, 1, 6, 4)).resize((5*scale, 3*scale), Image.Resampling.NEAREST)
+            with Image.open(report["products"]["foreground"]) as actual:
+                self.assertEqual(actual.tobytes(), expected.tobytes())
+            with self.assertRaisesRegex(ValueError, "cannot have bead texture"):
+                render_cover(path, reference, root/"covers/textured", reference_note="same",
+                             foreground_path=original, texture=True)
+            self.assertFalse((root/"covers/textured").exists())
+            pixels.putpixel((3, 3), (0, 0, 0, 0))
+            pixels.save(original)
+            with self.assertRaisesRegex(ValueError, "dimensions/occupancy"):
+                render_cover(path, reference, root/"covers/wrong", reference_note="same", foreground_path=original)
+            self.assertFalse((root/"covers/wrong").exists())
+
     def test_rejects_invalid_settings_without_partial_output(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -205,8 +239,8 @@ class BeadCoverTests(unittest.TestCase):
     def test_workflow_cover_keeps_two_and_four_chart_runs_byte_identical(self):
         for oversized in (False, True):
             with self.subTest(oversized=oversized), tempfile.TemporaryDirectory() as directory:
-                root = Path(directory)
-                _, project, reference = self.fixture(root)
+                root = Path(directory).resolve()
+                data, project, reference = self.fixture(root)
                 run = root/"run"
                 run.mkdir()
                 variants = ("uncompressed", "compressed") if oversized else ("uncompressed",)
@@ -216,6 +250,13 @@ class BeadCoverTests(unittest.TestCase):
                     chart_dir.mkdir(parents=True)
                     (chart_dir/"图纸数据.json").write_bytes(project.read_bytes())
                     state["paths"][variant] = str(chart_dir)
+                pixels = Image.new("RGBA", (7, 5))
+                colors = {c["code"]: tuple(c["rgb"])+(255,) for c in data["palette"]["colors"]}
+                for y, row in enumerate(data["cells"]):
+                    for x, code in enumerate(row):
+                        if code is not None:
+                            pixels.putpixel((x, y), colors[code])
+                pixels.save(run/"work/00_source.png")
                 (run/"manifest.json").write_text(json.dumps(state))
                 with self.assertRaisesRegex(ValueError, "Finish"):
                     cover(run, reference, reference_note="same")
@@ -247,6 +288,9 @@ class BeadCoverTests(unittest.TestCase):
                                         cwd=root)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual(json.loads(result.stdout)["status"], "cover_ready_for_review")
+                report = json.loads((run/"covers/cli/cover.json").read_text())
+                self.assertEqual(report["foreground_input"]["path"], str(run/"work/00_source.png"))
+                self.assertEqual(report["layout"]["texture"], "source_pixels")
                 self.assertEqual(hashes(root), before)
                 self.assertEqual(len(list((run/"delivery").iterdir())), 4 if oversized else 2)
 
