@@ -265,11 +265,11 @@ def add_options(parser):
     parser.set_defaults(bead_texture=False)
     parser.add_argument("--glow", type=float, default=0.40, help="Soft external rim light strength, 0-1")
     parser.add_argument("--no-name", action="store_true", help="Explicitly omit character-name lettering")
-    parser.add_argument("--name-text", help="Reviewed Chinese character name; defaults to saved project title")
+    parser.add_argument("--name-text", help="Reviewed Chinese name or character•outfit; defaults to saved project title")
     parser.add_argument("--name-style", choices=NAME_STYLES, default="pingfang_light",
                         help="Default: white PingFang SC Light with corner quotes; no font substitution")
     parser.add_argument("--name-font", help="Existing licensed TTF/OTF/TTC; PingFang style requires PingFangSC-Light")
-    parser.add_argument("--name-size", type=float, help="Name font size / cover width; default 48/1080 for PingFang")
+    parser.add_argument("--name-size", type=float, help="Name font size / cover width; default 96/1080 for PingFang")
 
 
 def options(args):
