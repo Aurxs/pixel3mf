@@ -32,8 +32,8 @@
     "50"
   ],
   "brim_object_gap": "0.1",
-  "brim_type": "auto_brim",
-  "brim_width": "5",
+  "brim_type": "no_brim",
+  "brim_width": "0",
   "chamber_temperatures": [
     "0"
   ],
@@ -79,7 +79,7 @@
   "counter_limit_min": [
     "-0.035"
   ],
-  "curr_bed_type": "Cool Plate",
+  "curr_bed_type": "Textured PEI Plate",
   "default_acceleration": [
     "6000"
   ],
@@ -102,8 +102,8 @@
     "50"
   ],
   "different_settings_to_system": [
-    "bottom_shell_layers;brim_type;detect_narrow_internal_solid_infill;infill_direction;initial_layer_line_width;initial_layer_print_height;inner_wall_line_width;only_one_wall_first_layer;prime_tower_brim_width;prime_tower_rib_wall;prime_tower_width;skeleton_infill_line_width;skin_infill_line_width;sparse_infill_density;sparse_infill_line_width;sparse_infill_pattern;top_shell_layers;wall_generator;wall_loops;wipe_tower_x;wipe_tower_y",
-    "",
+    "bottom_shell_layers;brim_type;brim_width;detect_narrow_internal_solid_infill;infill_direction;infill_wall_overlap;initial_layer_line_width;initial_layer_print_height;inner_wall_line_width;only_one_wall_first_layer;prime_tower_brim_width;prime_tower_rib_wall;prime_tower_width;skeleton_infill_line_width;skin_infill_line_width;skirt_loops;skirt_height;skirt_per_object;sparse_infill_density;sparse_infill_line_width;sparse_infill_pattern;top_shell_layers;wall_generator;wall_loops;wipe_tower_x;wipe_tower_y",
+    "textured_plate_temp;textured_plate_temp_initial_layer",
     ""
   ],
   "draft_shield": "disabled",
@@ -532,7 +532,7 @@
   "infill_lock_depth": "1.0",
   "infill_rotate_step": "0",
   "infill_shift_step": "0.4",
-  "infill_wall_overlap": "15%",
+  "infill_wall_overlap": "25%",
   "initial_layer_acceleration": [
     "500"
   ],
@@ -784,7 +784,7 @@
   "prime_tower_rib_wall": "0",
   "prime_tower_rib_width": "8",
   "prime_tower_skip_points": "1",
-  "prime_tower_width": "170",
+  "prime_tower_width": "150",
   "prime_volume_mode": "Default",
   "print_compatible_printers": [
     "Bambu Lab A1 mini 0.4 nozzle"
@@ -892,9 +892,9 @@
   "skin_infill_depth": "2.0",
   "skin_infill_line_width": "0.42",
   "skirt_distance": "2",
-  "skirt_height": "1",
+  "skirt_height": "0",
   "skirt_loops": "0",
-  "skirt_per_object": "1",
+  "skirt_per_object": "0",
   "slice_closing_radius": "0.049",
   "slicing_mode": "regular",
   "slow_down_for_layer_cooling": [
@@ -1098,7 +1098,7 @@
   "wipe_tower_no_sparse_layers": "0",
   "wipe_tower_rotation_angle": "0",
   "wipe_tower_x": [
-    "5"
+    "15"
   ],
   "wipe_tower_y": [
     "160"

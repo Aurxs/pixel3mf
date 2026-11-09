@@ -212,13 +212,14 @@ UV_CACHE_DIR=.uv-cache uv pip install -r requirements-pixel3mf.txt
 - Lumina 内置孤立像素清理开启
 - 优先调用 `/api/convert/batch`，即使只有一张图
 - `07_lumina_batch_result_*.zip` 原样保留 Lumina 返回的 3MF 及项目配置；只对已解压并命名的 `08_*.3mf` 成品做幂等配置规范化
-- 最终 3MF 直接引用官方 `Bambu Lab A1 mini 0.4 nozzle`、`0.08mm Extra Fine @BBL A1M` 和 `Bambu PLA Basic @BBL A1M` ID；参数结构来自同版本官方项目，机器 G-code、热床/喷嘴温度、速度、加速度和 PLA 流量保持官方值
+- 最终 3MF 直接引用官方 `Bambu Lab A1 mini 0.4 nozzle`、`0.08mm Extra Fine @BBL A1M` 和 `Bambu PLA Basic @BBL A1M` ID；参数结构来自同版本官方项目，机器 G-code、喷嘴温度、速度、加速度和 PLA 流量保持官方值；使用 Textured PEI 纹理板，各耗材首层及后续床温固定 `65℃`，不改设备 K 值
 - Arachne、线宽、单层高度、填充和料塔等改动写成官方 0.08 mm 工艺上的项目级覆盖，不创建新的机器、工艺或耗材 preset；Bambu Studio 可逐项显示并撤回这些改动
-- `different_settings_to_system` 按 Bambu Studio 官方项目结构写成 `工艺 + N 个耗材 + 机器` 共 `N+2` 项；只在首项声明工艺改动键，其余项保持空白，确保加载时应用工艺覆盖且不修改官方机型/耗材
-- 对基线固定覆盖：`0.08 mm` 首层，相关线宽全部 `0.42 mm`，Arachne，1 圈墙，首层仅单层墙，顶/底壳 0 层，100% `zig-zag` 填充且方向 `0°`，关闭狭窄内部实心填充识别，关闭支撑，自动边缘宽 `5 mm`
-- 开启单喷头多材料和擦料塔；塔宽 `150 mm`，擦料塔 brim 宽 `1 mm`，位置 `X=15 mm, Y=160 mm`（A1 mini 打印板后侧、左右居中），关闭擦料塔斜肋外墙；模型自身仍使用自动边缘宽 `5 mm`。左右各留 `15 mm`，兼容 Bambu Studio 导入时的固定边距重算，避免原 `170 mm` 塔被推到 `X=-5 mm` 而越界
-- 只替换 `Metadata/project_settings.config`；仅从 Lumina 保留动态颜色、颜色/挤出机映射及冲刷数据，模型几何保持不变。将 H2D 双喷嘴存储的两套冲刷表规范化为 A1 mini 所需的单套 `N×N` 表，并保留原始第一套表的全部数值
+- `different_settings_to_system` 按 Bambu Studio 官方项目结构写成 `工艺 + N 个耗材 + 机器` 共 `N+2` 项；首项声明工艺改动键，每个耗材项仅声明纹理板首层/后续温度覆盖，末项机器保持空白，确保加载时保留覆盖且不创建自定义 preset
+- 对基线固定覆盖：`0.08 mm` 首层，相关线宽全部 `0.42 mm`，Arachne，1 圈墙，首层仅单层墙，顶/底壳 0 层，100% `zig-zag` 填充且方向 `0°`，关闭狭窄内部实心填充识别，关闭支撑，填充/墙重叠 `25%`，模型边缘类型 `no_brim`、宽 `0`，裙边圈数 `0`
+- 开启单喷头多材料和擦料塔；塔宽 `150 mm`，擦料塔 brim 宽 `1 mm`，位置 `X=15 mm, Y=160 mm`（A1 mini 打印板后侧、左右居中），关闭擦料塔斜肋外墙；模型自身不使用边缘扩展或裙边。左右各留 `15 mm`，兼容 Bambu Studio 导入时的固定边距重算，避免原 `170 mm` 塔被推到 `X=-5 mm` 而越界
+- 配置规范化写入 `Metadata/project_settings.config`，同时消除盘/对象/part 中过时的板型、重叠及裙边覆盖；其余元数据保持不变。仅从 Lumina 保留动态颜色、颜色/挤出机映射及冲刷数据。将 H2D 双喷嘴存储的两套冲刷表规范化为 A1 mini 所需的单套 `N×N` 表，并保留原始第一套表的全部数值
 - `3×3` 的补偿会先以共同中心烘焙到所有颜色零件的 X/Y 顶点，再整体平移以保持原始左下角位置，避免放大后产生负坐标；三角拓扑、颜色/挤出机映射、Z 坐标和装配关系保持不变，并在 3MF 内写入幂等标记，防止重复放大
+- 两种规格在补偿后都执行独立的最终摆放：所有颜色零件整体平移至 `X=90, Y=90`，不改尺寸、Z、拓扑或材料，床边至少 `10 mm`、料塔前侧至少 `5 mm` 间隙。超大模型或已有变换/多装配项目报错，不偷偷缩小或重新排盘；可单独调用 `tools/three_mf_center.py`。
 - `07_lumina_batch_result_3x3.zip` 保留 Lumina 返回的未补偿原件；`08_<角色名>_3x3.3mf` 是可直接以 `100%` 导入切片器的补偿后成品
 
 ## 输出目录

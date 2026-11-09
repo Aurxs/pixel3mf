@@ -19,6 +19,9 @@ from three_mf_a1mini_profile import (  # noqa: E402
     OFFICIAL_PRINT_SETTINGS_ID,
     PROJECT_SETTINGS_MEMBER,
     _PROCESS_OVERRIDE_KEYS,
+    _FILAMENT_OVERRIDE_KEYS,
+    _REQUIRED_TARGET_VALUES,
+    DEFAULT_PROFILE_PATH,
     normalize_a1mini_3mf,
 )
 
@@ -95,7 +98,7 @@ class ThreeMfA1MiniProfileTests(unittest.TestCase):
         self.assertNotIn("inherits_group", settings)
         self.assertEqual(
             settings["different_settings_to_system"],
-            [";".join(_PROCESS_OVERRIDE_KEYS), "", "", "", "", ""],
+            [";".join(_PROCESS_OVERRIDE_KEYS), *[";".join(_FILAMENT_OVERRIDE_KEYS)] * 4, ""],
         )
         self.assertEqual(settings["printable_area"], ["0x0", "180x0", "180x180", "0x180"])
         self.assertEqual(settings["layer_height"], "0.08")
@@ -123,8 +126,14 @@ class ThreeMfA1MiniProfileTests(unittest.TestCase):
         self.assertEqual(settings["infill_direction"], "0")
         self.assertEqual(settings["detect_narrow_internal_solid_infill"], "0")
         self.assertEqual(settings["enable_support"], "0")
-        self.assertEqual(settings["brim_type"], "auto_brim")
-        self.assertEqual(settings["brim_width"], "5")
+        self.assertEqual(settings["brim_type"], "no_brim")
+        self.assertEqual(settings["brim_width"], "0")
+        self.assertEqual(settings["infill_wall_overlap"], "25%")
+        self.assertEqual(settings["curr_bed_type"], "Textured PEI Plate")
+        for key in _FILAMENT_OVERRIDE_KEYS:
+            self.assertEqual(settings[key], ["65"] * 4)
+        for key in ("skirt_loops", "skirt_height", "skirt_per_object"):
+            self.assertEqual(settings[key], "0")
         self.assertEqual(settings["travel_speed"], ["700"])
         self.assertEqual(settings["default_acceleration"], ["6000"])
         self.assertEqual(settings["filament_flow_ratio"], ["0.98"] * 4)
@@ -148,6 +157,59 @@ class ThreeMfA1MiniProfileTests(unittest.TestCase):
         self.assertEqual(settings["wipe_tower_y"], ["160"])
         self.assertIn("machine: A1 mini", settings["machine_start_gcode"])
         self.assertNotIn("H2D", settings["machine_start_gcode"])
+
+    def test_profile_snapshot_matches_approved_defaults(self) -> None:
+        profile = json.loads(DEFAULT_PROFILE_PATH.read_text())
+        for key in ("curr_bed_type", "infill_wall_overlap", "brim_type", "brim_width",
+                    "skirt_loops", "skirt_height", "skirt_per_object", "prime_tower_width", "wipe_tower_x"):
+            self.assertEqual(profile[key], _REQUIRED_TARGET_VALUES[key], key)
+
+    def test_stale_plate_object_part_overrides_are_corrected_without_other_changes(self) -> None:
+        import xml.etree.ElementTree as ET
+        model = b'''<config><object id="5">
+          <metadata key="infill_wall_overlap" value="15%"/>
+          <metadata key="pressure_advance" value="0.037"/>
+          <part id="1"><metadata key="brim_type" value="auto_brim"/>
+          <metadata key="extruder" value="2"/></part></object>
+          <plate><metadata key="bed_type" value="Cool Plate"/>
+          <metadata key="skirt_loops" value="2"/></plate><plate/></config>'''
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "model.3mf"
+            with zipfile.ZipFile(path, "w") as archive:
+                archive.writestr(PROJECT_SETTINGS_MEMBER, json.dumps(SOURCE_SETTINGS))
+                archive.writestr("Metadata/model_settings.config", model)
+                archive.writestr("3D/3dmodel.model", GEOMETRY)
+            normalize_a1mini_3mf(path)
+            with zipfile.ZipFile(path) as archive:
+                root = ET.fromstring(archive.read("Metadata/model_settings.config"))
+                self.assertEqual(archive.read("3D/3dmodel.model"), GEOMETRY)
+            values = {m.get("key"): m.get("value") for m in root.iter("metadata")}
+            self.assertEqual(values["infill_wall_overlap"], "25%")
+            self.assertEqual(values["brim_type"], "no_brim")
+            self.assertEqual(values["skirt_loops"], "0")
+            self.assertEqual(values["pressure_advance"], "0.037")
+            self.assertEqual(values["extruder"], "2")
+            for plate in root.findall("plate"):
+                self.assertEqual(plate.find("metadata[@key='bed_type']").get("value"), "Textured PEI Plate")
+            first = _sha256(path)
+            self.assertFalse(normalize_a1mini_3mf(path)["applied"])
+            self.assertEqual(_sha256(path), first)
+
+    def test_approved_values_override_stale_profile_for_every_filament(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path, profile_path = Path(tmp) / "model.3mf", Path(tmp) / "profile.json"
+            profile = json.loads(DEFAULT_PROFILE_PATH.read_text())
+            profile.update(curr_bed_type="Cool Plate", infill_wall_overlap="15%", brim_type="auto_brim")
+            for key in _FILAMENT_OVERRIDE_KEYS:
+                profile[key] = ["35"]
+            profile_path.write_text(json.dumps(profile))
+            _make_3mf(path)
+            normalize_a1mini_3mf(path, profile_path=profile_path)
+            with zipfile.ZipFile(path) as archive:
+                settings = json.loads(archive.read(PROJECT_SETTINGS_MEMBER))
+            self.assertEqual(settings["curr_bed_type"], "Textured PEI Plate")
+            for key in _FILAMENT_OVERRIDE_KEYS:
+                self.assertEqual(settings[key], ["65"] * 4)
 
     def test_second_application_is_byte_idempotent(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
