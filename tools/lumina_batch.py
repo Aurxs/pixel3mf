@@ -22,6 +22,7 @@ import requests
 from PIL import Image
 
 from three_mf_a1mini_profile import normalize_a1mini_3mf
+from three_mf_center import center_lumina_3mf
 from three_mf_xy_scale import THREE_BY_THREE_XY_SCALE, apply_centered_xy_scale
 
 
@@ -530,6 +531,7 @@ def convert_with_lumina_batch(
                 size_plan,
                 cells_per_logical_pixel,
             )
+            placement = center_lumina_3mf(final_path)
             printer_profile = normalize_a1mini_3mf(final_path)
             return {
                 **fallback,
@@ -542,6 +544,7 @@ def convert_with_lumina_batch(
                 "pixel_size_plan": size_plan,
                 "xy_printability_compensation": geometry_postprocess,
                 "printer_profile_normalization": printer_profile,
+                "bed_placement": placement,
                 "batch_response": None,
             }
 
@@ -614,6 +617,7 @@ def convert_with_lumina_batch(
             size_plan,
             cells_per_logical_pixel,
         )
+        placement = center_lumina_3mf(final_path)
         printer_profile = normalize_a1mini_3mf(final_path)
 
         return {
@@ -627,6 +631,7 @@ def convert_with_lumina_batch(
             "pixel_size_plan": size_plan,
             "xy_printability_compensation": geometry_postprocess,
             "printer_profile_normalization": printer_profile,
+            "bed_placement": placement,
             "preview_path": str(preview_path),
             "batch_response": batch,
             **preview_metadata,

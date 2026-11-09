@@ -8,9 +8,11 @@ It was derived from Bambu Studio 02.07.01.62's installed official profiles for:
 - `0.08mm Extra Fine @BBL A1M`
 - Bambu PLA Basic on A1 mini
 
-The selected preset IDs remain the exact official IDs. Pixel3mf-specific process values are stored as project-level overrides, including a 170 mm prime tower with a 1 mm brim at `X=5, Y=160`; they do not create custom printer, process, or filament presets. Bambu Studio can therefore compare the project values with the official process and reset individual changes.
+The selected preset IDs remain the exact official IDs. Pixel3mf-specific process values are stored as project-level overrides, including a 150 mm prime tower with a 1 mm brim at `X=15, Y=160`; they do not create custom printer, process, or filament presets. Bambu Studio can therefore compare the project values with the official process and reset individual changes.
 
-The `different_settings_to_system` vector follows Bambu Studio's `process + N filaments + printer` layout. Only its process element lists changed keys; every filament and printer element is empty. Without that list, Bambu Studio reloads the official process values over the flattened project values when the 3MF opens.
+The `different_settings_to_system` vector follows Bambu Studio's `process + N filaments + printer` layout. Its process element lists the process overrides, including 25% overlap and no model brim/skirt. Each filament element lists only `textured_plate_temp;textured_plate_temp_initial_layer`, both fixed to 65 C. The printer element stays empty. The selected bed is Textured PEI Plate. Without that list, Bambu Studio reloads the official process values over the flattened project values when the 3MF opens.
+
+Stale plate/object/part overrides for the approved bed, overlap and brim/skirt defaults are normalized too; unrelated metadata, including material mappings and pressure advance, is preserved. The batch exporter separately centers each untransformed single assembly at (90, 90) without resizing and rejects unsafe bed/tower clearance.
 
 Only the data that must come from Lumina is copied from its project: dynamic colours, colour/extruder mapping, and the first source `N×N` flush matrix. The A1 mini machine and Bambu PLA Basic identities and parameters stay on the pinned official Bambu Studio baseline. Keeping the flattened structure in the outer repository makes export deterministic and avoids a runtime dependency on Bambu Studio or edits inside `Lumina-Layers/`.
 

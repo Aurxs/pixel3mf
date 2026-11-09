@@ -11,10 +11,14 @@ import os
 from pathlib import Path
 import shutil
 import tempfile
+import xml.etree.ElementTree as ET
 import zipfile
 
 
 PROJECT_SETTINGS_MEMBER = "Metadata/project_settings.config"
+MODEL_SETTINGS_MEMBER = "Metadata/model_settings.config"
+BED_TYPE = "Textured PEI Plate"
+_FILAMENT_OVERRIDE_KEYS = ("textured_plate_temp", "textured_plate_temp_initial_layer")
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PROFILE_PATH = (
     PROJECT_ROOT
@@ -30,12 +34,15 @@ OFFICIAL_FILAMENT_SETTINGS_ID = "Bambu PLA Basic @BBL A1M"
 # project_settings.config. It reloads the selected official preset and only
 # preserves keys listed in different_settings_to_system. Element 0 is the
 # process; the following elements are filaments; the final element is the
-# printer. Keep machine and filament elements empty for MakerWorld safety.
+# printer. Keep official preset IDs, with only the approved temperature
+# overrides on each filament; never change machine or pressure-advance settings.
 _PROCESS_OVERRIDE_KEYS = (
     "bottom_shell_layers",
     "brim_type",
+    "brim_width",
     "detect_narrow_internal_solid_infill",
     "infill_direction",
+    "infill_wall_overlap",
     "initial_layer_line_width",
     "initial_layer_print_height",
     "inner_wall_line_width",
@@ -45,6 +52,9 @@ _PROCESS_OVERRIDE_KEYS = (
     "prime_tower_width",
     "skeleton_infill_line_width",
     "skin_infill_line_width",
+    "skirt_loops",
+    "skirt_height",
+    "skirt_per_object",
     "sparse_infill_density",
     "sparse_infill_line_width",
     "sparse_infill_pattern",
@@ -124,8 +134,13 @@ _REQUIRED_TARGET_VALUES: dict[str, object] = {
     "infill_direction": "0",
     "detect_narrow_internal_solid_infill": "0",
     "enable_support": "0",
-    "brim_type": "auto_brim",
-    "brim_width": "5",
+    "curr_bed_type": BED_TYPE,
+    "infill_wall_overlap": "25%",
+    "brim_type": "no_brim",
+    "brim_width": "0",
+    "skirt_loops": "0",
+    "skirt_height": "0",
+    "skirt_per_object": "0",
     "single_extruder_multi_material": "1",
     "enable_prime_tower": "1",
     # Studio re-clamps imported towers with a hard-coded 15 mm margin.
@@ -251,8 +266,11 @@ def _build_target_settings(
     target["filament_extruder_variant"] = ["Direct Drive Standard"] * color_count
     target["different_settings_to_system"] = [
         ";".join(_PROCESS_OVERRIDE_KEYS),
-        *("" for _ in range(color_count + 1)),
+        *(";".join(_FILAMENT_OVERRIDE_KEYS) for _ in range(color_count)),
+        "",
     ]
+    for key in _FILAMENT_OVERRIDE_KEYS:
+        target[key] = ["65"] * color_count
     _normalize_flush_settings(source, target, color_count)
 
     for key, expected in _REQUIRED_TARGET_VALUES.items():
@@ -315,8 +333,13 @@ def _validate_target(settings: dict[str, object], color_count: int) -> None:
         )
     if set(different_settings[0].split(";")) != set(_PROCESS_OVERRIDE_KEYS):
         raise RuntimeError("process override keys are incomplete")
-    if any(different_settings[1:]):
-        raise RuntimeError("official filament and printer presets must have no overrides")
+    if different_settings[1:-1] != [";".join(_FILAMENT_OVERRIDE_KEYS)] * color_count:
+        raise RuntimeError("filament overrides must contain only textured-bed temperatures")
+    if different_settings[-1]:
+        raise RuntimeError("official printer preset must have no overrides")
+    for key in _FILAMENT_OVERRIDE_KEYS:
+        if settings.get(key) != ["65"] * color_count:
+            raise RuntimeError(f"textured-bed temperature must be 65 C for every filament: {key}")
 
     matrix = settings.get("flush_volumes_matrix")
     if not isinstance(matrix, list) or len(matrix) != color_count * color_count:
@@ -328,9 +351,31 @@ def _validate_target(settings: dict[str, object], color_count: int) -> None:
         raise RuntimeError("A1 mini flush multiplier must contain one value")
 
 
+def _normalize_model_settings(data: bytes) -> bytes:
+    """Remove stale plate/object/part overrides of the approved export defaults."""
+    root = ET.fromstring(data)
+    values = {key: _REQUIRED_TARGET_VALUES[key] for key in (
+        "curr_bed_type", "infill_wall_overlap", "brim_type", "brim_width",
+        "skirt_loops", "skirt_height", "skirt_per_object",
+    )}
+    values["bed_type"] = BED_TYPE
+    values.update({key: "65" for key in _FILAMENT_OVERRIDE_KEYS})
+    changed = False
+    for node in root.iter("metadata"):
+        key = node.get("key")
+        if key in values and node.get("value") != values[key]:
+            node.set("value", str(values[key]))
+            changed = True
+    for plate in root.findall("plate"):
+        if not any(node.get("key") == "bed_type" for node in plate.findall("metadata")):
+            ET.SubElement(plate, "metadata", key="bed_type", value=BED_TYPE)
+            changed = True
+    return ET.tostring(root, encoding="utf-8", xml_declaration=True) if changed else data
+
+
 def _rewrite_project_settings(
     model_path: Path,
-    replacement: bytes,
+    replacements: dict[str, bytes],
 ) -> None:
     with zipfile.ZipFile(model_path, "r") as source_archive:
         infos = source_archive.infolist()
@@ -349,8 +394,7 @@ def _rewrite_project_settings(
             with zipfile.ZipFile(temporary_path, "w") as target_archive:
                 for info in infos:
                     data = source_archive.read(info.filename)
-                    if info.filename == PROJECT_SETTINGS_MEMBER:
-                        data = replacement
+                    data = replacements.get(info.filename, data)
                     target_archive.writestr(info, data)
             os.replace(temporary_path, model_path)
         except Exception:
@@ -380,6 +424,7 @@ def normalize_a1mini_3mf(
     with zipfile.ZipFile(target_path, "r") as archive:
         try:
             source_bytes = archive.read(PROJECT_SETTINGS_MEMBER)
+            model_bytes = archive.read(MODEL_SETTINGS_MEMBER) if MODEL_SETTINGS_MEMBER in archive.namelist() else None
         except KeyError as exc:
             raise ValueError(f"3MF is missing {PROJECT_SETTINGS_MEMBER}") from exc
     source_settings = _load_json(source_bytes, label=PROJECT_SETTINGS_MEMBER)
@@ -398,12 +443,21 @@ def normalize_a1mini_3mf(
         indent=4,
     ).encode("utf-8")
 
-    applied = replacement != source_bytes
+    replacements = {PROJECT_SETTINGS_MEMBER: replacement}
+    if model_bytes is not None:
+        replacements[MODEL_SETTINGS_MEMBER] = _normalize_model_settings(model_bytes)
+    applied = replacement != source_bytes or (
+        model_bytes is not None and replacements[MODEL_SETTINGS_MEMBER] != model_bytes
+    )
     if applied:
-        _rewrite_project_settings(target_path, replacement)
+        _rewrite_project_settings(target_path, replacements)
 
     with zipfile.ZipFile(target_path, "r") as archive:
         verified_bytes = archive.read(PROJECT_SETTINGS_MEMBER)
+        if model_bytes is not None:
+            actual_model = archive.read(MODEL_SETTINGS_MEMBER)
+            if _normalize_model_settings(actual_model) != actual_model:
+                raise RuntimeError("stale model or plate overrides remain")
     verified = _load_json(verified_bytes, label=PROJECT_SETTINGS_MEMBER)
     _validate_target(verified, color_count)
 
@@ -415,6 +469,12 @@ def normalize_a1mini_3mf(
         "printer_settings_id": verified["printer_settings_id"],
         "print_settings_id": verified["print_settings_id"],
         "filament_settings_id": verified["filament_settings_id"],
+        "bed_type": verified["curr_bed_type"],
+        "textured_plate_temp": verified["textured_plate_temp"],
+        "textured_plate_temp_initial_layer": verified["textured_plate_temp_initial_layer"],
+        "infill_wall_overlap": verified["infill_wall_overlap"],
+        "brim_type": verified["brim_type"],
+        "skirt_loops": verified["skirt_loops"],
         "color_count": color_count,
         "filament_colours": verified["filament_colour"],
         "prime_tower": {
