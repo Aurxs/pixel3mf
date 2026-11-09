@@ -25,7 +25,7 @@ from render_cover import add_options, options, render_cover  # noqa: E402
 def build_fixture_font(postscript, *, cff=False, missing=""):
     """Build small OFL-independent geometric fixtures with distinct test names."""
     builder = FontBuilder(1000, isTTF=not cff)
-    chars = set("「」菲欧妮角色名")-set(missing)
+    chars = set("「」菲欧妮角色名•时装")-set(missing)
     cmap = {ord(char): f"uni{ord(char):04X}" for char in chars}
     order = [".notdef", *cmap.values()]
     builder.setupGlyphOrder(order)
@@ -82,8 +82,8 @@ class PingFangCoverTests(unittest.TestCase):
                 self.assertEqual(info["text"], "「菲欧妮」")
                 self.assertEqual(info["font"]["postscript_name"], "CoverFixture-Light")
                 self.assertEqual(info["font"]["face_index"], 1)
-                self.assertEqual(info["font_pixels"], 48)
-                self.assertEqual(info["tracking_pixels"], 6)
+                self.assertEqual(info["font_pixels"], 96)
+                self.assertEqual(info["tracking_pixels"], 12)
                 self.assertEqual(info["fill"], [255, 255, 255])
                 self.assertEqual(info["stroke_pixels"], 0)
                 self.assertFalse(info["shadow"] or info["gradient"])
@@ -103,14 +103,27 @@ class PingFangCoverTests(unittest.TestCase):
                 for width, height, subject_bottom in ((600, 800, 568), (1080, 1440, 1020)):
                     with self.subTest(size=(width, height)):
                         canvas = Image.new("RGBA", (width, height))
-                        _, old = render_name(canvas, "菲欧妮", subject_bottom, size_fraction=40/1080)
+                        _, old = render_name(canvas, "菲欧妮", subject_bottom, size_fraction=48/1080)
                         _, enlarged = render_name(canvas, "菲欧妮", subject_bottom)
                         left, top, right, bottom = enlarged["ink_bbox"]
-                        self.assertGreater(enlarged["font_pixels"], old["font_pixels"])
+                        self.assertEqual(enlarged["font_pixels"], round(width*96/1080))
+                        self.assertAlmostEqual(enlarged["font_pixels"], 2*old["font_pixels"], delta=1)
                         self.assertGreater(right-left, old["ink_bbox"][2]-old["ink_bbox"][0])
                         self.assertTrue(0 <= left < right <= width)
                         self.assertTrue(subject_bottom+height*0.025 < top < bottom <= height)
                         self.assertEqual(enlarged["text"], "「菲欧妮」")
+
+    def test_named_outfit_preserves_bullet_and_single_quote_pair(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self.fixture(Path(directory))
+            with self.fixture_environment(path):
+                canvas = Image.new("RGBA", (1080, 1440))
+                plain, info = render_name(canvas, "角色名•时装名", 1020)
+                quoted, repeated = render_name(canvas, "「角色名•时装名」", 1020)
+            self.assertEqual(info["text"], "「角色名•时装名」")
+            self.assertEqual(repeated["text"], info["text"])
+            self.assertEqual(plain.tobytes(), quoted.tobytes())
+            self.assertLessEqual(info["ink_bbox"][2]-info["ink_bbox"][0], 1080*0.78)
 
     def test_no_fallback_for_missing_font_wrong_face_or_missing_quotes(self):
         canvas = Image.new("RGBA", (1080, 1440))
