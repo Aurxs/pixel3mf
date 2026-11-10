@@ -27,9 +27,17 @@ For an original/mirror pair:
 “{经核实的时装文案、角色短句或获取语音}”
 
 尺寸：{宽}×{高}格
+
 色数：{实际色数}色
+
 豆数：{实际豆数}颗
-图序：{按本次实际上传顺序填写}
+
+图序：
+
+图1 原版
+
+图2 镜像版
+
 色卡：{实际使用色卡名称}
 ```
 
@@ -39,8 +47,19 @@ When the delivery also includes a 52-board version:
 “{经核实的时装文案、角色短句或获取语音}”
 
 尺寸：{原向宽}×{原向高}格｜{原向色数}色｜{原向豆数}颗
+
 52板压缩版：{该版实际宽}×{该版实际高}格｜{该版色数}色｜{该版豆数}颗
-图序：{按本次实际上传顺序填写}
+
+图序：
+
+图1 原版
+
+图2 镜像版
+
+图3 52板压缩版
+
+图4 52板压缩版镜像
+
 色卡：{实际使用色卡名称；不同版本使用不同色卡时分别注明}
 ```
 
@@ -48,7 +67,7 @@ Do not add separate character or outfit metadata to the body (no `角色：…` 
 
 Read the current `manifest.json` and each delivered variant's saved `图纸数据.json` statistics and palette record; verify against the exported charts. Use the trimmed original dimensions and each 52-board chart's actual grid dimensions. “52板压缩版” describes that version; do not assume its dimensions, colors or bead total equal the original. Count only colors actually used and occupied bead cells. Each mirror shares its corresponding original's counts; do not double the total. Do not include a withdrawn or unaccepted variant. If statistics are missing, inspect the saved cells and derive them or report the missing field instead of guessing.
 
-Match `图序` to the exact images being delivered: include the cover only if present, then identify every original and mirror shown. For example, a five-image upload may read `1：封面，2：原版，3：原版镜像，4：52板压缩版，5：52板压缩版镜像`; a two-image upload has only its original and mirror. Never assume a fixed image count when a cover or variant is absent. Preserve the palette's verified name/model identifier instead of inventing a Chinese brand name; factual identifiers do not justify foreign-language prose.
+Match `图序` to the exact images being delivered. Put each entry on its own line using `图1 原版`, `图2 镜像版`, etc., instead of a comma-separated list. Include a cover only if present and number every image in the actual upload order; for example, a five-image upload with a cover has `图1 封面`, `图2 原版`, `图3 镜像版`, `图4 52板压缩版` and `图5 52板压缩版镜像` on separate lines. Never assume a fixed image count when a cover or variant is absent. Separate each chart fact and each image-order entry with a blank line, as in the examples, to preserve paragraph boundaries in Markdown-like displays. This is a display precaution, not a claim of verified WeChat rendering. Preserve the palette's verified name/model identifier instead of inventing a Chinese brand name; factual identifiers do not justify foreign-language prose.
 
 Only an image is available: omit statistics that cannot be verified instead of estimating them from enlarged display pixels. Do not invent production time, difficulty, physical materials, personal experience, originality, price or unverified collection names. Never describe a chart or render as a physical finished piece.
 
