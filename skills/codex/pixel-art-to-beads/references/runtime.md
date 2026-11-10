@@ -27,4 +27,4 @@ For PDF inspection, use an available renderer such as `pdftoppm`. Do not make a 
 
 Style references are local copies of the user's existing approved pixel-style assets. They convey block construction only. No symlinks or absolute asset paths point to other skills.
 
-MARD data derives from the MIT-licensed `maxcleme/beadcolors` commit `29229889daab404fb30531d4bb785fd73f7f58e3`. The raw source and MIT notice are retained under `assets/palettes/`. The 221-color subset includes groups A-H and M; special-effect groups are excluded. RGB values are community approximations, not manufacturer measurements. Runtime conversion needs no palette download.
+MARD data derives from the MIT-licensed `maxcleme/beadcolors` commit `6e2692608970c7be7b20c419914404c92f5bc58b`. The raw source and MIT notice are retained under `assets/palettes/`. The 221-color subset includes groups A-H and M; special-effect groups are excluded. RGB values are third-party screen approximations, not verified manufacturer measurements. Runtime conversion needs no palette download.
