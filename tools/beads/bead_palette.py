@@ -1,4 +1,4 @@
-"""Validated palette input and deterministic perceptual matching (CIELAB Delta E 76)."""
+"""Validated palette input and deterministic CIEDE2000 matching."""
 from __future__ import annotations
 
 import csv
@@ -54,6 +54,32 @@ def lab(rgb):
                      200 * (f[..., 1] - f[..., 2])], axis=-1)
 
 
+def delta_e_2000(first, second):
+    """CIEDE2000 for broadcast-compatible Lab arrays (standard kL=kC=kH=1)."""
+    L1, a1, b1 = np.moveaxis(np.asarray(first, dtype=float), -1, 0)
+    L2, a2, b2 = np.moveaxis(np.asarray(second, dtype=float), -1, 0)
+    c1, c2 = np.hypot(a1, b1), np.hypot(a2, b2)
+    mean_c = (c1+c2)/2
+    g = .5*(1-np.sqrt(mean_c**7/(mean_c**7+25**7)))
+    ap1, ap2 = (1+g)*a1, (1+g)*a2
+    cp1, cp2 = np.hypot(ap1, b1), np.hypot(ap2, b2)
+    hp1 = np.degrees(np.arctan2(b1, ap1)) % 360
+    hp2 = np.degrees(np.arctan2(b2, ap2)) % 360
+    dl, dc, dh = L2-L1, cp2-cp1, hp2-hp1
+    dh = np.where(cp1*cp2 == 0, 0, np.where(dh > 180, dh-360, np.where(dh < -180, dh+360, dh)))
+    delta_h = 2*np.sqrt(cp1*cp2)*np.sin(np.radians(dh/2))
+    mean_l, mean_cp = (L1+L2)/2, (cp1+cp2)/2
+    mean_hp = np.where(cp1*cp2 == 0, hp1+hp2,
+                       np.where(abs(hp1-hp2) <= 180, (hp1+hp2)/2,
+                                np.where(hp1+hp2 < 360, (hp1+hp2+360)/2, (hp1+hp2-360)/2)))
+    t = (1-.17*np.cos(np.radians(mean_hp-30))+.24*np.cos(np.radians(2*mean_hp))
+         +.32*np.cos(np.radians(3*mean_hp+6))-.20*np.cos(np.radians(4*mean_hp-63)))
+    sl = 1+.015*(mean_l-50)**2/np.sqrt(20+(mean_l-50)**2)
+    sc, sh = 1+.045*mean_cp, 1+.015*mean_cp*t
+    rt = -2*np.sqrt(mean_cp**7/(mean_cp**7+25**7))*np.sin(np.radians(60*np.exp(-((mean_hp-275)/25)**2)))
+    return np.sqrt(np.maximum(0, (dl/sl)**2+(dc/sc)**2+(delta_h/sh)**2+rt*(dc/sc)*(delta_h/sh)))
+
+
 def map_colors(rgba, palette, max_colors=None, allowed=None, locked=None):
     """Return color-code rows; transparent cells are None, never white beads."""
     validate_palette(palette)
@@ -71,7 +97,13 @@ def map_colors(rgba, palette, max_colors=None, allowed=None, locked=None):
         raise ValueError("No occupied cells")
     if len(unique) > 4096:
         raise ValueError("Too many colors for a logical pixel source; refine the source first")
-    distance = ((lab(unique)[:, None, :] - lab([c["rgb"] for c in colors])[None, :, :]) ** 2).sum(axis=2)
+    source_lab = lab(unique)
+    palette_lab = lab([c["rgb"] for c in colors])
+    distance = np.empty((len(unique), len(colors)), dtype=float)
+    # Limit the size of temporary CIEDE2000 arrays for large logical palettes.
+    for start in range(0, len(unique), 64):
+        distance[start:start+64] = delta_e_2000(
+            source_lab[start:start+64, None, :], palette_lab[None, :, :]) ** 2
     selected = list(range(len(colors)))
     initial = distance.argmin(axis=1)
     if max_colors and len(set(initial)) > max_colors:
@@ -90,7 +122,7 @@ def map_colors(rgba, palette, max_colors=None, allowed=None, locked=None):
     mapped[occupied] = np.array([colors[i]["code"] for i in nearest], dtype=object)[inverse]
     delta = np.sqrt(distance[np.arange(len(unique)), nearest])
     return mapped.tolist(), {
-        "method": "CIELAB_D65_DeltaE76", "dithering": False,
+        "method": "CIELAB_D65_CIEDE2000", "dithering": False,
         "mean_delta_e": float(np.average(delta, weights=counts)), "max_delta_e": float(delta.max()),
         "source_colors": len(unique), "max_colors": max_colors,
         "allowed": sorted(allowed), "locked": sorted(locked),

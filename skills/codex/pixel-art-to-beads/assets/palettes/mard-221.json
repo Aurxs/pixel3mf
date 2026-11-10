@@ -1,45 +1,45 @@
 {
-  "id": "mard-221-beadcolors-29229889",
+  "id": "mard-221-beadcolors-6e269260",
   "name": "MARD 221",
-  "version": "29229889daab404fb30531d4bb785fd73f7f58e3",
-  "source": "https://github.com/maxcleme/beadcolors/blob/29229889daab404fb30531d4bb785fd73f7f58e3/raw/mard.csv",
+  "version": "6e2692608970c7be7b20c419914404c92f5bc58b",
+  "source": "https://github.com/maxcleme/beadcolors/blob/6e2692608970c7be7b20c419914404c92f5bc58b/raw/mard.csv",
   "license": "MIT; see beadcolors-LICENSE.txt",
-  "accuracy": "Community RGB approximations, not manufacturer-certified color measurements. Special-effect colors are excluded.",
-  "upstream_sha256": "623d229ace064a7ace700489ed98fa35e512300a574d9df2d94c7d01d5114dfa",
+  "accuracy": "Third-party RGB screen approximations, not verified manufacturer measurements. Special-effect colors are excluded.",
+  "upstream_sha256": "108a0118bc209e4a74fbfc2433c20a3b8ac6e8b91be0bbd412a1636ee05fb12b",
   "colors": [
     {
       "code": "A1",
       "rgb": [
-        250,
-        244,
-        200
+        249,
+        240,
+        205
       ],
       "contributor": "Asher"
     },
     {
       "code": "A2",
       "rgb": [
-        255,
-        255,
-        213
+        251,
+        251,
+        212
       ],
       "contributor": "Asher"
     },
     {
       "code": "A3",
       "rgb": [
-        254,
-        255,
-        139
+        250,
+        252,
+        159
       ],
       "contributor": "Asher"
     },
     {
       "code": "A4",
       "rgb": [
-        251,
-        237,
-        86
+        255,
+        233,
+        83
       ],
       "contributor": "Asher"
     },
@@ -55,27 +55,27 @@
     {
       "code": "A6",
       "rgb": [
-        254,
-        172,
-        76
+        253,
+        173,
+        73
       ],
       "contributor": "Asher"
     },
     {
       "code": "A7",
       "rgb": [
-        254,
-        139,
-        76
+        255,
+        124,
+        47
       ],
       "contributor": "Asher"
     },
     {
       "code": "A8",
       "rgb": [
-        255,
-        218,
-        69
+        234,
+        202,
+        73
       ],
       "contributor": "Asher"
     },
@@ -84,16 +84,16 @@
       "rgb": [
         255,
         153,
-        91
+        90
       ],
       "contributor": "Asher"
     },
     {
       "code": "A10",
       "rgb": [
-        247,
-        124,
-        49
+        255,
+        157,
+        85
       ],
       "contributor": "Asher"
     },
@@ -109,9 +109,9 @@
     {
       "code": "A12",
       "rgb": [
-        254,
-        159,
-        114
+        252,
+        181,
+        143
       ],
       "contributor": "Asher"
     },
@@ -119,35 +119,35 @@
       "code": "A13",
       "rgb": [
         255,
-        195,
-        101
+        187,
+        89
       ],
       "contributor": "Asher"
     },
     {
       "code": "A14",
       "rgb": [
-        253,
-        84,
-        61
+        255,
+        109,
+        64
       ],
       "contributor": "Asher"
     },
     {
       "code": "A15",
       "rgb": [
+        253,
         255,
-        243,
-        101
+        68
       ],
       "contributor": "Asher"
     },
     {
       "code": "A16",
       "rgb": [
-        255,
-        255,
-        159
+        254,
+        249,
+        174
       ],
       "contributor": "Asher"
     },
@@ -164,8 +164,8 @@
       "code": "A18",
       "rgb": [
         254,
-        190,
-        125
+        207,
+        152
       ],
       "contributor": "Asher"
     },
@@ -173,7 +173,7 @@
       "code": "A19",
       "rgb": [
         253,
-        124,
+        123,
         114
       ],
       "contributor": "Asher"
@@ -181,9 +181,9 @@
     {
       "code": "A20",
       "rgb": [
-        255,
-        213,
-        104
+        239,
+        205,
+        103
       ],
       "contributor": "Asher"
     },
@@ -199,27 +199,27 @@
     {
       "code": "A22",
       "rgb": [
-        244,
-        245,
-        125
+        255,
+        243,
+        164
       ],
       "contributor": "Asher"
     },
     {
       "code": "A23",
       "rgb": [
-        230,
-        201,
-        183
+        243,
+        213,
+        191
       ],
       "contributor": "Asher"
     },
     {
       "code": "A24",
       "rgb": [
-        247,
+        251,
         248,
-        162
+        201
       ],
       "contributor": "Asher"
     },
@@ -236,8 +236,8 @@
       "code": "A26",
       "rgb": [
         255,
-        200,
-        48
+        187,
+        39
       ],
       "contributor": "Asher"
     },
@@ -246,77 +246,77 @@
       "rgb": [
         230,
         238,
-        49
+        50
       ],
       "contributor": "Asher"
     },
     {
       "code": "B2",
       "rgb": [
-        99,
-        243,
-        71
+        91,
+        228,
+        25
       ],
       "contributor": "Asher"
     },
     {
       "code": "B3",
       "rgb": [
-        158,
-        247,
-        128
+        124,
+        238,
+        157
       ],
       "contributor": "Asher"
     },
     {
       "code": "B4",
       "rgb": [
-        93,
-        224,
-        53
+        30,
+        249,
+        66
       ],
       "contributor": "Asher"
     },
     {
       "code": "B5",
       "rgb": [
-        53,
-        227,
-        82
+        0,
+        189,
+        53
       ],
       "contributor": "Asher"
     },
     {
       "code": "B6",
       "rgb": [
-        101,
-        226,
-        166
+        90,
+        232,
+        186
       ],
       "contributor": "Asher"
     },
     {
       "code": "B7",
       "rgb": [
-        61,
-        175,
-        128
+        3,
+        172,
+        136
       ],
       "contributor": "Asher"
     },
     {
       "code": "B8",
       "rgb": [
-        28,
-        156,
-        79
+        2,
+        157,
+        38
       ],
       "contributor": "Asher"
     },
     {
       "code": "B9",
       "rgb": [
-        39,
+        38,
         82,
         58
       ],
@@ -343,18 +343,18 @@
     {
       "code": "B12",
       "rgb": [
-        22,
+        21,
         111,
-        65
+        64
       ],
       "contributor": "Asher"
     },
     {
       "code": "B13",
       "rgb": [
-        202,
-        235,
-        123
+        217,
+        247,
+        148
       ],
       "contributor": "Asher"
     },
@@ -363,7 +363,7 @@
       "rgb": [
         173,
         233,
-        70
+        69
       ],
       "contributor": "Asher"
     },
@@ -379,7 +379,7 @@
     {
       "code": "B16",
       "rgb": [
-        197,
+        198,
         237,
         156
       ],
@@ -406,7 +406,7 @@
     {
       "code": "B19",
       "rgb": [
-        36,
+        37,
         184,
         140
       ],
@@ -424,7 +424,7 @@
     {
       "code": "B21",
       "rgb": [
-        21,
+        20,
         106,
         107
       ],
@@ -443,7 +443,7 @@
       "code": "B23",
       "rgb": [
         48,
-        58,
+        57,
         33
       ],
       "contributor": "Asher"
@@ -469,18 +469,18 @@
     {
       "code": "B26",
       "rgb": [
-        141,
+        140,
         122,
-        53
+        54
       ],
       "contributor": "Asher"
     },
     {
       "code": "B27",
       "rgb": [
-        204,
-        225,
-        175
+        209,
+        220,
+        193
       ],
       "contributor": "Asher"
     },
@@ -505,25 +505,25 @@
     {
       "code": "B30",
       "rgb": [
-        226,
-        252,
-        177
+        236,
+        251,
+        208
       ],
       "contributor": "Asher"
     },
     {
       "code": "B31",
       "rgb": [
-        176,
-        231,
-        146
+        196,
+        230,
+        181
       ],
       "contributor": "Asher"
     },
     {
       "code": "B32",
       "rgb": [
-        156,
+        155,
         171,
         90
       ],
@@ -541,9 +541,9 @@
     {
       "code": "C2",
       "rgb": [
-        169,
+        188,
         249,
-        252
+        246
       ],
       "contributor": "Asher"
     },
@@ -559,7 +559,7 @@
     {
       "code": "C4",
       "rgb": [
-        65,
+        66,
         204,
         255
       ],
@@ -578,7 +578,7 @@
       "code": "C6",
       "rgb": [
         80,
-        170,
+        169,
         240
       ],
       "contributor": "Asher"
@@ -586,16 +586,16 @@
     {
       "code": "C7",
       "rgb": [
-        54,
-        119,
-        210
+        1,
+        136,
+        211
       ],
       "contributor": "Asher"
     },
     {
       "code": "C8",
       "rgb": [
-        15,
+        16,
         84,
         192
       ],
@@ -604,7 +604,7 @@
     {
       "code": "C9",
       "rgb": [
-        50,
+        49,
         75,
         202
       ],
@@ -622,9 +622,9 @@
     {
       "code": "C11",
       "rgb": [
-        40,
-        221,
-        222
+        3,
+        185,
+        185
       ],
       "contributor": "Asher"
     },
@@ -658,7 +658,7 @@
     {
       "code": "C15",
       "rgb": [
-        34,
+        35,
         196,
         198
       ],
@@ -667,7 +667,7 @@
     {
       "code": "C16",
       "rgb": [
-        21,
+        23,
         87,
         168
       ],
@@ -676,16 +676,16 @@
     {
       "code": "C17",
       "rgb": [
-        4,
-        209,
-        246
+        80,
+        211,
+        236
       ],
       "contributor": "Asher"
     },
     {
       "code": "C18",
       "rgb": [
-        29,
+        28,
         51,
         68
       ],
@@ -694,7 +694,7 @@
     {
       "code": "C19",
       "rgb": [
-        24,
+        23,
         135,
         162
       ],
@@ -703,9 +703,9 @@
     {
       "code": "C20",
       "rgb": [
-        23,
-        109,
-        175
+        0,
+        130,
+        190
       ],
       "contributor": "Asher"
     },
@@ -730,16 +730,16 @@
     {
       "code": "C23",
       "rgb": [
-        200,
-        226,
-        255
+        194,
+        220,
+        235
       ],
       "contributor": "Asher"
     },
     {
       "code": "C24",
       "rgb": [
-        124,
+        125,
         196,
         255
       ],
@@ -757,18 +757,18 @@
     {
       "code": "C26",
       "rgb": [
-        60,
-        174,
-        216
+        47,
+        153,
+        179
       ],
       "contributor": "Asher"
     },
     {
       "code": "C27",
       "rgb": [
-        211,
-        223,
-        250
+        235,
+        245,
+        252
       ],
       "contributor": "Asher"
     },
@@ -784,9 +784,9 @@
     {
       "code": "C29",
       "rgb": [
-        52,
-        72,
-        142
+        75,
+        91,
+        163
       ],
       "contributor": "Asher"
     },
@@ -811,7 +811,7 @@
     {
       "code": "D3",
       "rgb": [
-        47,
+        48,
         84,
         175
       ],
@@ -847,9 +847,9 @@
     {
       "code": "D7",
       "rgb": [
-        136,
-        84,
-        179
+        110,
+        57,
+        154
       ],
       "contributor": "Asher"
     },
@@ -875,8 +875,8 @@
       "code": "D10",
       "rgb": [
         54,
-        24,
-        81
+        27,
+        80
       ],
       "contributor": "Asher"
     },
@@ -902,7 +902,7 @@
       "code": "D13",
       "rgb": [
         185,
-        0,
+        2,
         149
       ],
       "contributor": "Asher"
@@ -928,7 +928,7 @@
     {
       "code": "D16",
       "rgb": [
-        227,
+        226,
         225,
         238
       ],
@@ -983,7 +983,7 @@
       "code": "D22",
       "rgb": [
         51,
-        58,
+        57,
         149
       ],
       "contributor": "Asher"
@@ -991,7 +991,7 @@
     {
       "code": "D23",
       "rgb": [
-        235,
+        234,
         218,
         252
       ],
@@ -1009,7 +1009,7 @@
     {
       "code": "D25",
       "rgb": [
-        73,
+        72,
         79,
         199
       ],
@@ -1018,9 +1018,9 @@
     {
       "code": "D26",
       "rgb": [
-        223,
-        194,
-        248
+        233,
+        195,
+        246
       ],
       "contributor": "Asher"
     },
@@ -1037,7 +1037,7 @@
       "code": "E2",
       "rgb": [
         254,
-        192,
+        205,
         223
       ],
       "contributor": "Asher"
@@ -1046,8 +1046,8 @@
       "code": "E3",
       "rgb": [
         255,
-        183,
-        231
+        151,
+        195
       ],
       "contributor": "Asher"
     },
@@ -1072,9 +1072,9 @@
     {
       "code": "E6",
       "rgb": [
-        241,
-        61,
-        116
+        255,
+        52,
+        107
       ],
       "contributor": "Asher"
     },
@@ -1082,7 +1082,7 @@
       "code": "E7",
       "rgb": [
         198,
-        52,
+        53,
         120
       ],
       "contributor": "Asher"
@@ -1109,7 +1109,7 @@
       "code": "E10",
       "rgb": [
         211,
-        55,
+        56,
         147
       ],
       "contributor": "Asher"
@@ -1126,16 +1126,16 @@
     {
       "code": "E12",
       "rgb": [
-        247,
-        143,
-        195
+        255,
+        161,
+        197
       ],
       "contributor": "Asher"
     },
     {
       "code": "E13",
       "rgb": [
-        181,
+        182,
         0,
         109
       ],
@@ -1153,9 +1153,9 @@
     {
       "code": "E15",
       "rgb": [
-        248,
-        199,
-        201
+        242,
+        207,
+        208
       ],
       "contributor": "Asher"
     },
@@ -1163,8 +1163,8 @@
       "code": "E16",
       "rgb": [
         255,
-        243,
-        235
+        236,
+        222
       ],
       "contributor": "Asher"
     },
@@ -1181,17 +1181,17 @@
       "code": "E18",
       "rgb": [
         255,
-        199,
-        219
+        201,
+        214
       ],
       "contributor": "Asher"
     },
     {
       "code": "E19",
       "rgb": [
-        254,
-        186,
-        213
+        255,
+        210,
+        231
       ],
       "contributor": "Asher"
     },
@@ -1216,9 +1216,9 @@
     {
       "code": "E22",
       "rgb": [
-        183,
-        133,
-        161
+        204,
+        120,
+        167
       ],
       "contributor": "Asher"
     },
@@ -1234,9 +1234,9 @@
     {
       "code": "E24",
       "rgb": [
-        225,
-        188,
-        232
+        246,
+        228,
+        249
       ],
       "contributor": "Asher"
     },
@@ -1254,7 +1254,7 @@
       "rgb": [
         252,
         61,
-        70
+        69
       ],
       "contributor": "Asher"
     },
@@ -1279,18 +1279,18 @@
     {
       "code": "F5",
       "rgb": [
-        231,
-        0,
-        47
+        216,
+        1,
+        39
       ],
       "contributor": "Asher"
     },
     {
       "code": "F6",
       "rgb": [
-        148,
-        54,
-        48
+        176,
+        68,
+        61
       ],
       "contributor": "Asher"
     },
@@ -1307,8 +1307,8 @@
       "code": "F8",
       "rgb": [
         188,
-        0,
-        40
+        1,
+        39
       ],
       "contributor": "Asher"
     },
@@ -1324,18 +1324,18 @@
     {
       "code": "F10",
       "rgb": [
-        138,
-        69,
-        38
+        167,
+        77,
+        34
       ],
       "contributor": "Asher"
     },
     {
       "code": "F11",
       "rgb": [
-        90,
-        33,
-        33
+        111,
+        32,
+        31
       ],
       "contributor": "Asher"
     },
@@ -1343,7 +1343,7 @@
       "code": "F12",
       "rgb": [
         253,
-        78,
+        77,
         106
       ],
       "contributor": "Asher"
@@ -1351,9 +1351,9 @@
     {
       "code": "F13",
       "rgb": [
-        243,
-        87,
-        68
+        221,
+        66,
+        47
       ],
       "contributor": "Asher"
     },
@@ -1369,27 +1369,27 @@
     {
       "code": "F15",
       "rgb": [
-        211,
+        200,
         0,
-        34
+        32
       ],
       "contributor": "Asher"
     },
     {
       "code": "F16",
       "rgb": [
-        254,
-        194,
-        166
+        255,
+        217,
+        200
       ],
       "contributor": "Asher"
     },
     {
       "code": "F17",
       "rgb": [
-        230,
-        156,
-        121
+        247,
+        155,
+        113
       ],
       "contributor": "Asher"
     },
@@ -1423,25 +1423,25 @@
     {
       "code": "F21",
       "rgb": [
-        247,
-        180,
-        198
+        244,
+        177,
+        180
       ],
       "contributor": "Asher"
     },
     {
       "code": "F22",
       "rgb": [
-        253,
-        192,
-        208
+        255,
+        208,
+        203
       ],
       "contributor": "Asher"
     },
     {
       "code": "F23",
       "rgb": [
-        246,
+        245,
         126,
         102
       ],
@@ -1450,9 +1450,9 @@
     {
       "code": "F24",
       "rgb": [
-        230,
-        152,
-        170
+        252,
+        193,
+        196
       ],
       "contributor": "Asher"
     },
@@ -1478,7 +1478,7 @@
       "code": "G2",
       "rgb": [
         255,
-        196,
+        202,
         170
       ],
       "contributor": "Asher"
@@ -1505,17 +1505,17 @@
       "code": "G5",
       "rgb": [
         237,
-        176,
-        69
+        148,
+        53
       ],
       "contributor": "Asher"
     },
     {
       "code": "G6",
       "rgb": [
-        233,
-        156,
-        23
+        245,
+        151,
+        52
       ],
       "contributor": "Asher"
     },
@@ -1531,9 +1531,9 @@
     {
       "code": "G8",
       "rgb": [
-        117,
-        56,
-        50
+        89,
+        42,
+        33
       ],
       "contributor": "Asher"
     },
@@ -1549,9 +1549,9 @@
     {
       "code": "G10",
       "rgb": [
-        217,
-        140,
-        57
+        200,
+        129,
+        53
       ],
       "contributor": "Asher"
     },
@@ -1567,9 +1567,9 @@
     {
       "code": "G12",
       "rgb": [
-        255,
-        200,
-        144
+        235,
+        187,
+        131
       ],
       "contributor": "Asher"
     },
@@ -1612,9 +1612,9 @@
     {
       "code": "G17",
       "rgb": [
-        120,
-        82,
-        75
+        86,
+        64,
+        60
       ],
       "contributor": "Asher"
     },
@@ -1630,9 +1630,9 @@
     {
       "code": "G19",
       "rgb": [
-        224,
-        121,
-        53
+        225,
+        148,
+        58
       ],
       "contributor": "Asher"
     },
@@ -1648,25 +1648,25 @@
     {
       "code": "G21",
       "rgb": [
-        184,
-        133,
-        88
+        203,
+        142,
+        119
       ],
       "contributor": "Asher"
     },
     {
       "code": "H1",
       "rgb": [
-        253,
-        251,
-        255
+        226,
+        226,
+        226
       ],
       "contributor": "Asher"
     },
     {
       "code": "H2",
       "rgb": [
-        254,
+        255,
         255,
         255
       ],
@@ -1675,36 +1675,36 @@
     {
       "code": "H3",
       "rgb": [
-        182,
-        177,
-        186
+        179,
+        179,
+        179
       ],
       "contributor": "Asher"
     },
     {
       "code": "H4",
       "rgb": [
-        137,
-        133,
-        140
+        134,
+        134,
+        134
       ],
       "contributor": "Asher"
     },
     {
       "code": "H5",
       "rgb": [
-        72,
-        70,
-        78
+        71,
+        71,
+        71
       ],
       "contributor": "Asher"
     },
     {
       "code": "H6",
       "rgb": [
-        47,
-        43,
-        47
+        44,
+        44,
+        44
       ],
       "contributor": "Asher"
     },
@@ -1729,9 +1729,9 @@
     {
       "code": "H9",
       "rgb": [
-        237,
-        237,
-        237
+        228,
+        231,
+        227
       ],
       "contributor": "Asher"
     },
@@ -1765,9 +1765,9 @@
     {
       "code": "H13",
       "rgb": [
-        245,
-        236,
-        210
+        243,
+        225,
+        201
       ],
       "contributor": "Asher"
     },
@@ -1792,9 +1792,9 @@
     {
       "code": "H16",
       "rgb": [
-        29,
-        20,
-        20
+        59,
+        47,
+        35
       ],
       "contributor": "Asher"
     },
@@ -1837,9 +1837,9 @@
     {
       "code": "H21",
       "rgb": [
-        255,
-        251,
-        225
+        247,
+        243,
+        228
       ],
       "contributor": "Asher"
     },
@@ -1848,7 +1848,7 @@
       "rgb": [
         202,
         202,
-        212
+        213
       ],
       "contributor": "Asher"
     },
@@ -1875,7 +1875,7 @@
       "rgb": [
         138,
         163,
-        134
+        133
       ],
       "contributor": "Asher"
     },
@@ -1891,9 +1891,9 @@
     {
       "code": "M4",
       "rgb": [
-        227,
-        210,
-        188
+        218,
+        206,
+        190
       ],
       "contributor": "Asher"
     },
@@ -1946,7 +1946,7 @@
       "code": "M10",
       "rgb": [
         197,
-        178,
+        177,
         188
       ],
       "contributor": "Asher"
@@ -1955,7 +1955,7 @@
       "code": "M11",
       "rgb": [
         159,
-        117,
+        116,
         148
       ],
       "contributor": "Asher"
@@ -1983,7 +1983,7 @@
       "rgb": [
         199,
         115,
-        98
+        97
       ],
       "contributor": "Asher"
     },
@@ -1992,7 +1992,7 @@
       "rgb": [
         117,
         125,
-        120
+        123
       ],
       "contributor": "Asher"
     }
