@@ -34,7 +34,7 @@ Inspect and attach `02_ai_input.png` as the edit target to the host's built-in i
 
 The prompt preserves the target grid, silhouette, expression, key color regions, eye whites and opaque clothing whites. Black outer-edge cells are explicitly locked; the model must not replace them with hair or skin colors. Allow small whole-cell readability edits inside the silhouette, not a redesign or extra detail.
 
-For faces, preserve separate eyelid/pupil, iris-color and eye-white cells, gaze and perspective. Preserve the mouth's open/closed expression and stepped shape; avoid merging it with skin or turning it into a rectangular stamp or dot. Sacrifice secondary hair shading before facial readability. These are general instructions, not character-specific coordinates. A correct grid and intact outline alone do not constitute a visual pass.
+For faces, preserve separate eyelid/pupil, iris-color and eye-white cells, gaze and perspective. Preserve the mouth's open/closed expression and stepped shape; avoid merging it with skin or replacing its expression with an unrelated rectangular stamp. Sacrifice secondary hair shading before facial readability. These are general instructions, not character-specific coordinates. A correct grid and intact outline alone do not constitute a visual pass.
 
 Use an ordinary opaque, uniform reserved-color background for this compression route. Its removal after sampling creates actual RGBA transparency. Do not claim that a text `background="transparent"` string is a tool parameter or evidence of a transparent file. Never ask the model to render a transparency-preview pattern.
 
