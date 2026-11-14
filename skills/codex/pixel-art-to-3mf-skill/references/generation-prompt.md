@@ -12,10 +12,11 @@ The model profile controls transport parameters only; never copy it into the vis
 
 When the user supplies no stronger style reference, load:
 
-- `../assets/reference-nijika-style.png` as Image 1
-- `../assets/reference-airi-style.png` as Image 2
-- `../assets/reference-yoimiya-style.png` as Image 3
-- Use these three bundled style references.
+- `../assets/reference-yoimiya-style.png` (宵宫) as Image 1
+- `../assets/reference-xiaowanzhou-style.png` (小挽昼) as Image 2
+- `../assets/reference-kafka-style.png` (卡芙卡) as Image 3
+- `../assets/reference-valeri-style.png` (瓦列里) as Image 4
+- Use these four bundled style references. Attach official character references after them, starting with Image 5.
 
 Treat user-provided images as references unless the user explicitly asks to edit the supplied image.
 
@@ -35,7 +36,9 @@ Before every generation or creative edit of a named or recognizable character:
 For the first attempt, render the template below. For retries, follow the retry rule at the end of this file.
 
 - Replace `<character>` with the requested character name and costume/version.
-- Replace `<pose-plan>` and `<expression-plan>` with concrete visual directions selected before each generation. Save them with the rendered prompt and attempt number. These are creative choices, not diagnostics. Choose the pose independently of the style references while keeping the default natural three-quarter view. Allow variation in facing direction, degree of turn, shoulder angle, and gaze. For a series, avoid repeatedly using the same pose; a quality retry need not change an otherwise suitable pose.
+- Replace `<expression-plan>` with concrete visual directions selected before each generation. Save the expression plan and any explicit pose directions with the rendered prompt and attempt number. These are creative choices, not diagnostics.
+- Pose directions are optional. Insert `Pose for this image: <pose-plan>` immediately before the expression line only when the user specifies a pose or the requested action needs one; otherwise omit the entire line and use the template's general composition guidance. User instructions take precedence. Do not default to a facing direction, turn angle, head tilt, shoulder height, or gaze toward the viewer. Do not routinely add head tilt or a backward glance merely to convey a natural, lively, or playful expression. Choose any explicit pose independently of the style references.
+- When multiple works or pose plans are already available in the current conversation, avoid repeatedly using the same combination of head tilt, body orientation, and gaze. Let variation serve the character's expression; do not use a fixed left/right rotation or exaggerate poses just to make them different.
 - Replace `<verified-character-appearance-summary>` with a concise, self-contained summary of verified visual facts from the saved research. For original subjects, use the user's appearance description and identify it as an original design.
 - Inline the actual appearance facts; a local file path or instruction to read a Markdown file is not a substitute. The image model cannot read local research files.
 - Keep workflow instructions, source-validation thresholds, diagnostics, conversion details, and previous results out of these placeholders. Preserve the artistic grid target already written in the template; do not derive or adjust it from later-stage checks.
@@ -45,16 +48,17 @@ Use case: stylized-concept
 Asset type: coarse pixel-art portrait
 Primary request: Create one recognizable <character> as coarse pixel art.
 
-Priority 1 — pixel language: Internally design on a 24 × 24 logical canvas and enlarge with nearest-neighbor only. Use Images 1–3 as examples of uniform pixel cells, readable detail density, stair-stepped contours, and simplified character features. Follow the 24 × 24 logical canvas target specified above rather than copying a reference image’s exact dimensions. Keep all boundaries on one grid. Use flat colors without a fixed palette-size limit.
+Priority 1 — pixel language: Internally design on a 24 × 24 logical canvas and enlarge with nearest-neighbor only. Use Images 1–4 as examples of uniform pixel cells, readable detail density, stair-stepped contours, and simplified character features. Follow the 24 × 24 logical canvas target specified above rather than copying a reference image’s exact dimensions. Keep all boundaries on one grid. Use flat colors without a fixed palette-size limit.
 
 Pixel-block constraint: Do not use extra shading, gradients, or clusters of near-identical colors to simulate detail. Express details as coherent pixel clusters, simplifying redundant texture while preserving facial expression and distinctive character features. Keep detailed regions at the same cell scale as the rest of the image; never magnify them locally or use continuous tonal steps.
 
-Priority 2 — character and pose: Draw one natural upper-body portrait ending at the upper chest. Default to a natural three-quarter upper-body view, with the head, chest, and shoulders facing broadly the same direction. Show the angle through the shoulder line and torso perspective, not an isolated head turn. Allow a small natural head adjustment, but avoid a pronounced neck twist, looking back over the shoulder, or a forced head tilt. Follow an explicitly requested pose when provided. Avoid a flat, straight-on ID-photo composition. Keep the head and hair dominant, center the subject horizontally, and shift it upward by about 1–2 logical rows.
-Pose for this image: <pose-plan>
+Priority 2 — character and composition: Draw one natural upper-body portrait ending at the upper chest. Use a non-frontal overall composition, leaving the facing direction and degree of turn unspecified. Let the shoulder line and torso perspective establish the orientation; do not rely solely on turning or tilting the head to avoid a frontal composition. Keep the head, neck, and shoulders naturally coordinated. Head tilt and looking back toward the viewer are optional expressive choices, not default features of the portrait. Follow an explicitly requested pose when provided. Keep the head and hair dominant, center the subject horizontally, and shift it upward by about 1–2 logical rows.
 Expression for this image: <expression-plan>
 Create a fresh portrait composition following these directions while preserving the character identity and pixel-art constraints.
 
-Priority 3 — eyes, mouth, and anatomy: Draw natural, readable eyes with a coherent gaze. Let eye height, width, placement, and visible iris/pupil shapes follow the overall viewing angle and natural occlusion by hair, glasses, or props. Keep the eye structures clear and visually consistent with the face; avoid obvious misalignment, broken shapes, or unexplained distortions. Keep the head-to-shoulder relationship compact and natural. Keep the neck short, with a compact gap between the jaw and collar and a natural connection to the shoulders. Preserve the character’s costume and accessories.
+Priority 3 — eyes, mouth, and anatomy: Draw natural, readable eyes with a coherent gaze. Let eye height, width, placement, and visible iris/pupil shapes follow the overall viewing angle and natural occlusion by hair, glasses, or props. Keep the eye structures clear and visually consistent with the face; avoid obvious misalignment, broken shapes, or unexplained distortions. Keep the neck short and proportionate. Do not draw a long or elongated neck. Keep the shoulders relaxed and naturally proportioned to the torso. Preserve the character’s costume and accessories.
+
+Where the eyes are visible, build their contours, lashes, sclera, irises, pupils and highlights, where present, from whole square cells on the SAME coarse pixel grid as the face, with one flat color per cell. Use coherent pixel clusters and whole-cell stair steps, without diagonal half-cells, sub-cell strokes, antialiasing, smooth vector-like curves, finely drawn eyelashes, iris gradients or sub-cell highlights. Preserve readable eye shapes and gaze at the existing cell scale; simplify small details rather than drawing the eyes at a finer resolution. Do not force every eye component to appear separately, prescribe fixed pixel counts, or make the two eyes identical; preserve natural perspective, expression and occlusion.
 
 Where the mouth is visible, build it from a few whole square cells on the SAME coarse pixel grid as the face, with one flat color per cell. Match the expression using whole-cell stair steps, without curves, diagonal half-cells, sub-cell strokes, antialiasing or finely drawn lips. Both open and closed mouths are valid; a short pixel line or single cell is allowed when it fits the expression and scale. For an open mouth, use a simple flat color cluster; a dark mouth interior is allowed. Let the mouth color meet the skin directly, without an extra dark outline or enclosing dark ring around it. Never draw teeth, tooth rows, individual teeth or fangs. Do not use white or pale tooth-like bars inside the mouth.
 
@@ -63,11 +67,11 @@ Priority 4 — silhouette: Use a one-logical-pixel pure-black exterior outline a
 Verified character appearance: <verified-character-appearance-summary>
 Use this inline summary and the official character images for identity, hairstyle, costume, palette, and signature motifs. Do not copy logos, readable marks, slogans, or text from official sources.
 
-Reference rule: Images 1–3 guide only pixel structure, detail density, outline weight, and simplification. Image 1 demonstrates clear hair masses and a readable block-shaped mouth; Image 2 demonstrates flat color blocks and simplified small details; Image 3 demonstrates how to organize complex hair ornaments, rope knots, and costume details on a uniform pixel grid while keeping a natural, readable expression. Learn its detail selection and expression clarity. Do not copy their identity, palette, pose, clothing, or accessories. Eye visibility follows the requested character and pose. Follow the user's requested character and action.
+Reference rule: Images 1–4 guide only pixel structure, detail density, outline weight, and simplification. Image 1 demonstrates readable expression, an open pixel mouth, and simplified complex hair ornaments, rope knots, and costume details. Image 2 demonstrates coarse flat color blocks, compact short-hair masses, and readable features partly occluded by hair. Image 3 demonstrates clear layered hair masses and simplified clothing details. Image 4 demonstrates short-hair clusters and the simplification of complex collars and shoulder armor. Learn their pixel construction and detail selection, without assigning any image as a pose template. Do not copy their identity, palette, pose, clothing, or accessories. Eye visibility follows the requested character and pose, not a reference image's hair occlusion. Both open and closed mouths remain valid. Follow the user's requested character and action.
 
 Character-reference rule: Use official character images only for identity, hairstyle, clothing, palette, and other appearance features. Do not use them as references for action, pose, or composition.
 
-Avoid: transparent or partially transparent pixels, checkerboard backgrounds, fine hair strands, micro-texture, tiny highlights, sub-cell marks, mixed cell sizes, dithering, gradients, antialiasing, soft edges, glossy illustration rendering, text, watermark, extra characters, a frontal mugshot, a long thin neck, visibly incoherent gaze, broken eye shapes, or a broken exterior/bottom outline.
+Avoid: transparent or partially transparent pixels, checkerboard backgrounds, fine hair strands, micro-texture, tiny highlights, sub-cell marks, mixed cell sizes, dithering, gradients, antialiasing, soft edges, glossy illustration rendering, text, watermark, extra characters, a long or elongated neck, visibly incoherent gaze, broken eye shapes, or a broken exterior/bottom outline.
 ```
 
 ## Explicit user-source edit payload
@@ -81,6 +85,8 @@ Edit the supplied source with the minimum possible change. Preserve its composit
 ## Retry rule
 
 On retry, write a fresh image-generation prompt following this skill’s Stage 1 generation guidelines and the original user request. Do not merely patch the previous prompt or change its placeholders. Natural expressions may repeat; do not exaggerate them to force variation.
+
+A quality retry need not change an otherwise suitable pose. If the user identifies repetitive posing, reconsider the overall composition rather than merely mirroring it, slightly changing the tilt, or rewording the same pose. An occasional natural head tilt alone is not a reason to regenerate.
 
 On quality retries, preserve the initial logical-grid target and intended detail density unless the user requests a change. For scattered results, improve pixel grouping, spacing, and contour continuity rather than requesting lower resolution, coarser pixels, or reduced character detail.
 
