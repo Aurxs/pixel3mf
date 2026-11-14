@@ -5,6 +5,8 @@ description: Create or prepare a coarse pixel-art character source and convert i
 
 # Pixel Art to 3MF
 
+When generating or creatively editing character pixel art, never draw teeth: no tooth rows, individual teeth, fangs, or pale bars inside the mouth that read as teeth. Open and closed mouths are both allowed. Preserve this constraint through refinement, local repair and palette reduction, and check the final mouth visually. Direct conversion of user-supplied artwork does not authorize removing existing teeth; preserve that source unless editing is requested.
+
 Follow the stages below in order. Treat every stage gate as a context-loading boundary, not merely as a checklist item.
 
 ## Shared project and Windows runtime
